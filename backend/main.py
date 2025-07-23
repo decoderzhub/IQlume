@@ -1,7 +1,16 @@
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from plaid.api import plaid_api
+from plaid.model.link_token_create_request import LinkTokenCreateRequest
+from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUser
+from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
+from plaid.model.country_code import CountryCode
+from plaid.model.products import Products
+from plaid.configuration import Configuration
+from plaid.api_client import ApiClient
 import uvicorn
+import os
 from typing import Dict, List, Optional
 import asyncio
 import httpx
@@ -9,6 +18,25 @@ from datetime import datetime, timedelta
 import json
 
 app = FastAPI(title="IQlume Trading API", version="1.0.0")
+
+# Plaid configuration
+PLAID_CLIENT_ID = os.getenv('PLAID_CLIENT_ID')
+PLAID_SECRET = os.getenv('PLAID_SECRET')
+PLAID_ENV = os.getenv('PLAID_ENV', 'sandbox')
+
+if not PLAID_CLIENT_ID or not PLAID_SECRET:
+    print("Warning: Plaid credentials not found. Bank account linking will not work.")
+    plaid_client = None
+else:
+    configuration = Configuration(
+        host=getattr(plaid_api.Environment, PLAID_ENV, plaid_api.Environment.sandbox),
+        api_key={
+            'clientId': PLAID_CLIENT_ID,
+            'secret': PLAID_SECRET,
+        }
+    )
+    api_client = ApiClient(configuration)
+    plaid_client = plaid_api.PlaidApi(api_client)
 
 # CORS middleware
 app.add_middleware(
@@ -188,20 +216,29 @@ async def create_plaid_link_token(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """Create Plaid Link token for bank account connection"""
+    if not plaid_client:
+        raise HTTPException(status_code=500, detail="Plaid not configured. Please set PLAID_CLIENT_ID and PLAID_SECRET environment variables.")
+    
     user_id = request_data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
     
-    # In production: integrate with Plaid API
-    # plaid_client.link_token_create({
-    #     'products': ['transactions', 'auth'],
-    #     'client_name': 'IQlume Trading Platform',
-    #     'country_codes': ['US'],
-    #     'language': 'en',
-    #     'user': {'client_user_id': user_id}
-    # })
+    try:
+        request = LinkTokenCreateRequest(
+            products=[Products('auth'), Products('transactions')],
+            client_name="IQlume Trading Platform",
+            country_codes=[CountryCode('US')],
+            language='en',
+            user=LinkTokenCreateRequestUser(client_user_id=user_id)
+        )
+        
+        response = plaid_client.link_token_create(request)
+        return {"link_token": response['link_token']}
+        
+    except Exception as e:
+        print(f"Plaid link token creation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create link token: {str(e)}")
     
-    return {
-        "link_token": f"link-sandbox-{user_id}-{datetime.now().timestamp()}"
-    }
 
 @app.post("/api/plaid/exchange-public-token")
 async def exchange_plaid_public_token(
@@ -209,17 +246,28 @@ async def exchange_plaid_public_token(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """Exchange Plaid public token for access token"""
+    if not plaid_client:
+        raise HTTPException(status_code=500, detail="Plaid not configured. Please set PLAID_CLIENT_ID and PLAID_SECRET environment variables.")
+    
     public_token = request_data.get("public_token")
     metadata = request_data.get("metadata")
     
-    # In production: exchange with Plaid API
-    # plaid_client.item_public_token_exchange(public_token)
+    if not public_token:
+        raise HTTPException(status_code=400, detail="public_token is required")
     
-    return {
-        "access_token": f"access-sandbox-{datetime.now().timestamp()}",
-        "item_id": f"item-{datetime.now().timestamp()}",
-        "accounts": metadata.get("accounts", [])
-    }
+    try:
+        request = ItemPublicTokenExchangeRequest(public_token=public_token)
+        response = plaid_client.item_public_token_exchange(request)
+        
+        return {
+            "access_token": response['access_token'],
+            "item_id": response['item_id'],
+            "accounts": metadata.get("accounts", []) if metadata else []
+        }
+        
+    except Exception as e:
+        print(f"Plaid token exchange error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to exchange public token: {str(e)}")
 
 @app.get("/api/custodial-wallets")
 async def get_custodial_wallets(
