@@ -67,9 +67,15 @@ MOCK_PORTFOLIO = {
     ]
 }
 
+
 @app.get("/")
 async def root():
-    return {"message": "IQlume Trading API", "status": "active"}
+    return {"message": "Welcome to IQlume Trading API", "status": "active"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "IQlume Trading API"}
+
 
 @app.get("/api/portfolio")
 async def get_portfolio(credentials: HTTPAuthorizationCredentials = Depends(security)):
