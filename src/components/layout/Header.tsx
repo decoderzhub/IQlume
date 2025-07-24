@@ -20,9 +20,7 @@ export function Header() {
       animate={{ y: 0 }}
       className={cn(
         'fixed top-0 right-0 h-16 bg-gray-900/95 backdrop-blur-xl border-b border-gray-800 z-30 transition-all duration-300',
-        // On mobile, header spans full width
         'left-0',
-        // On desktop, adjust for sidebar
         'lg:left-0',
         sidebarOpen && 'lg:left-64'
       )}
@@ -37,13 +35,12 @@ export function Header() {
           >
             <Menu className="w-5 h-5" />
           </motion.button>
-          
+
           <h2 className="text-xl font-semibold text-white capitalize">
             {useStore.getState().activeView}
           </h2>
+        </div>
       </div>
     </motion.header>
   );
-}
-  )
 }
