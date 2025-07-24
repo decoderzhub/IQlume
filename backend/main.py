@@ -30,7 +30,7 @@ if not PLAID_CLIENT_ID or not PLAID_SECRET:
     plaid_client = None
 else:
     configuration = Configuration(
-        host=getattr(plaid.Environment, PLAID_ENV, plaid.Environment.sandbox),
+        host=getattr(plaid.Environment, PLAID_ENV.lower(), plaid.Environment.sandbox),
         api_key={
             'clientId': PLAID_CLIENT_ID,
             'secret': PLAID_SECRET,
