@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import plaid
 from plaid.api import plaid_api
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUser
@@ -29,7 +30,7 @@ if not PLAID_CLIENT_ID or not PLAID_SECRET:
     plaid_client = None
 else:
     configuration = Configuration(
-        host=getattr(plaid_api.Environment, PLAID_ENV, plaid_api.Environment.sandbox),
+        host=getattr(plaid.Environment, PLAID_ENV, plaid.Environment.sandbox),
         api_key={
             'clientId': PLAID_CLIENT_ID,
             'secret': PLAID_SECRET,
