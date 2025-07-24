@@ -28,6 +28,7 @@ export function Header() {
       )}
     >
       <div className="flex items-center justify-between px-6 h-full">
+        <div className="flex items-center gap-4">
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
@@ -40,41 +41,6 @@ export function Header() {
           <h2 className="text-xl font-semibold text-white capitalize">
             {useStore.getState().activeView}
           </h2>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <motion.button 
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
-          >
-            <Bell className="w-5 h-5" />
-          </motion.button>
-          
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-white">{user?.email}</p>
-              <p className="text-xs text-gray-400 capitalize">{user?.subscription_tier}</p>
-            </div>
-            
-            <motion.button 
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
-            >
-              <User className="w-5 h-5" />
-            </motion.button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="text-gray-400 hover:text-red-400"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
       </div>
     </motion.header>
   );
