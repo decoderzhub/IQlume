@@ -138,9 +138,9 @@ export function Sidebar() {
                 exit="closed"
                 className="text-xl font-bold text-white whitespace-nowrap"
               >
-              <img src="/public/image.png" alt="brokernomex" className="h-10" />
+              <img src="/image.png" alt="brokernomex" className="h-10" />
 
-                broker<span className="text-blue-400">nomex</span>
+                {/* broker<span className="text-blue-400">nomex</span> */}
               </motion.h1>
             )}
           </AnimatePresence>
