@@ -361,7 +361,10 @@ export function StrategyDetailsModal({ strategy, onClose, onSave }: StrategyDeta
               <div className="space-y-2">
                 {(config.assets || []).map((asset: any, index: number) => (
                   <div key={index} className="grid grid-cols-3 gap-2">
-                    <input
+                    <input // Asset Symbol Input
+                      // Ensure there are always at least 2 assets
+                      // Disable removal if only 2 assets are left
+                      // Max 12 assets
                       type="text"
                       value={asset.symbol}
                       onChange={(e) => {
@@ -372,7 +375,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave }: StrategyDeta
                       placeholder="Symbol"
                       className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
                     />
-                    <input
+                    <input // Allocation Percentage Input
                       type="number"
                       value={asset.allocation}
                       onChange={(e) => {
@@ -386,18 +389,19 @@ export function StrategyDetailsModal({ strategy, onClose, onSave }: StrategyDeta
                       className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
                     />
                     <button
-                      type="button"
+                      type="button" // Remove Asset Button
                       onClick={() => {
                         const newAssets = (config.assets || []).filter((_: any, i: number) => i !== index);
                         updateConfiguration('assets', newAssets);
                       }}
+                      disabled={(config.assets || []).length <= 2} // Disable if only 2 assets left
                       className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white"
                     >
                       Remove
                     </button>
                   </div>
                 ))}
-                {(!config.assets || config.assets.length < 6) && (
+                {(!config.assets || config.assets.length < 12) && ( // Max 12 assets
                   <button
                     type="button"
                     onClick={() => {

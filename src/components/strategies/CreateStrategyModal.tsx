@@ -141,7 +141,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           threshold_deviation_percent: 5, // for threshold-based
         }),
         ...(selectedType === 'covered_calls' && {
-          strike_delta: 0.3,
+          strike_delta: 0.30,
           dte_target: 30,
           profit_target: 0.5,
         }),
