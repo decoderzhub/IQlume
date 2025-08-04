@@ -125,6 +125,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       console.error('Error fetching market cap data:', error);
       // Fallback to mock data if API fails
       const mockMarketCapData: MarketCapData[] = [
+        // Cryptocurrencies
         { symbol: 'BTC', market_cap: 850000000000, price: 43500, name: 'Bitcoin' },
         { symbol: 'ETH', market_cap: 280000000000, price: 2650, name: 'Ethereum' },
         { symbol: 'ADA', market_cap: 18000000000, price: 0.52, name: 'Cardano' },
@@ -137,6 +138,17 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         { symbol: 'ATOM', market_cap: 3800000000, price: 12.8, name: 'Cosmos' },
         { symbol: 'USDT', market_cap: 95000000000, price: 1.0, name: 'Tether' },
         { symbol: 'USDC', market_cap: 25000000000, price: 1.0, name: 'USD Coin' },
+        // Major Stocks
+        { symbol: 'AAPL', market_cap: 3000000000000, price: 195.50, name: 'Apple Inc.' },
+        { symbol: 'MSFT', market_cap: 2800000000000, price: 375.25, name: 'Microsoft Corporation' },
+        { symbol: 'GOOGL', market_cap: 1700000000000, price: 140.75, name: 'Alphabet Inc.' },
+        { symbol: 'AMZN', market_cap: 1500000000000, price: 155.20, name: 'Amazon.com Inc.' },
+        { symbol: 'NVDA', market_cap: 1800000000000, price: 740.50, name: 'NVIDIA Corporation' },
+        { symbol: 'TSLA', market_cap: 800000000000, price: 250.80, name: 'Tesla Inc.' },
+        { symbol: 'META', market_cap: 750000000000, price: 295.40, name: 'Meta Platforms Inc.' },
+        { symbol: 'SPY', market_cap: 450000000000, price: 475.30, name: 'SPDR S&P 500 ETF' },
+        { symbol: 'QQQ', market_cap: 200000000000, price: 385.60, name: 'Invesco QQQ Trust' },
+        { symbol: 'VTI', market_cap: 300000000000, price: 245.75, name: 'Vanguard Total Stock Market ETF' },
       ];
 
       return mockMarketCapData.filter(data => 
@@ -387,7 +399,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   {selectedType !== 'smart_rebalance' && (
                     <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Symbol *
+                      <p className="text-sm text-gray-400">Configure your portfolio allocation with stocks and crypto (must sum to 100%)</p>
                     </label>
                     <input
                       type="text"
@@ -484,7 +496,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                                 type="text"
                                 value={asset.symbol}
                                 onChange={(e) => updateAsset(index, 'symbol', e.target.value.toUpperCase())}
-                                placeholder="Symbol (e.g., BTC)"
+                                placeholder="Symbol (e.g., BTC, AAPL, SPY)"
                                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                               />
                             </div>
@@ -556,12 +568,13 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                         <div>
                           <h4 className="font-medium text-blue-400 mb-2">AI Market Cap Allocation</h4>
                           <p className="text-sm text-blue-300 mb-2">
-                            The AI allocation feature automatically distributes your portfolio based on each asset's market capitalization.
+                            The AI allocation feature automatically distributes your portfolio based on each asset's market capitalization (supports both stocks and crypto).
                           </p>
                           <ul className="text-sm text-blue-300 space-y-1">
                             <li>• Larger market cap assets receive higher allocation percentages</li>
                             <li>• Allocations are calculated proportionally to total market cap</li>
-                            <li>• Perfect for market-weighted diversification strategies</li>
+                            <li>• Supports stocks (AAPL, MSFT) and crypto (BTC, ETH) symbols</li>
+                            <li>• Perfect for diversified market-weighted portfolio strategies</li>
                           </ul>
                         </div>
                       </div>

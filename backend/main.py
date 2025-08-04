@@ -306,6 +306,7 @@ async def get_market_cap_data(
     
     # Mock market cap data - in production, integrate with CoinGecko, CoinMarketCap, etc.
     mock_market_cap_data = {
+        # Cryptocurrencies
         "BTC": {"market_cap": 850000000000, "price": 43500, "name": "Bitcoin"},
         "ETH": {"market_cap": 280000000000, "price": 2650, "name": "Ethereum"},
         "ADA": {"market_cap": 18000000000, "price": 0.52, "name": "Cardano"},
@@ -321,6 +322,20 @@ async def get_market_cap_data(
         "BNB": {"market_cap": 42000000000, "price": 280, "name": "BNB"},
         "XRP": {"market_cap": 32000000000, "price": 0.58, "name": "XRP"},
         "DOGE": {"market_cap": 12000000000, "price": 0.085, "name": "Dogecoin"},
+        # Major Stocks
+        "AAPL": {"market_cap": 3000000000000, "price": 195.50, "name": "Apple Inc."},
+        "MSFT": {"market_cap": 2800000000000, "price": 375.25, "name": "Microsoft Corporation"},
+        "GOOGL": {"market_cap": 1700000000000, "price": 140.75, "name": "Alphabet Inc."},
+        "AMZN": {"market_cap": 1500000000000, "price": 155.20, "name": "Amazon.com Inc."},
+        "NVDA": {"market_cap": 1800000000000, "price": 740.50, "name": "NVIDIA Corporation"},
+        "TSLA": {"market_cap": 800000000000, "price": 250.80, "name": "Tesla Inc."},
+        "META": {"market_cap": 750000000000, "price": 295.40, "name": "Meta Platforms Inc."},
+        "SPY": {"market_cap": 450000000000, "price": 475.30, "name": "SPDR S&P 500 ETF"},
+        "QQQ": {"market_cap": 200000000000, "price": 385.60, "name": "Invesco QQQ Trust"},
+        "VTI": {"market_cap": 300000000000, "price": 245.75, "name": "Vanguard Total Stock Market ETF"},
+        "IWM": {"market_cap": 65000000000, "price": 195.40, "name": "iShares Russell 2000 ETF"},
+        "GLD": {"market_cap": 55000000000, "price": 185.20, "name": "SPDR Gold Shares"},
+        "TLT": {"market_cap": 45000000000, "price": 95.75, "name": "iShares 20+ Year Treasury Bond ETF"},
     }
     
     result = []
