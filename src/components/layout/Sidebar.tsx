@@ -221,9 +221,7 @@ export function Sidebar() {
               >
                 {/* Replace this div with your full logo image */}
                 <img src="/public/image.png" alt="brokernomex" className="h-10" />
-                <div className="text-2xl font-bold text-white">
-                  broker<span className="text-blue-400">nomex</span>
-                </div>
+              
               </motion.div>
               
               <motion.button
