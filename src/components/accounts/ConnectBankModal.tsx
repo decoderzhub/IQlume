@@ -136,11 +136,11 @@ export function ConnectBankModal({ onClose, onConnect }: ConnectBankModalProps) 
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">2</div>
-                  <span>Authorize IQlume to access your account information</span>
+                  <span>Authorize brokernomex to access your account information</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">3</div>
-                  <span>We'll verify your account with micro-deposits (1-2 business days)</span>
+                  <span>Authorize brokernomex to access your account information</span>
                 </div>
               </div>
             </div>

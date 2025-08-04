@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 
 export const plaidConfig: Omit<PlaidLinkOptions, 'onSuccess' | 'onExit'> = {
   env: import.meta.env.VITE_PLAID_ENV || 'sandbox', // 'sandbox', 'development', or 'production'
-  clientName: 'IQlume Trading Platform',
+  clientName: 'brokernomex Trading Platform',
   product: ['transactions', 'auth', 'identity'],
   countryCodes: ['US'],
   language: 'en',

@@ -51,7 +51,7 @@ export function LoginForm() {
         <Card className="p-8">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">
-              IQ<span className="text-blue-400">lume</span>
+              broker<span className="text-blue-400">nomex</span>
             </h1>
             <p className="text-gray-400">
               {isLogin ? 'Welcome back' : 'Create your account'}

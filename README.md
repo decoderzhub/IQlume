@@ -1,4 +1,4 @@
-# IQlume - Advanced Trading Automation Platform
+# brokernomex - Advanced Trading Automation Platform
 
 A sophisticated full-stack trading platform that enables automated strategy execution across multiple brokerages with advanced risk management and analytics.
 

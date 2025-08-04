@@ -138,7 +138,7 @@ export function Sidebar() {
                 exit="closed"
                 className="text-xl font-bold text-white whitespace-nowrap"
               >
-                IQ<span className="text-blue-400">lume</span>
+                broker<span className="text-blue-400">nomex</span>
               </motion.h1>
             )}
           </AnimatePresence>
@@ -219,7 +219,7 @@ export function Sidebar() {
                 animate="open"
                 className="text-2xl font-bold text-white"
               >
-                IQ<span className="text-blue-400">lume</span>
+                broker<span className="text-blue-400">nomex</span>
               </motion.h1>
               
               <motion.button
@@ -270,7 +270,7 @@ export function Sidebar() {
             {/* Mobile footer */}
             <div className="p-6 border-t border-gray-800">
               <div className="text-center text-sm text-gray-400">
-                <p>IQlume Trading Platform</p>
+                <p>brokernomex Trading Platform</p>
                 <p className="text-xs mt-1">v1.0.0</p>
               </div>
             </div>

@@ -18,7 +18,7 @@ import httpx
 from datetime import datetime, timedelta
 import json
 
-app = FastAPI(title="IQlume Trading API", version="1.0.0")
+app = FastAPI(title="brokernomex Trading API", version="1.0.0")
 
 # Plaid configuration
 PLAID_CLIENT_ID = os.getenv('PLAID_CLIENT_ID')
@@ -71,11 +71,11 @@ MOCK_PORTFOLIO = {
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to IQlume Trading API", "status": "active"}
+    return {"message": "Welcome to brokernomex Trading API", "status": "active"}
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "IQlume Trading API"}
+    return {"status": "healthy", "service": "brokernomex Trading API"}
 
 
 @app.get("/api/portfolio")
@@ -233,7 +233,7 @@ async def create_plaid_link_token(
     try:
         request = LinkTokenCreateRequest(
             products=[Products('auth'), Products('transactions')],
-            client_name="IQlume Trading Platform",
+            client_name="brokernomex Trading Platform",
             country_codes=[CountryCode('US')],
             language='en',
             user=LinkTokenCreateRequestUser(client_user_id=user_id)
