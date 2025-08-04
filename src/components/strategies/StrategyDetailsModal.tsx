@@ -34,6 +34,386 @@ export function StrategyDetailsModal({ strategy, onClose, onSave }: StrategyDeta
     const config = editedStrategy.configuration;
 
     switch (editedStrategy.type) {
+      case 'spot_grid':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Lower Price Range
+                </label>
+                <input
+                  type="number"
+                  value={config.price_range_lower || 0}
+                  onChange={(e) => updateConfiguration('price_range_lower', Number(e.target.value))}
+                  min="0"
+                  step="100"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Upper Price Range
+                </label>
+                <input
+                  type="number"
+                  value={config.price_range_upper || 0}
+                  onChange={(e) => updateConfiguration('price_range_upper', Number(e.target.value))}
+                  min="0"
+                  step="100"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Number of Grids
+                </label>
+                <input
+                  type="number"
+                  value={config.number_of_grids || 25}
+                  onChange={(e) => updateConfiguration('number_of_grids', Number(e.target.value))}
+                  min="5"
+                  max="100"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Grid Spacing (%)
+                </label>
+                <input
+                  type="number"
+                  value={config.grid_spacing_percent || 1.0}
+                  onChange={(e) => updateConfiguration('grid_spacing_percent', Number(e.target.value))}
+                  min="0.1"
+                  max="10"
+                  step="0.1"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Mode
+              </label>
+              <select
+                value={config.mode || 'auto'}
+                onChange={(e) => updateConfiguration('mode', e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+              >
+                <option value="auto">Auto (KuCoin defaults)</option>
+                <option value="customize">Customize</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 'futures_grid':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Direction
+                </label>
+                <select
+                  value={config.direction || 'long'}
+                  onChange={(e) => updateConfiguration('direction', e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                >
+                  <option value="long">Long</option>
+                  <option value="short">Short</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Leverage (1x-10x)
+                </label>
+                <input
+                  type="number"
+                  value={config.leverage || 3}
+                  onChange={(e) => updateConfiguration('leverage', Number(e.target.value))}
+                  min="1"
+                  max="10"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Lower Price Range
+                </label>
+                <input
+                  type="number"
+                  value={config.price_range_lower || 0}
+                  onChange={(e) => updateConfiguration('price_range_lower', Number(e.target.value))}
+                  min="0"
+                  step="100"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Upper Price Range
+                </label>
+                <input
+                  type="number"
+                  value={config.price_range_upper || 0}
+                  onChange={(e) => updateConfiguration('price_range_upper', Number(e.target.value))}
+                  min="0"
+                  step="100"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Number of Grids
+                </label>
+                <input
+                  type="number"
+                  value={config.number_of_grids || 20}
+                  onChange={(e) => updateConfiguration('number_of_grids', Number(e.target.value))}
+                  min="5"
+                  max="50"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Margin Amount ($)
+                </label>
+                <input
+                  type="number"
+                  value={config.margin_amount || 1000}
+                  onChange={(e) => updateConfiguration('margin_amount', Number(e.target.value))}
+                  min="100"
+                  step="100"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'infinity_grid':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Lowest Price (Stop Price)
+                </label>
+                <input
+                  type="number"
+                  value={config.lowest_price || 0}
+                  onChange={(e) => updateConfiguration('lowest_price', Number(e.target.value))}
+                  min="0"
+                  step="1"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Profit per Grid (%)
+                </label>
+                <input
+                  type="number"
+                  value={config.profit_per_grid_percent || 1.0}
+                  onChange={(e) => updateConfiguration('profit_per_grid_percent', Number(e.target.value))}
+                  min="0.2"
+                  max="10"
+                  step="0.1"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Mode
+              </label>
+              <select
+                value={config.mode || 'auto'}
+                onChange={(e) => updateConfiguration('mode', e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+              >
+                <option value="auto">Auto (KuCoin defaults)</option>
+                <option value="customize">Customize</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 'dca':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Investment Amount per Interval ($)
+                </label>
+                <input
+                  type="number"
+                  value={config.investment_amount_per_interval || 100}
+                  onChange={(e) => updateConfiguration('investment_amount_per_interval', Number(e.target.value))}
+                  min="10"
+                  step="10"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Frequency
+                </label>
+                <select
+                  value={config.frequency || 'daily'}
+                  onChange={(e) => updateConfiguration('frequency', e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                >
+                  <option value="hourly">Every Hour</option>
+                  <option value="4h">Every 4 Hours</option>
+                  <option value="8h">Every 8 Hours</option>
+                  <option value="12h">Every 12 Hours</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Investment Target (% Gain Alert)
+              </label>
+              <input
+                type="number"
+                value={config.investment_target_percent || 20}
+                onChange={(e) => updateConfiguration('investment_target_percent', Number(e.target.value))}
+                min="5"
+                max="100"
+                step="5"
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+              />
+              <p className="text-xs text-gray-400 mt-1">Alert when profit reaches this percentage</p>
+            </div>
+          </div>
+        );
+
+      case 'smart_rebalance':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Trigger Type
+                </label>
+                <select
+                  value={config.trigger_type || 'threshold'}
+                  onChange={(e) => updateConfiguration('trigger_type', e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                >
+                  <option value="time">Time-Based</option>
+                  <option value="threshold">Threshold-Based</option>
+                </select>
+              </div>
+              <div>
+                {config.trigger_type === 'time' ? (
+                  <>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Rebalance Frequency
+                    </label>
+                    <select
+                      value={config.rebalance_frequency || 'daily'}
+                      onChange={(e) => updateConfiguration('rebalance_frequency', e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    >
+                      <option value="hourly">Hourly</option>
+                      <option value="4h">Every 4 Hours</option>
+                      <option value="8h">Every 8 Hours</option>
+                      <option value="12h">Every 12 Hours</option>
+                      <option value="daily">Daily</option>
+                    </select>
+                  </>
+                ) : (
+                  <>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Threshold Deviation (%)
+                    </label>
+                    <input
+                      type="number"
+                      value={config.threshold_deviation_percent || 5}
+                      onChange={(e) => updateConfiguration('threshold_deviation_percent', Number(e.target.value))}
+                      min="1"
+                      max="20"
+                      step="1"
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Asset Allocations (up to 6 assets)
+              </label>
+              <div className="space-y-2">
+                {(config.assets || []).map((asset: any, index: number) => (
+                  <div key={index} className="grid grid-cols-3 gap-2">
+                    <input
+                      type="text"
+                      value={asset.symbol}
+                      onChange={(e) => {
+                        const newAssets = [...(config.assets || [])];
+                        newAssets[index] = { ...asset, symbol: e.target.value.toUpperCase() };
+                        updateConfiguration('assets', newAssets);
+                      }}
+                      placeholder="Symbol"
+                      className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    />
+                    <input
+                      type="number"
+                      value={asset.allocation}
+                      onChange={(e) => {
+                        const newAssets = [...(config.assets || [])];
+                        newAssets[index] = { ...asset, allocation: Number(e.target.value) };
+                        updateConfiguration('assets', newAssets);
+                      }}
+                      placeholder="Allocation %"
+                      min="1"
+                      max="100"
+                      className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newAssets = (config.assets || []).filter((_: any, i: number) => i !== index);
+                        updateConfiguration('assets', newAssets);
+                      }}
+                      className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                {(!config.assets || config.assets.length < 6) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newAssets = [...(config.assets || []), { symbol: '', allocation: 0 }];
+                      updateConfiguration('assets', newAssets);
+                    }}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm"
+                  >
+                    Add Asset
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+
       case 'covered_calls':
         return (
           <div className="space-y-4">
@@ -160,70 +540,6 @@ export function StrategyDetailsModal({ strategy, onClose, onSave }: StrategyDeta
           </div>
         );
 
-      case 'martingale':
-        return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Base Size
-                </label>
-                <input
-                  type="number"
-                  value={config.base_size || 0.01}
-                  onChange={(e) => updateConfiguration('base_size', Number(e.target.value))}
-                  step="0.001"
-                  min="0.001"
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Max Levels
-                </label>
-                <input
-                  type="number"
-                  value={config.max_levels || 5}
-                  onChange={(e) => updateConfiguration('max_levels', Number(e.target.value))}
-                  min="2"
-                  max="10"
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Grid Spacing (%)
-                </label>
-                <input
-                  type="number"
-                  value={(config.grid_spacing || 0.02) * 100}
-                  onChange={(e) => updateConfiguration('grid_spacing', Number(e.target.value) / 100)}
-                  min="0.5"
-                  max="10"
-                  step="0.1"
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Take Profit (%)
-                </label>
-                <input
-                  type="number"
-                  value={(config.take_profit || 0.015) * 100}
-                  onChange={(e) => updateConfiguration('take_profit', Number(e.target.value) / 100)}
-                  min="0.5"
-                  max="5"
-                  step="0.1"
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                />
-              </div>
-            </div>
-          </div>
-        );
-
       case 'orb':
         return (
           <div className="space-y-4">
@@ -285,91 +601,6 @@ export function StrategyDetailsModal({ strategy, onClose, onSave }: StrategyDeta
                   step="0.1"
                   className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
                 />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'smart_rebalance':
-        return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Rebalance Frequency
-                </label>
-                <select
-                  value={config.rebalance_frequency || 'monthly'}
-                  onChange={(e) => updateConfiguration('rebalance_frequency', e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                >
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Threshold Deviation (%)
-                </label>
-                <input
-                  type="number"
-                  value={(config.threshold_deviation || 0.05) * 100}
-                  onChange={(e) => updateConfiguration('threshold_deviation', Number(e.target.value) / 100)}
-                  min="1"
-                  max="20"
-                  step="1"
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Target Allocations
-              </label>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Stocks (%)</label>
-                  <input
-                    type="number"
-                    value={(config.target_allocations?.stocks || 0.6) * 100}
-                    onChange={(e) => updateConfiguration('target_allocations', {
-                      ...config.target_allocations,
-                      stocks: Number(e.target.value) / 100
-                    })}
-                    min="0"
-                    max="100"
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Bonds (%)</label>
-                  <input
-                    type="number"
-                    value={(config.target_allocations?.bonds || 0.3) * 100}
-                    onChange={(e) => updateConfiguration('target_allocations', {
-                      ...config.target_allocations,
-                      bonds: Number(e.target.value) / 100
-                    })}
-                    min="0"
-                    max="100"
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Cash (%)</label>
-                  <input
-                    type="number"
-                    value={(config.target_allocations?.cash || 0.1) * 100}
-                    onChange={(e) => updateConfiguration('target_allocations', {
-                      ...config.target_allocations,
-                      cash: Number(e.target.value) / 100
-                    })}
-                    min="0"
-                    max="100"
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                  />
-                </div>
               </div>
             </div>
           </div>
