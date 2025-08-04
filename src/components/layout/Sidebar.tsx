@@ -213,14 +213,18 @@ export function Sidebar() {
             className="fixed left-0 top-0 h-full w-80 bg-gray-900/98 backdrop-blur-xl border-r border-gray-800 z-50 lg:hidden flex flex-col"
           >
             <div className="flex items-center justify-between p-6 border-b border-gray-800">
-              <motion.h1 
+              <motion.div 
                 variants={logoVariants}
                 initial="closed"
                 animate="open"
-                className="text-2xl font-bold text-white"
+                className="flex items-center"
               >
-                broker<span className="text-blue-400">nomex</span>
-              </motion.h1>
+                {/* Replace this div with your full logo image */}
+                {/* <img src="/path/to/your/logo.svg" alt="brokernomex" className="h-10" /> */}
+                <div className="text-2xl font-bold text-white">
+                  broker<span className="text-blue-400">nomex</span>
+                </div>
+              </motion.div>
               
               <motion.button
                 whileHover={{ scale: 1.1, rotate: 90 }}

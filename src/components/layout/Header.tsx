@@ -31,8 +31,18 @@ export function Header() {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors lg:hidden"
+            className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors lg:hidden flex items-center gap-2"
           >
+            {/* N Icon for mobile header when sidebar is closed */}
+            {!sidebarOpen && (
+              <div className="flex items-center gap-2">
+                {/* Replace this div with your N icon image */}
+                {/* <img src="/path/to/your/n-icon.svg" alt="N" className="h-6 w-6" /> */}
+                <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center text-white font-bold text-sm">
+                  N
+                </div>
+              </div>
+            )}
             <Menu className="w-5 h-5" />
           </motion.button>
 
