@@ -35,11 +35,16 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: 
 
   const getStrategyTypeLabel = (type: TradingStrategy['type']) => {
     switch (type) {
+      case 'spot_grid': return 'Spot Grid Bot';
+      case 'futures_grid': return 'Futures Grid Bot';
+      case 'infinity_grid': return 'Infinity Grid Bot';
+      case 'dca': return 'DCA Bot';
+      case 'smart_rebalance': return 'Smart Rebalance';
       case 'covered_calls': return 'Covered Calls';
       case 'straddle': return 'Straddle';
       case 'iron_condor': return 'Iron Condor';
       case 'wheel': return 'The Wheel';
-      case 'martingale': return 'Grid Trading';
+      case 'orb': return 'ORB Strategy';
       default: return type;
     }
   };

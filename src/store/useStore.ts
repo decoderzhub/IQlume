@@ -42,7 +42,7 @@ export const useStore = create<AppState>((set) => ({
   strategies: [],
   activeStrategy: null,
   trades: [],
-  sidebarOpen: false,
+  sidebarOpen: true,
   activeView: 'dashboard',
   
   // Actions

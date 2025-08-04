@@ -12,25 +12,46 @@ interface CreateStrategyModalProps {
 
 const strategyTypes = [
   {
+    type: 'spot_grid' as const,
+    name: 'Spot Grid Bot',
+    description: 'Automates buy-low/sell-high trades within a defined price range',
+    risk: 'low' as const,
+    minCapital: 1000,
+  },
+  {
+    type: 'futures_grid' as const,
+    name: 'Futures Grid Bot',
+    description: 'Grid trading on futures market with leverage support',
+    risk: 'medium' as const,
+    minCapital: 2000,
+  },
+  {
+    type: 'infinity_grid' as const,
+    name: 'Infinity Grid Bot',
+    description: 'Grid trading without upper price limit for trending markets',
+    risk: 'medium' as const,
+    minCapital: 1500,
+  },
+  {
+    type: 'dca' as const,
+    name: 'DCA Bot (Dollar-Cost Averaging)',
+    description: 'Automatically invests at fixed intervals to minimize volatility risk',
+    risk: 'low' as const,
+    minCapital: 500,
+  },
+  {
+    type: 'smart_rebalance' as const,
+    name: 'Smart Rebalance Bot',
+    description: 'Maintains target allocations in a portfolio of selected coins',
+    risk: 'low' as const,
+    minCapital: 5000,
+  },
+  {
     type: 'covered_calls' as const,
     name: 'Covered Calls',
     description: 'Generate income by selling call options on owned stocks',
     risk: 'low' as const,
     minCapital: 15000,
-  },
-  {
-    type: 'orb' as const,
-    name: 'Opening Range Breakout (ORB)',
-    description: 'Trade breakouts from the first 15-30 minutes of market open',
-    risk: 'medium' as const,
-    minCapital: 5000,
-  },
-  {
-    type: 'smart_rebalance' as const,
-    name: 'Smart Portfolio Rebalance',
-    description: 'Automatically rebalance portfolio based on target allocations',
-    risk: 'low' as const,
-    minCapital: 10000,
   },
   {
     type: 'iron_condor' as const,
@@ -54,11 +75,11 @@ const strategyTypes = [
     minCapital: 20000,
   },
   {
-    type: 'martingale' as const,
-    name: 'Grid Trading',
-    description: 'Automated grid-based trading with position scaling',
-    risk: 'high' as const,
-    minCapital: 10000,
+    type: 'orb' as const,
+    name: 'Opening Range Breakout (ORB)',
+    description: 'Trade breakouts from the first 15-30 minutes of market open',
+    risk: 'medium' as const,
+    minCapital: 5000,
   },
 ];
 
@@ -84,6 +105,41 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       configuration: {
         symbol: symbol.toUpperCase(),
         // Add default configuration based on strategy type
+        ...(selectedType === 'spot_grid' && {
+          price_range_lower: 0,
+          price_range_upper: 0,
+          number_of_grids: 25,
+          grid_spacing_percent: 1.0,
+          mode: 'auto', // 'auto' or 'customize'
+        }),
+        ...(selectedType === 'futures_grid' && {
+          direction: 'long', // 'long' or 'short'
+          leverage: 3,
+          price_range_lower: 0,
+          price_range_upper: 0,
+          number_of_grids: 20,
+          margin_amount: 1000,
+        }),
+        ...(selectedType === 'infinity_grid' && {
+          lowest_price: 0,
+          profit_per_grid_percent: 1.0,
+          mode: 'auto', // 'auto' or 'customize'
+        }),
+        ...(selectedType === 'dca' && {
+          investment_amount_per_interval: 100,
+          frequency: 'daily', // 'hourly', '4h', '8h', '12h', 'daily', 'weekly'
+          investment_target_percent: 20, // Optional profit target
+        }),
+        ...(selectedType === 'smart_rebalance' && {
+          assets: [
+            { symbol: 'BTC', allocation: 50 },
+            { symbol: 'ETH', allocation: 30 },
+            { symbol: 'USDT', allocation: 20 },
+          ],
+          trigger_type: 'threshold', // 'time' or 'threshold'
+          rebalance_frequency: 'daily', // for time-based
+          threshold_deviation_percent: 5, // for threshold-based
+        }),
         ...(selectedType === 'covered_calls' && {
           strike_delta: 0.3,
           dte_target: 30,
@@ -94,25 +150,11 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           dte_target: 45,
           profit_target: 0.25,
         }),
-        ...(selectedType === 'martingale' && {
-          base_size: 0.01,
-          max_levels: 5,
-          grid_spacing: 0.02,
-        }),
         ...(selectedType === 'orb' && {
           orb_period: 15, // minutes
           breakout_threshold: 0.002, // 0.2%
           stop_loss: 0.01, // 1%
           take_profit: 0.02, // 2%
-        }),
-        ...(selectedType === 'smart_rebalance' && {
-          rebalance_frequency: 'monthly',
-          threshold_deviation: 0.05, // 5%
-          target_allocations: {
-            stocks: 0.6,
-            bonds: 0.3,
-            cash: 0.1,
-          },
         }),
       },
     };

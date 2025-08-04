@@ -58,7 +58,7 @@ export interface Portfolio {
 export interface TradingStrategy {
   id: string;
   name: string;
-  type: 'covered_calls' | 'straddle' | 'iron_condor' | 'wheel' | 'martingale' | 'orb' | 'smart_rebalance';
+  type: 'covered_calls' | 'straddle' | 'iron_condor' | 'wheel' | 'spot_grid' | 'futures_grid' | 'infinity_grid' | 'smart_rebalance' | 'dca' | 'orb';
   description: string;
   risk_level: 'low' | 'medium' | 'high';
   min_capital: number;
