@@ -138,9 +138,9 @@ export function Sidebar() {
                 exit="closed"
                 className="text-xl font-bold text-white whitespace-nowrap"
               >
-              <img src="/image.png" alt="brokernomex" className="h-10" />
-
-                {/* broker<span className="text-blue-400">nomex</span> */}
+              {/* <img src="/public/image.png" alt="brokernomex" className="h-10" />
+ */}
+                broker<span className="text-blue-400">nomex</span>
               </motion.h1>
             )}
           </AnimatePresence>
@@ -222,7 +222,8 @@ export function Sidebar() {
                 className="flex items-center"
               >
                 {/* Replace this div with your full logo image */}
-                <img src="/public/image.png" alt="brokernomex" className="h-10" />
+                {/* <img src="/public/image.png" alt="brokernomex" className="h-10" /> */}
+                broker<span className="text-blue-400">nomex</span>
               </motion.div>
               
               <motion.button
