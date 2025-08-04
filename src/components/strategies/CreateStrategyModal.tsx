@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, TrendingUp, AlertTriangle, DollarSign } from 'lucide-react';
+import { X, TrendingUp, AlertTriangle, DollarSign, Plus, Minus, Brain, Loader2 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { TradingStrategy } from '../../types';
+import { TradingStrategy, AssetAllocation, MarketCapData } from '../../types';
+import { supabase } from '../../lib/supabase';
 
 interface CreateStrategyModalProps {
   onClose: () => void;
@@ -90,10 +91,152 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [symbol, setSymbol] = useState('');
   const [minCapital, setMinCapital] = useState(10000);
   const [riskLevel, setRiskLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [assets, setAssets] = useState<AssetAllocation[]>([
+    { symbol: 'BTC', allocation: 50 },
+    { symbol: 'ETH', allocation: 30 },
+    { symbol: 'USDT', allocation: 20 },
+  ]);
+  const [isAllocatingByMarketCap, setIsAllocatingByMarketCap] = useState(false);
+
+  const fetchMarketCapData = async (symbols: string[]): Promise<MarketCapData[]> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      throw new Error('No valid session found. Please log in again.');
+    }
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-cap`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ symbols }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch market cap data: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result.data || [];
+    } catch (error) {
+      console.error('Error fetching market cap data:', error);
+      // Fallback to mock data if API fails
+      const mockMarketCapData: MarketCapData[] = [
+        { symbol: 'BTC', market_cap: 850000000000, price: 43500, name: 'Bitcoin' },
+        { symbol: 'ETH', market_cap: 280000000000, price: 2650, name: 'Ethereum' },
+        { symbol: 'ADA', market_cap: 18000000000, price: 0.52, name: 'Cardano' },
+        { symbol: 'SOL', market_cap: 45000000000, price: 105, name: 'Solana' },
+        { symbol: 'DOT', market_cap: 9000000000, price: 7.2, name: 'Polkadot' },
+        { symbol: 'MATIC', market_cap: 8500000000, price: 0.92, name: 'Polygon' },
+        { symbol: 'AVAX', market_cap: 14000000000, price: 38, name: 'Avalanche' },
+        { symbol: 'LINK', market_cap: 8200000000, price: 14.5, name: 'Chainlink' },
+        { symbol: 'UNI', market_cap: 5000000000, price: 8.3, name: 'Uniswap' },
+        { symbol: 'ATOM', market_cap: 3800000000, price: 12.8, name: 'Cosmos' },
+        { symbol: 'USDT', market_cap: 95000000000, price: 1.0, name: 'Tether' },
+        { symbol: 'USDC', market_cap: 25000000000, price: 1.0, name: 'USD Coin' },
+      ];
+
+      return mockMarketCapData.filter(data => 
+        symbols.map(s => s.toUpperCase()).includes(data.symbol.toUpperCase())
+      );
+    }
+  };
+
+  const handleAllocateByMarketCap = async () => {
+    if (assets.length === 0) {
+      alert('Please add at least one asset before using AI allocation.');
+      return;
+    }
+
+    const validAssets = assets.filter(asset => asset.symbol.trim() !== '');
+    if (validAssets.length === 0) {
+      alert('Please enter valid asset symbols before using AI allocation.');
+      return;
+    }
+
+    setIsAllocatingByMarketCap(true);
+
+    try {
+      const symbols = validAssets.map(asset => asset.symbol.toUpperCase());
+      const marketCapData = await fetchMarketCapData(symbols);
+
+      if (marketCapData.length === 0) {
+        alert('Could not fetch market cap data for the provided symbols. Please check the symbols and try again.');
+        return;
+      }
+
+      // Calculate total market cap
+      const totalMarketCap = marketCapData.reduce((sum, data) => sum + data.market_cap, 0);
+
+      // Calculate proportional allocations
+      const newAssets = assets.map(asset => {
+        const marketData = marketCapData.find(data => 
+          data.symbol.toUpperCase() === asset.symbol.toUpperCase()
+        );
+        
+        if (marketData) {
+          const allocation = Math.round((marketData.market_cap / totalMarketCap) * 100);
+          return { ...asset, allocation };
+        }
+        
+        return asset; // Keep original allocation if no market data found
+      });
+
+      setAssets(newAssets);
+    } catch (error) {
+      console.error('Error fetching market cap data:', error);
+      alert('Failed to fetch market cap data. Please try again later.');
+    } finally {
+      setIsAllocatingByMarketCap(false);
+    }
+  };
+
+  const addAsset = () => {
+    if (assets.length < 12) { // Max 12 assets
+      setAssets([...assets, { symbol: '', allocation: 0 }]);
+    }
+  };
+
+  const removeAsset = (index: number) => {
+    if (assets.length > 2) { // Minimum 2 assets
+      setAssets(assets.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateAsset = (index: number, field: keyof AssetAllocation, value: string | number) => {
+    const newAssets = [...assets];
+    newAssets[index] = { ...newAssets[index], [field]: value };
+    setAssets(newAssets);
+  };
+
+  const getTotalAllocation = () => {
+    return assets.reduce((sum, asset) => sum + (asset.allocation || 0), 0);
+  };
+
+  const isAllocationValid = () => {
+    const total = getTotalAllocation();
+    return total === 100;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedType || !name || !symbol) return;
+
+    // Additional validation for smart_rebalance
+    if (selectedType === 'smart_rebalance') {
+      const validAssets = assets.filter(asset => asset.symbol.trim() !== '' && asset.allocation > 0);
+      if (validAssets.length < 2) {
+        alert('Smart Rebalance strategy requires at least 2 assets with valid symbols and allocations.');
+        return;
+      }
+      if (!isAllocationValid()) {
+        alert('Asset allocations must sum to exactly 100%.');
+        return;
+      }
+    }
 
     const strategy: Omit<TradingStrategy, 'id'> = {
       name,
@@ -131,11 +274,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           investment_target_percent: 20, // Optional profit target
         }),
         ...(selectedType === 'smart_rebalance' && {
-          assets: [
-            { symbol: 'BTC', allocation: 50 },
-            { symbol: 'ETH', allocation: 30 },
-            { symbol: 'USDT', allocation: 20 },
-          ],
+          assets: assets.filter(asset => asset.symbol.trim() !== '' && asset.allocation > 0),
           trigger_type: 'threshold', // 'time' or 'threshold'
           rebalance_frequency: 'daily', // for time-based
           threshold_deviation_percent: 5, // for threshold-based
@@ -245,7 +384,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                     />
                   </div>
 
-                  <div>
+                  {selectedType !== 'smart_rebalance' && (
+                    <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Symbol *
                     </label>
@@ -257,7 +397,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       placeholder="AAPL, SPY, BTCUSD"
                       required
                     />
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -307,6 +448,127 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   </div>
                 </div>
 
+                {/* Smart Rebalance Asset Configuration */}
+                {selectedType === 'smart_rebalance' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-white">Asset Allocations</h4>
+                        <p className="text-sm text-gray-400">Configure your portfolio allocation (must sum to 100%)</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleAllocateByMarketCap}
+                          disabled={isAllocatingByMarketCap || assets.filter(a => a.symbol.trim()).length === 0}
+                          className="flex items-center gap-2"
+                        >
+                          {isAllocatingByMarketCap ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Brain className="w-4 h-4" />
+                          )}
+                          {isAllocatingByMarketCap ? 'Allocating...' : 'Allocate by Market Cap (AI)'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-800/30 rounded-lg p-4">
+                      <div className="space-y-3">
+                        {assets.map((asset, index) => (
+                          <div key={index} className="grid grid-cols-12 gap-3 items-center">
+                            <div className="col-span-5">
+                              <input
+                                type="text"
+                                value={asset.symbol}
+                                onChange={(e) => updateAsset(index, 'symbol', e.target.value.toUpperCase())}
+                                placeholder="Symbol (e.g., BTC)"
+                                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  value={asset.allocation}
+                                  onChange={(e) => updateAsset(index, 'allocation', Number(e.target.value))}
+                                  placeholder="Allocation %"
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                  className="w-full px-3 py-2 pr-8 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                              </div>
+                            </div>
+                            <div className="col-span-3 flex gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={addAsset}
+                                disabled={assets.length >= 12}
+                                className="p-2"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeAsset(index)}
+                                disabled={assets.length <= 2}
+                                className="p-2 text-red-400 hover:text-red-300"
+                              >
+                                <Minus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-gray-700">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">Total Allocation:</span>
+                          <span className={`font-semibold ${
+                            isAllocationValid() ? 'text-green-400' : 
+                            getTotalAllocation() > 100 ? 'text-red-400' : 'text-yellow-400'
+                          }`}>
+                            {getTotalAllocation()}%
+                          </span>
+                        </div>
+                        {!isAllocationValid() && (
+                          <p className="text-sm text-yellow-400 mt-2">
+                            {getTotalAllocation() > 100 
+                              ? 'Total allocation exceeds 100%. Please adjust the percentages.'
+                              : 'Total allocation must equal 100% to create the strategy.'
+                            }
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <Brain className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="font-medium text-blue-400 mb-2">AI Market Cap Allocation</h4>
+                          <p className="text-sm text-blue-300 mb-2">
+                            The AI allocation feature automatically distributes your portfolio based on each asset's market capitalization.
+                          </p>
+                          <ul className="text-sm text-blue-300 space-y-1">
+                            <li>• Larger market cap assets receive higher allocation percentages</li>
+                            <li>• Allocations are calculated proportionally to total market cap</li>
+                            <li>• Perfect for market-weighted diversification strategies</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Strategy-specific configuration preview */}
                 {selectedStrategyType && (
                   <div className="bg-gray-800/30 rounded-lg p-4">
@@ -318,6 +580,22 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       Default settings will be applied. You can customize these after creation.
                     </p>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      {selectedType === 'smart_rebalance' && (
+                        <>
+                          <div>
+                            <span className="text-gray-400">Trigger Type:</span>
+                            <span className="text-white ml-2">Threshold</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Threshold:</span>
+                            <span className="text-white ml-2">5% deviation</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Assets:</span>
+                            <span className="text-white ml-2">{assets.filter(a => a.symbol.trim()).length} configured</span>
+                          </div>
+                        </>
+                      )}
                       {selectedType === 'covered_calls' && (
                         <>
                           <div>
@@ -398,7 +676,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               </Button>
               <Button
                 type="submit"
-                disabled={!selectedType || !name || !symbol}
+                disabled={
+                  !selectedType || 
+                  !name || 
+                  (selectedType !== 'smart_rebalance' && !symbol) ||
+                  (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2))
+                }
                 className="flex-1"
               >
                 Create Strategy

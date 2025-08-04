@@ -76,6 +76,18 @@ export interface TradingStrategy {
   updated_at?: string;
 }
 
+export interface AssetAllocation {
+  symbol: string;
+  allocation: number;
+}
+
+export interface MarketCapData {
+  symbol: string;
+  market_cap: number;
+  price: number;
+  name?: string;
+}
+
 export interface Trade {
   id: string;
   strategy_id: string;

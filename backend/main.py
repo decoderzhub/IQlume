@@ -293,6 +293,50 @@ async def get_custodial_wallets(
         }
     ]
 
+@app.post("/api/market-cap")
+async def get_market_cap_data(
+    request_data: Dict,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get market capitalization data for multiple symbols"""
+    symbols = request_data.get("symbols", [])
+    
+    if not symbols:
+        raise HTTPException(status_code=400, detail="symbols list is required")
+    
+    # Mock market cap data - in production, integrate with CoinGecko, CoinMarketCap, etc.
+    mock_market_cap_data = {
+        "BTC": {"market_cap": 850000000000, "price": 43500, "name": "Bitcoin"},
+        "ETH": {"market_cap": 280000000000, "price": 2650, "name": "Ethereum"},
+        "ADA": {"market_cap": 18000000000, "price": 0.52, "name": "Cardano"},
+        "SOL": {"market_cap": 45000000000, "price": 105, "name": "Solana"},
+        "DOT": {"market_cap": 9000000000, "price": 7.2, "name": "Polkadot"},
+        "MATIC": {"market_cap": 8500000000, "price": 0.92, "name": "Polygon"},
+        "AVAX": {"market_cap": 14000000000, "price": 38, "name": "Avalanche"},
+        "LINK": {"market_cap": 8200000000, "price": 14.5, "name": "Chainlink"},
+        "UNI": {"market_cap": 5000000000, "price": 8.3, "name": "Uniswap"},
+        "ATOM": {"market_cap": 3800000000, "price": 12.8, "name": "Cosmos"},
+        "USDT": {"market_cap": 95000000000, "price": 1.0, "name": "Tether"},
+        "USDC": {"market_cap": 25000000000, "price": 1.0, "name": "USD Coin"},
+        "BNB": {"market_cap": 42000000000, "price": 280, "name": "BNB"},
+        "XRP": {"market_cap": 32000000000, "price": 0.58, "name": "XRP"},
+        "DOGE": {"market_cap": 12000000000, "price": 0.085, "name": "Dogecoin"},
+    }
+    
+    result = []
+    for symbol in symbols:
+        symbol_upper = symbol.upper()
+        if symbol_upper in mock_market_cap_data:
+            data = mock_market_cap_data[symbol_upper]
+            result.append({
+                "symbol": symbol_upper,
+                "market_cap": data["market_cap"],
+                "price": data["price"],
+                "name": data["name"]
+            })
+    
+    return {"data": result}
+
 @app.post("/api/custodial-wallets")
 async def create_custodial_wallet(
     wallet_config: Dict,
