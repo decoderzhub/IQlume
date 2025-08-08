@@ -97,7 +97,7 @@ export function AIChatView() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to get AI response: ${response.status} ${errorText}`);
+        throw new Error(`Failed to get Claude response: ${response.status} ${errorText}`);
       }
 
       const result = await response.json();
@@ -116,7 +116,7 @@ export function AIChatView() {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I'm sorry, I'm having trouble connecting right now. Please check your internet connection and try again. If the problem persists, the OpenAI API might be temporarily unavailable.",
+        content: "I'm sorry, I'm having trouble connecting right now. Please check your internet connection and try again. If the problem persists, the Anthropic API might be temporarily unavailable.",
         timestamp: new Date(),
       };
 
@@ -359,7 +359,7 @@ export function AIChatView() {
             </Button>
           </form>
           <p className="text-xs text-gray-500 mt-2 text-center">
-            AI responses are generated and may not always be accurate. Always do your own research.
+            Claude responses are generated and may not always be accurate. Always do your own research.
           </p>
         </div>
       </Card>
