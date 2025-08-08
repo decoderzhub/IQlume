@@ -237,8 +237,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     e.preventDefault();
     if (!selectedType || !name || !symbol) return;
 
+    // Skip symbol validation for smart_rebalance since it uses assets instead
+    if (!selectedType || !name) return;
+    
     // Additional validation for smart_rebalance
     if (selectedType === 'smart_rebalance') {
+      // Skip symbol requirement for smart_rebalance
       const validAssets = assets.filter(asset => asset.symbol.trim() !== '' && asset.allocation > 0);
       if (validAssets.length < 2) {
         alert('Smart Rebalance strategy requires at least 2 assets with valid symbols and allocations.');
@@ -246,6 +250,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       }
       if (!isAllocationValid()) {
         alert('Asset allocations must sum to exactly 100%.');
+        return;
+      }
+    } else {
+      // For non-smart_rebalance strategies, symbol is required
+      if (!symbol) {
+        alert('Symbol is required for this strategy type.');
         return;
       }
     }
@@ -692,7 +702,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 disabled={
                   !selectedType || 
                   !name || 
-                  (selectedType !== 'smart_rebalance' && !symbol) ||
+                  (selectedType !== 'smart_rebalance' && !symbol.trim()) ||
                   (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2))
                 }
                 className="flex-1"
