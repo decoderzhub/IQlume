@@ -4,6 +4,7 @@ import { Header } from './layout/Header';
 import { Dashboard } from './dashboard/Dashboard';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
+import { AIChatView } from './ai-chat/AIChatView';
 
 import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
@@ -39,6 +40,8 @@ export function MainApp() {
         return <Dashboard />;
       case 'strategies':
         return <StrategiesView />;
+      case 'ai-chat':
+        return <AIChatView />;
       case 'trades':
         return <TradesView />;
       case 'accounts':

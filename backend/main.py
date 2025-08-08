@@ -12,6 +12,7 @@ from plaid.configuration import Configuration
 from plaid.api_client import ApiClient
 import uvicorn
 import os
+import openai
 from typing import Dict, List, Optional
 import asyncio
 import httpx
@@ -24,6 +25,13 @@ app = FastAPI(title="brokernomex Trading API", version="1.0.0")
 PLAID_CLIENT_ID = os.getenv('PLAID_CLIENT_ID')
 PLAID_SECRET = os.getenv('PLAID_SECRET')
 PLAID_ENV = os.getenv('PLAID_ENV', 'sandbox')
+
+# OpenAI configuration
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+if OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
+else:
+    print("Warning: OpenAI API key not found. AI chat will not work.")
 
 if not PLAID_CLIENT_ID or not PLAID_SECRET:
     print("Warning: Plaid credentials not found. Bank account linking will not work.")
@@ -351,6 +359,93 @@ async def get_market_cap_data(
             })
     
     return {"data": result}
+
+@app.post("/api/chat/openai")
+async def chat_with_openai(
+    request_data: Dict,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Chat with OpenAI GPT for trading strategy assistance"""
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    
+    user_message = request_data.get("message")
+    chat_history = request_data.get("history", [])
+    
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Message is required")
+    
+    try:
+        # Prepare system message for trading context
+        system_message = {
+            "role": "system",
+            "content": """You are Brokernomex AI, an expert trading strategy assistant. You help users understand and create trading strategies including:
+
+- Covered Calls: Generate income by selling call options on owned stocks
+- Iron Condor: Profit from low volatility with defined risk spreads  
+- Straddle: Profit from high volatility in either direction
+- The Wheel: Systematic approach combining puts and covered calls
+- Opening Range Breakout (ORB): Trade breakouts from market open
+- Spot Grid Bot: Automate buy-low/sell-high trades within price ranges
+- Futures Grid Bot: Grid trading on futures with leverage
+- Infinity Grid Bot: Grid trading without upper limits for trending markets
+- DCA Bot: Dollar-cost averaging to minimize volatility risk
+- Smart Rebalance Bot: Maintain target allocations across portfolios
+
+Provide clear, actionable advice. When users want to create a strategy, guide them through the key parameters they need to consider. Be concise but thorough. Focus on risk management and realistic expectations."""
+        }
+        
+        # Prepare messages for OpenAI
+        messages = [system_message]
+        
+        # Add chat history (limit to last 10 messages to stay within token limits)
+        if chat_history:
+            messages.extend(chat_history[-10:])
+        
+        # Add current user message
+        messages.append({"role": "user", "content": user_message})
+        
+        # Make request to OpenAI
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-3.5-turbo",
+                    "messages": messages,
+                    "max_tokens": 1000,
+                    "temperature": 0.7,
+                    "stream": False
+                },
+                timeout=30.0
+            )
+        
+        if response.status_code != 200:
+            error_detail = f"OpenAI API error: {response.status_code}"
+            try:
+                error_data = response.json()
+                error_detail += f" - {error_data.get('error', {}).get('message', 'Unknown error')}"
+            except:
+                pass
+            raise HTTPException(status_code=500, detail=error_detail)
+        
+        result = response.json()
+        ai_message = result["choices"][0]["message"]["content"]
+        
+        return {
+            "message": ai_message,
+            "usage": result.get("usage", {}),
+            "model": result.get("model", "gpt-3.5-turbo")
+        }
+        
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="OpenAI API request timed out")
+    except Exception as e:
+        print(f"OpenAI API error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get AI response: {str(e)}")
 
 @app.post("/api/custodial-wallets")
 async def create_custodial_wallet(

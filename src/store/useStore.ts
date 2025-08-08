@@ -18,7 +18,7 @@ interface AppState {
   
   // UI state
   sidebarOpen: boolean;
-  activeView: 'dashboard' | 'strategies' | 'trades' | 'analytics' | 'settings';
+  activeView: 'dashboard' | 'strategies' | 'ai-chat' | 'trades' | 'accounts' | 'analytics' | 'settings';
   
   // Actions
   setUser: (user: User | null) => void;
