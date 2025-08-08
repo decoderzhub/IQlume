@@ -15,10 +15,8 @@ export function Header() {
       animate={{ y: 0 }}
       className={cn(
         'fixed top-0 right-0 h-16 bg-gray-900/95 backdrop-blur-xl border-b border-gray-800 z-30 transition-all duration-300',
-        // Mobile - full width
         'left-0',
-        // Desktop - account for sidebar width
-        sidebarOpen ? 'lg:left-64' : 'lg:left-51' // When sidebar is expanded (256px) or collapsed (84px)
+        sidebarOpen ? 'lg:left-64' : 'lg:left-[84px]'
       )}
     >
       <div className="flex items-center justify-between px-6 h-full">
