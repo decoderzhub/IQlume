@@ -20,6 +20,10 @@ const suggestedQuestions = [
   "What's the difference between iron condor and straddle?",
   "How do I manage risk in options trading?",
   "What allocation should I use for a balanced portfolio?",
+  "Create a low-risk strategy for $25,000 focused on income generation",
+  "Design a crypto grid bot strategy for BTC with medium risk tolerance",
+  "Help me build a smart rebalance portfolio with 60% stocks, 40% crypto",
+  "Suggest an options strategy for AAPL with $50K and high risk appetite",
 ];
 
 export function AIChatView() {
