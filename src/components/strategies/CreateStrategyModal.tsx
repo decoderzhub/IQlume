@@ -235,27 +235,33 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedType || !name || !symbol) return;
 
-    // Skip symbol validation for smart_rebalance since it uses assets instead
-    if (!selectedType || !name) return;
-    
-    // Additional validation for smart_rebalance
+    console.log('Submitting strategy...');
+    if (!selectedType || !name) {
+      console.warn('Missing required fields:', { selectedType, name });
+      alert('Please fill in all required fields.');
+      return;
+    }
+
+    // Validate symbol for non-smart_rebalance strategies
+    if (selectedType !== 'smart_rebalance' && !symbol) {
+      console.warn('Symbol required for strategy type:', selectedType);
+      alert('Symbol is required for this strategy type.');
+      return;
+    }
+
+    // Validate smart_rebalance specific requirements
     if (selectedType === 'smart_rebalance') {
-      // Skip symbol requirement for smart_rebalance
       const validAssets = assets.filter(asset => asset.symbol.trim() !== '' && asset.allocation > 0);
+      console.log('Valid assets for smart_rebalance:', validAssets);
+      console.log('Total allocation:', getTotalAllocation());
+      
       if (validAssets.length < 2) {
         alert('Smart Rebalance strategy requires at least 2 assets with valid symbols and allocations.');
         return;
       }
       if (!isAllocationValid()) {
-        alert('Asset allocations must sum to exactly 100%.');
-        return;
-      }
-    } else {
-      // For non-smart_rebalance strategies, symbol is required
-      if (!symbol) {
-        alert('Symbol is required for this strategy type.');
+        alert(`Asset allocations must sum to exactly 100%. Current total: ${getTotalAllocation()}%`);
         return;
       }
     }
@@ -263,12 +269,14 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     const strategy: Omit<TradingStrategy, 'id'> = {
       name,
       type: selectedType,
-      description: description || `${selectedType} strategy for ${symbol}`,
+      description: description || (selectedType === 'smart_rebalance' 
+        ? `${selectedType} strategy with ${assets.filter(a => a.symbol.trim()).length} assets`
+        : `${selectedType} strategy for ${symbol}`),
       risk_level: riskLevel,
       min_capital: minCapital,
       is_active: false,
       configuration: {
-        symbol: symbol.toUpperCase(),
+        ...(selectedType !== 'smart_rebalance' && { symbol: symbol.toUpperCase() }),
         // Add default configuration based on strategy type
         ...(selectedType === 'spot_grid' && {
           price_range_lower: 0,
@@ -320,7 +328,15 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       },
     };
 
-    onSave(strategy);
+    console.log('Strategy to be saved:', strategy);
+
+    try {
+      onSave(strategy);
+      console.log('Strategy saved successfully');
+    } catch (err) {
+      console.error('onSave failed:', err);
+      alert('Failed to save strategy. Please try again.');
+    }
   };
 
   const selectedStrategyType = strategyTypes.find(s => s.type === selectedType);
