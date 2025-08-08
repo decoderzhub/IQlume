@@ -170,29 +170,6 @@ export function Sidebar() {
             >
               <Menu className="w-5 h-5" />
             </motion.button>
-          )}
-        </div>
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex justify-center w-full"
-            >
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center text-white font-bold text-sm">
-                N
-              </div>
-            </motion.div>
-          )}
-          
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
-            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-          >
-            <Menu className="w-5 h-5" />
-          </motion.button>
-        </div>
-
         <nav className="p-4 space-y-2 flex-1">
           {navigation.map((item, index) => {
             const Icon = item.icon;
