@@ -58,14 +58,14 @@ export function MainApp() {
       <Header />
       
       <main className={cn(
-        'pt-16 transition-all duration-300',
+        'pt-20 transition-all duration-300',
         // Desktop margins
         'lg:ml-0',
         sidebarOpen ? 'lg:pl-64' : 'lg:pl-16',
         // Mobile - no left margin, full width
         'ml-0',
         // Padding
-        'p-4 sm:p-6 lg:p-8'
+        'px-4 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pb-8'
       )}>
         {renderView()}
       </main>
