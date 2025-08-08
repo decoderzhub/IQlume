@@ -83,7 +83,7 @@ export function AIChatView() {
         content: msg.content,
       }));
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chat/openai`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/chat/anthropic`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
