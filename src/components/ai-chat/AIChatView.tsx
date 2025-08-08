@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, Loader2, Brain, Lightbulb, TrendingUp } from 'lucide-react';
+import { Send, Bot, User, Loader2, Brain, Lightbulb, TrendingUp, Zap } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { useStore } from '../../store/useStore';
@@ -26,6 +26,16 @@ const suggestedQuestions = [
   "Suggest an options strategy for AAPL with $50K and high risk appetite",
 ];
 
+const actionablePrompts = [
+  "Create a covered calls strategy for AAPL with $30K capital and conservative risk",
+  "Build me a DCA bot for ETH with $100 weekly investments",
+  "Design a smart rebalance portfolio with my current holdings",
+  "Set up an iron condor strategy for SPY with 45 DTE",
+  "Create a grid bot for BTC between $40K-$50K price range",
+  "Build a wheel strategy for high dividend stocks with $25K",
+  "Design a momentum strategy for tech stocks with stop losses",
+  "Create a pairs trading strategy for correlated assets",
+];
 export function AIChatView() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -235,6 +245,38 @@ export function AIChatView() {
                   {question}
                 </button>
               ))}
+            </div>
+
+            {/* Actionable Prompts Section */}
+            <div className="mt-8">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-medium text-gray-400">AI Actions - Try these prompts:</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {actionablePrompts.map((prompt, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSuggestedQuestion(prompt)}
+                    className="text-left p-3 bg-gradient-to-r from-blue-900/20 to-purple-900/20 hover:from-blue-800/30 hover:to-purple-800/30 rounded-lg text-sm text-blue-200 hover:text-blue-100 transition-all duration-200 border border-blue-500/20 hover:border-blue-400/40"
+                  >
+                    <div className="flex items-start gap-2">
+                      <Zap className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
+                      <span>{prompt}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              
+              <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Brain className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-blue-300">
+                    <p className="font-medium mb-1">💡 Pro Tip:</p>
+                    <p>These prompts can help the AI understand your intent to create specific strategies. The AI will guide you through the parameters and can suggest opening the strategy creation modal with pre-filled settings.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
