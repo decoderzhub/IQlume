@@ -185,7 +185,6 @@ export function Sidebar() {
         )}
 
         <nav className="p-4 space-y-2 flex-1">
-        </div>
           {navigation.map((item, index) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
