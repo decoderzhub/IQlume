@@ -170,6 +170,9 @@ export function Sidebar() {
             >
               <Menu className="w-5 h-5" />
             </motion.button>
+          )}
+        </div>
+        
         <nav className="p-4 space-y-2 flex-1">
           {navigation.map((item, index) => {
             const Icon = item.icon;
