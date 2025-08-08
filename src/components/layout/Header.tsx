@@ -9,11 +9,6 @@ import { cn } from '../../lib/utils';
 export function Header() {
   const { user, setUser, sidebarOpen, setSidebarOpen } = useStore();
 
-  const handleLogout = async () => {
-    await auth.signOut();
-    setUser(null);
-  };
-
   return (
     <motion.header
       initial={{ y: -100 }}
@@ -28,22 +23,24 @@ export function Header() {
     >
       <div className="flex items-center justify-between px-6 h-full">
         <div className="flex items-center gap-4">
+          {/* Desktop collapsed sidebar menu button */}
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors hidden lg:flex items-center gap-2"
+            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            <Menu className="w-5 h-5" />
+          </motion.button>
+
+          {/* Mobile menu button */}
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors lg:hidden flex items-center gap-2"
           >
-            {/* N Icon for mobile header when sidebar is closed */}
-            {!sidebarOpen && (
-              <div className="flex items-center gap-2">
-                {/* Replace this div with your N icon image */}
-                {/* <img src="/path/to/your/n-icon.svg" alt="N" className="h-6 w-6" /> */}
-                <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center text-white font-bold text-sm">
-                  N
-                </div>
-              </div>
-            )}
             <Menu className="w-5 h-5" />
           </motion.button>
 
@@ -51,7 +48,10 @@ export function Header() {
             {useStore.getState().activeView}
           </h2>
         </div>
+
+        <div className="flex items-center gap-4">
+          {/* User menu would go here */}
+        </div>
       </div>
     </motion.header>
   );
-}
