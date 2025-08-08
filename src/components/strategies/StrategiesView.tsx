@@ -9,6 +9,7 @@ import { StrategyDetailsModal } from './StrategyDetailsModal';
 import { BacktestModal } from './BacktestModal';
 import { TradingStrategy } from '../../types';
 import { useStore } from '../../store/useStore';
+import { supabase } from '../../lib/supabase';
 
 const mockStrategies: TradingStrategy[] = [
   {
@@ -127,6 +128,7 @@ export function StrategiesView() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showBacktestModal, setShowBacktestModal] = useState(false);
   const [strategies, setStrategies] = useState(mockStrategies);
+  const { user } = useStore();
 
   const filteredStrategies = strategies.filter(strategy => {
     const matchesSearch = strategy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -155,6 +157,70 @@ export function StrategiesView() {
   const handleBacktest = (strategy: TradingStrategy) => {
     setSelectedStrategy(strategy);
     setShowBacktestModal(true);
+  };
+
+  const handleCreateStrategy = async (strategyData: Omit<TradingStrategy, 'id'>) => {
+    if (!user) {
+      console.error('No user found');
+      alert('You must be logged in to create strategies');
+      return;
+    }
+
+    try {
+      console.log('Saving strategy to database:', strategyData);
+      
+      // Insert strategy into Supabase
+      const { data, error } = await supabase
+        .from('trading_strategies')
+        .insert([
+          {
+            user_id: user.id,
+            name: strategyData.name,
+            type: strategyData.type,
+            description: strategyData.description,
+            risk_level: strategyData.risk_level,
+            min_capital: strategyData.min_capital,
+            is_active: strategyData.is_active,
+            configuration: strategyData.configuration,
+            performance: strategyData.performance || null,
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving strategy:', error);
+        alert(`Failed to save strategy: ${error.message}`);
+        return;
+      }
+
+      console.log('Strategy saved successfully:', data);
+      
+      // Add the new strategy to local state with the returned ID
+      const newStrategy: TradingStrategy = {
+        id: data.id,
+        name: data.name,
+        type: data.type,
+        description: data.description,
+        risk_level: data.risk_level,
+        min_capital: data.min_capital,
+        is_active: data.is_active,
+        configuration: data.configuration,
+        performance: data.performance,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+      setStrategies(prev => [...prev, newStrategy]);
+      setShowCreateModal(false);
+      
+      // Show success message
+      alert('Strategy created successfully!');
+      
+    } catch (error) {
+      console.error('Unexpected error saving strategy:', error);
+      alert('An unexpected error occurred while saving the strategy');
+    }
   };
 
   const activeStrategies = strategies.filter(s => s.is_active).length;
@@ -300,10 +366,7 @@ export function StrategiesView() {
       {showCreateModal && (
         <CreateStrategyModal
           onClose={() => setShowCreateModal(false)}
-          onSave={(strategy) => {
-            setStrategies(prev => [...prev, { ...strategy, id: Date.now().toString() }]);
-            setShowCreateModal(false);
-          }}
+          onSave={handleCreateStrategy}
         />
       )}
 
