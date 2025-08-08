@@ -23,7 +23,7 @@ export function Header() {
         // Mobile - full width
         'left-0',
         // Desktop - account for sidebar width
-        'lg:left-16', // When sidebar is collapsed (64px = 16 * 4px)
+        'lg:left-[74px]', // When sidebar is collapsed (74px)
         sidebarOpen && 'lg:left-64' // When sidebar is expanded (256px = 64 * 4px)
       )}
     >
