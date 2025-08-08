@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Search, Filter, TrendingUp, Activity, Settings, Play, Pause, BarChart3 } from 'lucide-react';
 import { Card } from '../ui/Card';
@@ -127,9 +128,62 @@ export function StrategiesView() {
   const [selectedStrategy, setSelectedStrategy] = useState<TradingStrategy | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showBacktestModal, setShowBacktestModal] = useState(false);
-  const [strategies, setStrategies] = useState(mockStrategies);
+  const [strategies, setStrategies] = useState<TradingStrategy[]>([]);
+  const [loading, setLoading] = useState(true);
   const { user } = useStore();
 
+  // Load strategies from database on component mount
+  useEffect(() => {
+    const loadStrategies = async () => {
+      if (!user) {
+        console.log('No user found, cannot load strategies');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log('Loading strategies for user:', user.id);
+        
+        const { data, error } = await supabase
+          .from('trading_strategies')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error loading strategies:', error);
+          // Fallback to mock data if database fails
+          setStrategies(mockStrategies);
+        } else {
+          console.log('Loaded strategies from database:', data);
+          // Transform database data to match TradingStrategy interface
+          const transformedStrategies: TradingStrategy[] = data.map(strategy => ({
+            id: strategy.id,
+            name: strategy.name,
+            type: strategy.type,
+            description: strategy.description,
+            risk_level: strategy.risk_level,
+            min_capital: strategy.min_capital,
+            is_active: strategy.is_active,
+            configuration: strategy.configuration,
+            performance: strategy.performance,
+            created_at: strategy.created_at,
+            updated_at: strategy.updated_at,
+          }));
+          
+          setStrategies(transformedStrategies);
+        }
+      } catch (error) {
+        console.error('Unexpected error loading strategies:', error);
+        // Fallback to mock data
+        setStrategies(mockStrategies);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStrategies();
+  }, [user]);
   const filteredStrategies = strategies.filter(strategy => {
     const matchesSearch = strategy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          strategy.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -234,6 +288,15 @@ export function StrategiesView() {
       transition={{ duration: 0.3 }}
       className="space-y-8"
     >
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="flex items-center gap-3 text-gray-400">
+            <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            <span>Loading strategies...</span>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="p-6">
@@ -388,6 +451,8 @@ export function StrategiesView() {
           strategy={selectedStrategy}
           onClose={() => setShowBacktestModal(false)}
         />
+      )}
+        </>
       )}
     </motion.div>
   );
