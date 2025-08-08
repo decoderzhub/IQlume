@@ -61,7 +61,7 @@ export function MainApp() {
         'pt-20 transition-all duration-300',
         // Desktop margins
         'lg:ml-0',
-        sidebarOpen ? 'lg:pl-64' : 'lg:pl-16',
+        sidebarOpen ? 'lg:pl-64' : 'lg:pl-21',
         // Mobile - no left margin, full width
         'ml-0',
         // Padding
