@@ -119,7 +119,7 @@ export function Sidebar() {
       {/* Desktop sidebar - always visible but can be collapsed */}
       <motion.aside
         animate={{
-          width: sidebarOpen ? 256 : 74,
+          width: sidebarOpen ? 256 : 85,
           transition: {
             type: "spring",
             stiffness: 400,
