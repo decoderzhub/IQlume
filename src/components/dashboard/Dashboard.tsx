@@ -10,7 +10,7 @@ export function Dashboard() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="space-y-50"
+      className="space-y-2"
     >
       <PortfolioOverview />
       
