@@ -18,6 +18,9 @@ import asyncio
 import httpx
 from datetime import datetime, timedelta
 import json
+from dotenv import load_dotenv
+
+load_dotenv()  # will look for .env in the current working directory
 
 app = FastAPI(title="brokernomex Trading API", version="1.0.0")
 
@@ -26,7 +29,6 @@ PLAID_CLIENT_ID = os.getenv('PLAID_CLIENT_ID')
 PLAID_SECRET = os.getenv('PLAID_SECRET')
 PLAID_ENV = os.getenv('PLAID_ENV', 'sandbox')
 
-# OpenAI configuration
 # Anthropic configuration
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 if ANTHROPIC_API_KEY:
@@ -40,7 +42,7 @@ if not PLAID_CLIENT_ID or not PLAID_SECRET:
     plaid_client = None
 else:
     configuration = Configuration(
-        host=getattr(plaid.Environment, PLAID_ENV.lower(), plaid.Environment.sandbox),
+        host=getattr(plaid.Environment, PLAID_ENV.capitalize(), plaid.Environment.Sandbox),
         api_key={
             'clientId': PLAID_CLIENT_ID,
             'secret': PLAID_SECRET,
@@ -165,10 +167,10 @@ async def get_options_chain(
             {
                 "strike": 170.0,
                 "call": {"bid": 8.50, "ask": 8.60, "iv": 0.25, "delta": 0.65},
-Provide clear, actionable advice. When users want to create a strategy, guide them through the key parameters they need to consider. Be concise but thorough. Focus on risk management and realistic expectations."""
-        
-        # Prepare messages for Anthropic Claude
-        messages = []
+                "put": {"bid": 7.50, "ask": 7.60, "iv": 0.30, "delta": -0.35}
+            }
+        ],
+        "messages": []
     }
 
 @app.post("/api/backtest")
@@ -407,7 +409,6 @@ Provide clear, actionable advice. When users want to create a strategy, guide th
             model="claude-3-sonnet-20240229",
             max_tokens=1000,
             temperature=0.7,
-            system=system_message,
             system=system_message,
             messages=messages
         )
