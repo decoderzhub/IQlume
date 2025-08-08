@@ -165,9 +165,10 @@ async def get_options_chain(
             {
                 "strike": 170.0,
                 "call": {"bid": 8.50, "ask": 8.60, "iv": 0.25, "delta": 0.65},
-                "put": {"bid": 2.10, "ask": 2.20, "iv": 0.24, "delta": -0.35}
-            }
-        ]
+Provide clear, actionable advice. When users want to create a strategy, guide them through the key parameters they need to consider. Be concise but thorough. Focus on risk management and realistic expectations."""
+        
+        # Prepare messages for Anthropic Claude
+        messages = []
     }
 
 @app.post("/api/backtest")
@@ -380,9 +381,6 @@ async def chat_with_anthropic(
     try:
         # Prepare system message for trading context
         system_message = """You are Brokernomex AI, an expert trading strategy assistant. You help users understand and create trading strategies including:
-
-- Covered Calls: Generate income by selling call options on owned stocks
-- Iron Condor: Profit from low volatility with defined risk spreads  
 - Straddle: Profit from high volatility in either direction
 - The Wheel: Systematic approach combining puts and covered calls
 - Opening Range Breakout (ORB): Trade breakouts from market open
@@ -409,6 +407,7 @@ Provide clear, actionable advice. When users want to create a strategy, guide th
             model="claude-3-sonnet-20240229",
             max_tokens=1000,
             temperature=0.7,
+            system=system_message,
             system=system_message,
             messages=messages
         )
