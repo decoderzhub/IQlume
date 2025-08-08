@@ -23,8 +23,7 @@ export function Header() {
         // Mobile - full width
         'left-0',
         // Desktop - account for sidebar width
-        'lg:left-21', // When sidebar is collapsed (84px = 21 * 4px)
-        sidebarOpen && 'lg:left-64' // When sidebar is expanded (256px = 64 * 4px)
+        sidebarOpen ? 'lg:left-64' : 'lg:left-21' // When sidebar is expanded (256px) or collapsed (84px)
       )}
     >
       <div className="flex items-center justify-between px-6 h-full">
