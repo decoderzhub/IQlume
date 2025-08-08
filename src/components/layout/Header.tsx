@@ -23,17 +23,6 @@ export function Header() {
     >
       <div className="flex items-center justify-between px-6 h-full">
         <div className="flex items-center gap-4">
-          {/* Desktop collapsed sidebar menu button */}
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors hidden lg:flex items-center gap-2"
-            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-          >
-            <Menu className="w-5 h-5" />
-          </motion.button>
-
           {/* Mobile menu button */}
           <motion.button
             whileHover={{ scale: 1.1 }}

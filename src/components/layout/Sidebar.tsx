@@ -128,7 +128,7 @@ export function Sidebar() {
         }}
         className="hidden lg:flex fixed left-0 top-0 h-full bg-gray-900/95 backdrop-blur-xl border-r border-gray-800 z-30 flex-col"
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-800 min-h-[64px]">
+        <div className="flex items-center justify-center p-4 border-b border-gray-800 min-h-[64px]">
           <AnimatePresence>
             {sidebarOpen && (
               <motion.h1 
@@ -136,7 +136,7 @@ export function Sidebar() {
                 initial="closed"
                 animate="open"
                 exit="closed"
-                className="text-xl font-bold text-white whitespace-nowrap"
+                className="text-xl font-bold text-white whitespace-nowrap mr-auto"
               >
               {/* <img src="/public/image.png" alt="brokernomex" className="h-10" />
  */}
@@ -146,7 +146,32 @@ export function Sidebar() {
           </AnimatePresence>
           
           {!sidebarOpen && (
-            <motion.div
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setSidebarOpen(true)}
+              className="flex flex-col items-center justify-center w-full hover:bg-gray-800 rounded-lg p-2 transition-colors group"
+              title="Expand sidebar"
+            >
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center text-white font-bold text-sm mb-1">
+                N
+              </div>
+              <Menu className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+            </motion.button>
+          )}
+          
+          {sidebarOpen && (
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+              title="Collapse sidebar"
+            >
+              <Menu className="w-5 h-5" />
+            </motion.button>
+          )}
+        </div>
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="flex justify-center w-full"
