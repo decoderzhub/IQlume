@@ -119,7 +119,7 @@ export function Sidebar() {
       {/* Desktop sidebar - always visible but can be collapsed */}
       <motion.aside
         animate={{
-          width: sidebarOpen ? 256 : 64,
+          width: sidebarOpen ? 256 : 80,
           transition: {
             type: "spring",
             stiffness: 400,
@@ -128,7 +128,7 @@ export function Sidebar() {
         }}
         className="hidden lg:flex fixed left-0 top-0 h-full bg-gray-900/95 backdrop-blur-xl border-r border-gray-800 z-30 flex-col"
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-800 min-h-[64px]">
+        <div className="flex flex-col items-center p-4 border-b border-gray-800 min-h-[64px]">
           <AnimatePresence>
             {sidebarOpen && (
               <motion.h1 
@@ -136,7 +136,7 @@ export function Sidebar() {
                 initial="closed"
                 animate="open"
                 exit="closed"
-                className="text-xl font-bold text-white whitespace-nowrap"
+                className="text-xl font-bold text-white whitespace-nowrap mb-2"
               >
               {/* <img src="/public/image.png" alt="brokernomex" className="h-10" />
  */}
@@ -149,7 +149,7 @@ export function Sidebar() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex justify-center w-full"
+              className="flex justify-center w-full mb-3"
             >
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center text-white font-bold text-sm">
                 N
@@ -157,18 +157,35 @@ export function Sidebar() {
             </motion.div>
           )}
           
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
-            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-          >
-            <Menu className="w-5 h-5" />
-          </motion.button>
+          {sidebarOpen && (
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors self-end"
+              title="Collapse sidebar"
+            >
+              <Menu className="w-5 h-5" />
+            </motion.button>
+          )}
         </div>
 
+        {!sidebarOpen && (
+          <div className="px-4 pb-4">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="w-full p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+              title="Expand sidebar"
+            >
+              <Menu className="w-5 h-5 mx-auto" />
+            </motion.button>
+          </div>
+        )}
+
         <nav className="p-4 space-y-2 flex-1">
+        </div>
           {navigation.map((item, index) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
