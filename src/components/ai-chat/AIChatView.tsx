@@ -303,6 +303,11 @@ export function AIChatView() {
             onStopResponse={stopResponse}
             suggestedQuestions={suggestedQuestions}
             actionablePrompts={actionablePrompts}
+            showSuggestions={showSuggestions}
+            setShowSuggestions={setShowSuggestions}
+            showActions={showActions}
+            setShowActions={setShowActions}
+            onSuggestedQuestion={handleSuggestedQuestion}
           />
         </Card>
       </div>
