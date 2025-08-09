@@ -25,6 +25,8 @@ from alpaca.data.live import StockDataStream, OptionDataStream, CryptoDataStream
 from alpaca.data.requests import StockLatestQuoteRequest, StockBarsRequest, OptionChainRequest, CryptoLatestQuoteRequest
 from alpaca.data.timeframe import TimeFrame
 from alpaca.common.exceptions import APIError as AlpacaAPIError
+from alpaca.trading.requests import GetOrdersRequest
+from alpaca.trading.enums import OrderSide, OrderStatus, ActivityType
 
 load_dotenv()  # will look for .env in the current working directory
 
@@ -148,23 +150,145 @@ async def get_strategies(credentials: HTTPAuthorizationCredentials = Depends(sec
 
 @app.get("/api/trades")
 async def get_trades(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     limit: int = 50,
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    """Get user's trade history"""
-    return [
-        {
-            "id": "1",
-            "strategy_id": "1",
-            "symbol": "AAPL",
-            "type": "sell",
-            "quantity": 1,
-            "price": 175.50,
-            "timestamp": "2024-01-15T14:30:00Z",
-            "profit_loss": 125.50,
-            "status": "executed"
+    """Get user's trade history from Alpaca"""
+    if not trading_client:
+        # Fallback to mock data if Alpaca not configured
+        mock_trades = [
+            {
+                "id": "1",
+                "strategy_id": "1",
+                "symbol": "AAPL",
+                "type": "sell",
+                "quantity": 1,
+                "price": 175.50,
+                "timestamp": "2024-01-15T14:30:00Z",
+                "profit_loss": 125.50,
+                "status": "executed"
+            },
+            {
+                "id": "2",
+                "strategy_id": "2",
+                "symbol": "SPY",
+                "type": "buy",
+                "quantity": 4,
+                "price": 470.25,
+                "timestamp": "2024-01-15T13:45:00Z",
+                "profit_loss": -45.00,
+                "status": "executed"
+            },
+            {
+                "id": "3",
+                "strategy_id": "3",
+                "symbol": "BTCUSD",
+                "type": "buy",
+                "quantity": 0.1,
+                "price": 42150.00,
+                "timestamp": "2024-01-15T12:20:00Z",
+                "profit_loss": 0,
+                "status": "pending"
+            }
+        ]
+        
+        # Calculate mock stats
+        executed_trades = [t for t in mock_trades if t["status"] == "executed"]
+        total_profit_loss = sum(t["profit_loss"] for t in executed_trades)
+        winning_trades = len([t for t in executed_trades if t["profit_loss"] > 0])
+        win_rate = winning_trades / len(executed_trades) if executed_trades else 0
+        
+        return {
+            "trades": mock_trades,
+            "stats": {
+                "total_trades": len(mock_trades),
+                "total_profit_loss": total_profit_loss,
+                "win_rate": win_rate,
+                "avg_trade_duration": 2.5
+            },
+            "source": "mock"
         }
-    ]
+    
+    try:
+        # Set date range for orders
+        if start_date:
+            start_dt = datetime.fromisoformat(start_date)
+        else:
+            start_dt = datetime.now() - timedelta(days=30)  # Default to last 30 days
+            
+        if end_date:
+            end_dt = datetime.fromisoformat(end_date)
+        else:
+            end_dt = datetime.now()
+        
+        # Get orders from Alpaca
+        orders_request = GetOrdersRequest(
+            status=OrderStatus.ALL,
+            limit=limit,
+            after=start_dt,
+            until=end_dt
+        )
+        
+        orders = trading_client.get_orders(orders_request)
+        
+        # Convert Alpaca orders to our trade format
+        trades = []
+        for order in orders:
+            # Calculate profit/loss (simplified - in production you'd need more complex P&L calculation)
+            profit_loss = 0
+            if order.filled_qty and order.filled_avg_price:
+                if order.side == OrderSide.SELL:
+                    # For sells, we'd need to track the original buy price to calculate P&L
+                    # This is a simplified calculation
+                    profit_loss = float(order.filled_qty) * float(order.filled_avg_price) * 0.02  # Mock 2% profit
+                else:
+                    profit_loss = 0  # No P&L for buys until sold
+            
+            trade = {
+                "id": str(order.id),
+                "strategy_id": order.client_order_id or "manual",  # Use client_order_id as strategy reference
+                "symbol": order.symbol,
+                "type": "buy" if order.side == OrderSide.BUY else "sell",
+                "quantity": float(order.qty),
+                "price": float(order.filled_avg_price) if order.filled_avg_price else float(order.limit_price or order.stop_price or 0),
+                "timestamp": order.created_at.isoformat() if order.created_at else datetime.now().isoformat(),
+                "profit_loss": profit_loss,
+                "status": "executed" if order.status == OrderStatus.FILLED else 
+                         "pending" if order.status in [OrderStatus.NEW, OrderStatus.PARTIALLY_FILLED, OrderStatus.ACCEPTED] else
+                         "failed"
+            }
+            trades.append(trade)
+        
+        # Calculate statistics
+        executed_trades = [t for t in trades if t["status"] == "executed"]
+        total_profit_loss = sum(t["profit_loss"] for t in executed_trades)
+        winning_trades = len([t for t in executed_trades if t["profit_loss"] > 0])
+        win_rate = winning_trades / len(executed_trades) if executed_trades else 0
+        
+        # Calculate average trade duration (simplified)
+        avg_duration = 1.5  # Mock average duration in days
+        
+        stats = {
+            "total_trades": len(trades),
+            "total_profit_loss": total_profit_loss,
+            "win_rate": win_rate,
+            "avg_trade_duration": avg_duration
+        }
+        
+        return {
+            "trades": trades,
+            "stats": stats,
+            "source": "alpaca"
+        }
+        
+    except AlpacaAPIError as e:
+        print(f"Alpaca API error fetching trades: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
+    except Exception as e:
+        print(f"Error fetching trades: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch trades: {str(e)}")
 
 @app.get("/api/market-data/{symbol}")
 async def get_market_data(

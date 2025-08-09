@@ -8,14 +8,7 @@ import { AIChatView } from './ai-chat/AIChatView';
 
 import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
-
-// Placeholder components for other views
-const TradesView = () => (
-  <div className="p-8 text-center text-gray-400">
-    <h2 className="text-2xl font-bold text-white mb-4">Trade History</h2>
-    <p>Comprehensive trade analytics coming soon...</p>
-  </div>
-);
+import { TradesView } from './trades/TradesView';
 
 const AnalyticsView = () => (
   <div className="p-8 text-center text-gray-400">
