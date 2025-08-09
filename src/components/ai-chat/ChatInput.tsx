@@ -27,10 +27,15 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showActions, setShowActions] = useState(true);
+  const [hasInput, setHasInput] = useState(false);
+  const [needsResize, setNeedsResize] = useState(false);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Optimized auto-resize textarea with debouncing
+  // Only resize when actually needed
   useEffect(() => {
+    // Early return if no resize needed
+    if (!needsResize) return;
+    
     // Clear any existing timeout
     if (resizeTimeoutRef.current) {
       clearTimeout(resizeTimeoutRef.current);
@@ -55,8 +60,11 @@ export function ChatInput({
         // Set height based on content, but cap at max lines
         const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
         textarea.style.height = `${newHeight}px`;
+        
+        // Reset the resize flag
+        setNeedsResize(false);
       });
-    }, 10); // 10ms debounce
+    }, 5); // 5ms debounce
 
     // Cleanup timeout on unmount
     return () => {
@@ -64,13 +72,10 @@ export function ChatInput({
         clearTimeout(resizeTimeoutRef.current);
       }
     };
-  }, [inputMessage]);
+  }, [needsResize]);
 
-  // Optimized suggestion hiding - only run when input changes from empty to non-empty or vice versa
+  // Only check suggestions when hasInput state changes
   useEffect(() => {
-    const textarea = textareaRef.current;
-    const hasInput = inputMessage.trim().length > 0;
-    
     if (hasInput && (showSuggestions || showActions)) {
       setShowSuggestions(false);
       setShowActions(false);
@@ -78,7 +83,7 @@ export function ChatInput({
       setShowSuggestions(true);
       setShowActions(true);
     }
-  }, [inputMessage.trim().length > 0]); // Only run when empty/non-empty state changes
+  }, [hasInput, showSuggestions, showActions]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -96,9 +101,30 @@ export function ChatInput({
     }
   };
 
-  // Optimized input handler
+  // Highly optimized input handler with early returns
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputMessage(e.target.value);
+    const newValue = e.target.value;
+    const newHasInput = newValue.trim().length > 0;
+    
+    // Early return if input state hasn't changed
+    if (newHasInput === hasInput && newValue === inputMessage) {
+      return;
+    }
+    
+    setInputMessage(newValue);
+    
+    // Only update hasInput state if it actually changed
+    if (newHasInput !== hasInput) {
+      setHasInput(newHasInput);
+    }
+    
+    // Only trigger resize if content length changed significantly
+    const currentLines = newValue.split('\n').length;
+    const previousLines = inputMessage.split('\n').length;
+    
+    if (currentLines !== previousLines || Math.abs(newValue.length - inputMessage.length) > 10) {
+      setNeedsResize(true);
+    }
   };
   return (
     <div className="border-t border-gray-800">
