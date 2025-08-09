@@ -189,6 +189,7 @@ export function ChatInput(props: ChatInputProps) {
         <p className="hidden sm:block text-xs text-gray-300 mt-2 sm:mt-3 text-center font-medium">
           Claude responses are generated and may not always be accurate. Always do your own research.
         </p>
+      </div>
     </div>
   );
 }
