@@ -8,8 +8,10 @@ import 'highlight.js/styles/github-dark.css';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { AIChatSidebar } from './AIChatSidebar';
+import { StrategyCreationModal } from './StrategyCreationModal';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
+import { TradingStrategy } from '../../types';
 
 interface ChatMessage {
   id: string;
@@ -194,10 +196,12 @@ export function AIChatView() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
-  const { user } = useStore();
+  const { user, strategies, setStrategies } = useStore();
   const [selectedModel, setSelectedModel] = useState('claude-opus-4-1-20250805');
   const [lastResponseTokens, setLastResponseTokens] = useState<TokenUsage | null>(null);
   const [lastResponseModel, setLastResponseModel] = useState<string | null>(null);
+  const [showStrategyModal, setShowStrategyModal] = useState(false);
+  const [pendingStrategy, setPendingStrategy] = useState<any>(null);
 
   const createNewChat = () => {
     const newSessionId = Date.now().toString();
@@ -466,7 +470,7 @@ export function AIChatView() {
                         )}
                       </p>
                     </div>
-                    <p className={`text-xs text-gray-500 mt-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
+                    <p className={`text-sm text-gray-300 mt-2 font-medium ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
                       {formatTime(message.timestamp)}
                     </p>
                   </div>
@@ -528,7 +532,7 @@ export function AIChatView() {
                 )}
               </Button>
             </form>
-            <p className="text-xs text-gray-500 mt-2 text-center">
+            <p className="text-sm text-gray-300 mt-3 text-center font-medium">
               Claude responses are generated and may not always be accurate. Always do your own research.
             </p>
           </div>
