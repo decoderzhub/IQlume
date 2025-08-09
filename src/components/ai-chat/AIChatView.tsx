@@ -1097,11 +1097,9 @@ export function AIChatView() {
                   <Send className="w-4 h-4" />
                 )}
               </Button>
-            </form>
             <p className="text-sm text-gray-300 mt-3 text-center font-medium">
             <p className="text-xs sm:text-sm text-gray-300 mt-3 text-center font-medium">
               Claude responses are generated and may not always be accurate. Always do your own research.
-            </p>
           </div>
         </Card>
       </div>
