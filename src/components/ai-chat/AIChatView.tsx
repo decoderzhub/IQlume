@@ -161,23 +161,9 @@ const actionablePrompts = [
   "Create a pairs trading strategy for correlated assets",
 ];
 export function AIChatView() {
-  const [currentSessionId, setCurrentSessionId] = useState('1');
-  const [chatSessions, setChatSessions] = useState<ChatSession[]>([
-    {
-      id: '1',
-      title: 'Trading Strategy Help',
-      timestamp: new Date(),
-      messages: [
-        {
-          id: '1',
-          role: 'assistant',
-          content: "Hello! I'm Brokernomex AI, your trading strategy assistant. I can help you understand different trading strategies, analyze market conditions, and guide you through creating automated trading bots. What would you like to know about trading strategies?",
-          timestamp: new Date(),
-          isTyping: false,
-        },
-      ],
-    },
-  ]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>('');
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   
   const currentSession = chatSessions.find(session => session.id === currentSessionId);
   const messages = currentSession?.messages || [];
@@ -202,6 +188,168 @@ export function AIChatView() {
   const [lastResponseModel, setLastResponseModel] = useState<string | null>(null);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [pendingStrategy, setPendingStrategy] = useState<any>(null);
+
+  // Load chat history from database on component mount
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (!user) return;
+      
+      setIsLoadingHistory(true);
+      try {
+        // Load chat sessions
+        const { data: sessions, error: sessionsError } = await supabase
+          .from('chat_sessions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+
+        if (sessionsError) {
+          console.error('Error loading chat sessions:', sessionsError);
+          // Create default session if none exist
+          await createDefaultSession();
+          return;
+        }
+
+        if (!sessions || sessions.length === 0) {
+          // Create default session if none exist
+          await createDefaultSession();
+          return;
+        }
+
+        // Load messages for each session
+        const sessionsWithMessages: ChatSession[] = [];
+        
+        for (const session of sessions) {
+          const { data: messages, error: messagesError } = await supabase
+            .from('chat_messages')
+            .select('*')
+            .eq('session_id', session.id)
+            .order('created_at', { ascending: true });
+
+          if (messagesError) {
+            console.error('Error loading messages for session:', session.id, messagesError);
+            continue;
+          }
+
+          const chatMessages: ChatMessage[] = (messages || []).map(msg => ({
+            id: msg.id,
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content,
+            timestamp: new Date(msg.created_at),
+            isTyping: false,
+          }));
+
+          sessionsWithMessages.push({
+            id: session.id,
+            title: session.title,
+            timestamp: new Date(session.updated_at),
+            messages: chatMessages,
+          });
+        }
+
+        setChatSessions(sessionsWithMessages);
+        
+        // Set current session to the most recent one
+        if (sessionsWithMessages.length > 0) {
+          setCurrentSessionId(sessionsWithMessages[0].id);
+        }
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+        await createDefaultSession();
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    const createDefaultSession = async () => {
+      if (!user) return;
+      
+      try {
+        // Create default session in database
+        const { data: session, error: sessionError } = await supabase
+          .from('chat_sessions')
+          .insert([{
+            user_id: user.id,
+            title: 'Trading Strategy Help',
+          }])
+          .select()
+          .single();
+
+        if (sessionError) {
+          console.error('Error creating default session:', sessionError);
+          return;
+        }
+
+        // Create welcome message
+        const welcomeContent = "Hello! I'm Brokernomex AI, your trading strategy assistant. I can help you understand different trading strategies, analyze market conditions, and guide you through creating automated trading bots. What would you like to know about trading strategies?";
+        
+        const { error: messageError } = await supabase
+          .from('chat_messages')
+          .insert([{
+            session_id: session.id,
+            role: 'assistant',
+            content: welcomeContent,
+          }]);
+
+        if (messageError) {
+          console.error('Error creating welcome message:', messageError);
+        }
+
+        // Set up local state
+        const defaultSession: ChatSession = {
+          id: session.id,
+          title: session.title,
+          timestamp: new Date(session.created_at),
+          messages: [{
+            id: 'welcome',
+            role: 'assistant',
+            content: welcomeContent,
+            timestamp: new Date(),
+            isTyping: false,
+          }],
+        };
+
+        setChatSessions([defaultSession]);
+        setCurrentSessionId(session.id);
+      } catch (error) {
+        console.error('Error creating default session:', error);
+      }
+    };
+
+    loadChatHistory();
+  }, [user]);
+
+  // Save messages to database when they change
+  useEffect(() => {
+    const saveMessage = async (message: ChatMessage) => {
+      if (!user || !currentSessionId || message.id === 'welcome') return;
+      
+      try {
+        const { error } = await supabase
+          .from('chat_messages')
+          .insert([{
+            session_id: currentSessionId,
+            role: message.role,
+            content: message.content,
+          }]);
+
+        if (error) {
+          console.error('Error saving message:', error);
+        }
+      } catch (error) {
+        console.error('Error saving message:', error);
+      }
+    };
+
+    // Save the last message if it's new
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      // Only save if it's a new message (not from database load)
+      if (lastMessage && !lastMessage.isTyping) {
+        saveMessage(lastMessage);
+      }
+    }
+  }, [messages, user, currentSessionId]);
 
   const stopResponse = () => {
     setIsLoading(false);
@@ -289,25 +437,60 @@ export function AIChatView() {
     }
   };
 
-  const createNewChat = () => {
-    const newSessionId = Date.now().toString();
-    const newSession: ChatSession = {
-      id: newSessionId,
-      title: 'New Chat',
-      timestamp: new Date(),
-      messages: [
-        {
-          id: '1',
-          role: 'assistant',
-          content: "Hello! I'm Brokernomex AI, your trading strategy assistant. I can help you understand different trading strategies, analyze market conditions, and guide you through creating automated trading bots. What would you like to know about trading strategies?",
-          timestamp: new Date(),
-        },
-      ],
-    };
+  const createNewChat = async () => {
+    if (!user) return;
     
-    setChatSessions(prev => [newSession, ...prev]);
-    setCurrentSessionId(newSessionId);
-    setSessionTokensUsed(0);
+    try {
+      // Create new session in database
+      const { data: session, error: sessionError } = await supabase
+        .from('chat_sessions')
+        .insert([{
+          user_id: user.id,
+          title: 'New Chat',
+        }])
+        .select()
+        .single();
+
+      if (sessionError) {
+        console.error('Error creating new session:', sessionError);
+        return;
+      }
+
+      // Create welcome message
+      const welcomeContent = "Hello! I'm Brokernomex AI, your trading strategy assistant. I can help you understand different trading strategies, analyze market conditions, and guide you through creating automated trading bots. What would you like to know about trading strategies?";
+      
+      const { error: messageError } = await supabase
+        .from('chat_messages')
+        .insert([{
+          session_id: session.id,
+          role: 'assistant',
+          content: welcomeContent,
+        }]);
+
+      if (messageError) {
+        console.error('Error creating welcome message:', messageError);
+      }
+
+      // Set up local state
+      const newSession: ChatSession = {
+        id: session.id,
+        title: session.title,
+        timestamp: new Date(session.created_at),
+        messages: [{
+          id: 'welcome',
+          role: 'assistant',
+          content: welcomeContent,
+          timestamp: new Date(),
+          isTyping: false,
+        }],
+      };
+      
+      setChatSessions(prev => [newSession, ...prev]);
+      setCurrentSessionId(session.id);
+      setSessionTokensUsed(0);
+    } catch (error) {
+      console.error('Error creating new chat:', error);
+    }
   };
 
   const switchToSession = (sessionId: string) => {
@@ -317,6 +500,35 @@ export function AIChatView() {
     if (session) {
       // This would be calculated from stored token usage per session
       setSessionTokensUsed(0); // Reset for now
+    }
+  };
+
+  const deleteSession = async (sessionId: string) => {
+    if (!user || chatSessions.length <= 1) return;
+    
+    try {
+      // Delete from database (messages will be deleted automatically due to CASCADE)
+      const { error } = await supabase
+        .from('chat_sessions')
+        .delete()
+        .eq('id', sessionId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error deleting session:', error);
+        return;
+      }
+
+      // Update local state
+      const updatedSessions = chatSessions.filter(session => session.id !== sessionId);
+      setChatSessions(updatedSessions);
+      
+      // If we deleted the current session, switch to the first remaining session
+      if (currentSessionId === sessionId && updatedSessions.length > 0) {
+        setCurrentSessionId(updatedSessions[0].id);
+      }
+    } catch (error) {
+      console.error('Error deleting session:', error);
     }
   };
 
@@ -752,6 +964,7 @@ export function AIChatView() {
         currentSessionId={currentSessionId}
         onNewChat={createNewChat}
         onSwitchSession={switchToSession}
+        onDeleteSession={deleteSession}
       />
 
       {/* Strategy Creation Modal */}

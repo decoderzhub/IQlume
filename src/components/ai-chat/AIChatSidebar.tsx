@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, ChevronDown, ChevronUp, X, Lightbulb, Coins, MessageSquare, Plus, Clock } from 'lucide-react';
+import { Brain, ChevronDown, ChevronUp, X, Lightbulb, Coins, MessageSquare, Plus, Clock, Trash2 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 
@@ -32,6 +32,7 @@ interface AIChatSidebarProps {
   currentSessionId: string;
   onNewChat: () => void;
   onSwitchSession: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => void;
 }
 
 const anthropicModels = [
@@ -115,6 +116,7 @@ export function AIChatSidebar({
   currentSessionId,
   onNewChat,
   onSwitchSession,
+  onDeleteSession,
 }: AIChatSidebarProps) {
   const [showModels, setShowModels] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -353,14 +355,13 @@ export function AIChatSidebar({
                             key={session.id}
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.99 }}
-                            onClick={() => onSwitchSession(session.id)}
                             className={`p-3 rounded-lg border cursor-pointer transition-all ${
                               currentSessionId === session.id
                                 ? 'border-purple-500 bg-purple-500/10'
                                 : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
                             }`}
                           >
-                            <div className="flex items-start justify-between mb-1">
+                            <div className="flex items-start justify-between mb-1" onClick={() => onSwitchSession(session.id)}>
                               <span className="font-medium text-white text-sm truncate flex-1">
                                 {session.title}
                               </span>
@@ -369,7 +370,7 @@ export function AIChatSidebar({
                                 {formatTime(session.timestamp)}
                               </div>
                             </div>
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between" onClick={() => onSwitchSession(session.id)}>
                               <span className="text-xs text-gray-400">
                                 {session.messages.length} messages
                               </span>
@@ -377,6 +378,22 @@ export function AIChatSidebar({
                                 {formatDate(session.timestamp)}
                               </span>
                             </div>
+                            {chatSessions.length > 1 && (
+                              <div className="flex justify-end mt-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('Are you sure you want to delete this conversation?')) {
+                                      onDeleteSession(session.id);
+                                    }
+                                  }}
+                                  className="p-1 rounded hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+                                  title="Delete conversation"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
                           </motion.div>
                         ))}
                       </div>
@@ -558,17 +575,16 @@ export function AIChatSidebar({
                             key={session.id}
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.99 }}
-                            onClick={() => {
-                              onSwitchSession(session.id);
-                              setRightSidebarOpen(false);
-                            }}
                             className={`p-3 rounded-lg border cursor-pointer transition-all ${
                               currentSessionId === session.id
                                 ? 'border-purple-500 bg-purple-500/10'
                                 : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
                             }`}
                           >
-                            <div className="flex items-start justify-between mb-1">
+                            <div className="flex items-start justify-between mb-1" onClick={() => {
+                              onSwitchSession(session.id);
+                              setRightSidebarOpen(false);
+                            }}>
                               <span className="font-medium text-white text-sm truncate flex-1">
                                 {session.title}
                               </span>
@@ -577,7 +593,10 @@ export function AIChatSidebar({
                                 {formatTime(session.timestamp)}
                               </div>
                             </div>
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between" onClick={() => {
+                              onSwitchSession(session.id);
+                              setRightSidebarOpen(false);
+                            }}>
                               <span className="text-xs text-gray-400">
                                 {session.messages.length} messages
                               </span>
@@ -585,6 +604,22 @@ export function AIChatSidebar({
                                 {formatDate(session.timestamp)}
                               </span>
                             </div>
+                            {chatSessions.length > 1 && (
+                              <div className="flex justify-end mt-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('Are you sure you want to delete this conversation?')) {
+                                      onDeleteSession(session.id);
+                                    }
+                                  }}
+                                  className="p-1 rounded hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+                                  title="Delete conversation"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
                           </motion.div>
                         ))}
                       </div>
