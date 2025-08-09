@@ -205,8 +205,8 @@ export function AIChatView() {
                     <div
                       className={`p-4 rounded-2xl ${
                         message.role === 'user'
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white ml-auto'
-                          : 'bg-gray-800/50 text-gray-100'
+                          ? 'bg-gray-800/50 text-gray-100 ml-auto'
+                          : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
                       }`}
                     >
                       <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
