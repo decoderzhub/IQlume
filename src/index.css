@@ -6,6 +6,7 @@
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
+    scrollbar-color: #4b5563 #1f2937;
   }
   
   .scrollbar-thin::-webkit-scrollbar {
@@ -42,6 +43,7 @@
   
   .custom-scrollbar {
     scrollbar-width: thin;
+    scrollbar-color: #4b5563 #1f2937;
   }
   
   .custom-scrollbar::-webkit-scrollbar {
