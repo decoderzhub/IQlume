@@ -18,8 +18,11 @@
     "plaid": "^11.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
     "react-plaid-link": "^3.5.2",
     "recharts": "^3.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
     "zustand": "^5.0.6"
   },
   "devDependencies": {

@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Bot, User, Loader2, Brain, Menu, Coins } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github-dark.css';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { AIChatSidebar } from './AIChatSidebar';
@@ -28,8 +32,62 @@ interface ChatSession {
   messages: ChatMessage[];
 }
 
+// Custom markdown components for better styling
+const MarkdownComponents = {
+  h1: ({ children }: any) => <h1 className="text-2xl font-bold mb-4 text-white">{children}</h1>,
+  h2: ({ children }: any) => <h2 className="text-xl font-semibold mb-3 text-white">{children}</h2>,
+  h3: ({ children }: any) => <h3 className="text-lg font-medium mb-2 text-white">{children}</h3>,
+  p: ({ children }: any) => <p className="mb-3 leading-relaxed">{children}</p>,
+  ul: ({ children }: any) => <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>,
+  ol: ({ children }: any) => <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>,
+  li: ({ children }: any) => <li className="ml-2">{children}</li>,
+  code: ({ inline, children, ...props }: any) => 
+    inline ? (
+      <code className="bg-black/30 px-1.5 py-0.5 rounded text-sm font-mono text-blue-200" {...props}>
+        {children}
+      </code>
+    ) : (
+      <code className="block bg-black/50 p-3 rounded-lg text-sm font-mono overflow-x-auto mb-3" {...props}>
+        {children}
+      </code>
+    ),
+  pre: ({ children }: any) => <pre className="bg-black/50 p-3 rounded-lg overflow-x-auto mb-3">{children}</pre>,
+  blockquote: ({ children }: any) => (
+    <blockquote className="border-l-4 border-blue-400 pl-4 italic mb-3 text-gray-200">
+      {children}
+    </blockquote>
+  ),
+  table: ({ children }: any) => (
+    <div className="overflow-x-auto mb-3">
+      <table className="min-w-full border border-gray-600 rounded-lg">{children}</table>
+    </div>
+  ),
+  thead: ({ children }: any) => <thead className="bg-gray-800">{children}</thead>,
+  tbody: ({ children }: any) => <tbody>{children}</tbody>,
+  tr: ({ children }: any) => <tr className="border-b border-gray-600">{children}</tr>,
+  th: ({ children }: any) => <th className="px-3 py-2 text-left font-medium text-white">{children}</th>,
+  td: ({ children }: any) => <td className="px-3 py-2 text-gray-200">{children}</td>,
+  strong: ({ children }: any) => <strong className="font-semibold text-white">{children}</strong>,
+  em: ({ children }: any) => <em className="italic text-gray-200">{children}</em>,
+  a: ({ children, href, ...props }: any) => (
+    <a 
+      href={href} 
+      className="text-blue-400 hover:text-blue-300 underline" 
+      target="_blank" 
+      rel="noopener noreferrer"
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+};
+
 // Typing animation component
-const TypingText: React.FC<{ text: string; onComplete?: () => void }> = ({ text, onComplete }) => {
+const TypingText: React.FC<{ text: string; onComplete?: () => void; isMarkdown?: boolean }> = ({ 
+  text, 
+  onComplete, 
+  isMarkdown = false 
+}) => {
   const [displayedText, setDisplayedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -45,6 +103,27 @@ const TypingText: React.FC<{ text: string; onComplete?: () => void }> = ({ text,
       onComplete();
     }
   }, [currentIndex, text, onComplete]);
+
+  if (isMarkdown) {
+    return (
+      <div>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeHighlight]}
+          components={MarkdownComponents}
+        >
+          {displayedText}
+        </ReactMarkdown>
+        {currentIndex < text.length && (
+          <motion.span
+            animate={{ opacity: [1, 0] }}
+            transition={{ duration: 0.8, repeat: Infinity }}
+            className="inline-block w-0.5 h-4 bg-current ml-0.5"
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <span>
@@ -365,6 +444,7 @@ export function AIChatView() {
                         {message.role === 'assistant' && message.isTyping ? (
                           <TypingText 
                             text={message.content}
+                            isMarkdown={true}
                             onComplete={() => {
                               setMessages(prev => prev.map(msg => 
                                 msg.id === message.id ? { ...msg, isTyping: false } : msg
@@ -372,7 +452,17 @@ export function AIChatView() {
                             }}
                           />
                         ) : (
-                          message.content
+                          message.role === 'assistant' ? (
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              rehypePlugins={[rehypeHighlight]}
+                              components={MarkdownComponents}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
+                          ) : (
+                            message.content
+                          )
                         )}
                       </p>
                     </div>
