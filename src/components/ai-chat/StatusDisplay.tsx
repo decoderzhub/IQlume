@@ -30,13 +30,13 @@ export function StatusDisplay({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {showLottie && (
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-1 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-2 flex items-center justify-center">
               <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
                 <DotLottieReact
                   src={lottieUrl}
                   loop
                   autoplay
-                  className="w-8 h-8"
+                  className="w-12 h-12"
                 />
               </div>
             </div>
