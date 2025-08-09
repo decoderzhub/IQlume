@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, Zap, TrendingUp, Target, Lightbulb, ChevronDown, ChevronUp, X, Menu } from 'lucide-react';
+import { Brain, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Card } from '../ui/Card';
-import { cn } from '../../lib/utils';
 
 interface AIChatSidebarProps {
   rightSidebarOpen: boolean;
   setRightSidebarOpen: (open: boolean) => void;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
+  suggestedQuestions: string[];
+  handleSuggestedQuestion: (question: string) => void;
 }
 
 const anthropicModels = [
@@ -83,8 +84,11 @@ export function AIChatSidebar({
   setRightSidebarOpen,
   selectedModel, 
   setSelectedModel,
+  suggestedQuestions,
+  handleSuggestedQuestion,
 }: AIChatSidebarProps) {
   const [showModels, setShowModels] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const sidebarVariants = {
     open: {

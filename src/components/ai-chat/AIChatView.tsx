@@ -371,6 +371,8 @@ export function AIChatView() {
         setRightSidebarOpen={setRightSidebarOpen}
         selectedModel={selectedModel}
         setSelectedModel={setSelectedModel}
+        suggestedQuestions={suggestedQuestions}
+        handleSuggestedQuestion={handleSuggestedQuestion}
       />
     </motion.div>
   );
