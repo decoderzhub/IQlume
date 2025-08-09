@@ -99,7 +99,7 @@ const TypingText: React.FC<{ text: string; onComplete?: () => void; isMarkdown?:
       const timer = setTimeout(() => {
         setDisplayedText(prev => prev + text[currentIndex]);
         setCurrentIndex(prev => prev + 1);
-      }, 25); // 25ms delay for smooth typing
+      }, 4); // 25ms delay for smooth typing
 
       return () => clearTimeout(timer);
     } else if (onComplete) {
@@ -689,7 +689,7 @@ export function AIChatView() {
         setMessages(prev => prev.map(msg => 
           msg.id === aiMessage.id ? { ...msg, isTyping: false } : msg
         ));
-      }, result.message.length * 20 + 500); // Match typing speed + buffer
+      }, result.message.length * 4 + 500); // Match typing speed + buffer
     } catch (error) {
       console.error('Error sending message:', error);
       
