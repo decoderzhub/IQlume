@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { Card } from '../ui/Card';
 import { formatCurrency, formatPercent } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
@@ -38,10 +39,34 @@ const mockPortfolio = {
 export function PortfolioOverview() {
   const { portfolio: storePortfolio, user } = useStore();
   const [marketData, setMarketData] = React.useState<any>(null);
+  const [historicalData, setHistoricalData] = React.useState<any>({});
   const [loading, setLoading] = React.useState(false);
   
   const portfolio = storePortfolio ?? mockPortfolio;
   const isPositive = portfolio.day_change >= 0;
+
+  // Generate mock historical data for charts (in production, this would come from your API)
+  const generateMockHistoricalData = (currentPrice: number, symbol: string) => {
+    const points = 20;
+    const data = [];
+    let price = currentPrice * 0.95; // Start 5% below current price
+    
+    for (let i = 0; i < points; i++) {
+      const change = (Math.random() - 0.5) * 0.02; // ±1% random change
+      price = price * (1 + change);
+      data.push({
+        time: Date.now() - (points - i) * 60000, // 1 minute intervals
+        price: price,
+        value: price
+      });
+    }
+    
+    // Ensure the last point matches current price
+    data[data.length - 1].price = currentPrice;
+    data[data.length - 1].value = currentPrice;
+    
+    return data;
+  };
 
   // Fetch real-time market data for portfolio symbols
   React.useEffect(() => {
@@ -66,6 +91,15 @@ export function PortfolioOverview() {
         if (response.ok) {
           const data = await response.json();
           setMarketData(data);
+          
+          // Generate historical data for charts
+          const newHistoricalData: any = {};
+          Object.entries(data).forEach(([symbol, quote]: [string, any]) => {
+            if (!historicalData[symbol]) {
+              newHistoricalData[symbol] = generateMockHistoricalData(quote.price, symbol);
+            }
+          });
+          setHistoricalData(prev => ({ ...prev, ...newHistoricalData }));
         }
       } catch (error) {
         console.error('Error fetching market data:', error);
@@ -80,6 +114,27 @@ export function PortfolioOverview() {
     const interval = setInterval(fetchMarketData, 30000);
     return () => clearInterval(interval);
   }, [user]);
+
+  // Update historical data with new prices
+  React.useEffect(() => {
+    if (marketData) {
+      const updatedHistoricalData = { ...historicalData };
+      
+      Object.entries(marketData).forEach(([symbol, quote]: [string, any]) => {
+        if (updatedHistoricalData[symbol]) {
+          // Add new data point and keep only last 20 points
+          const newPoint = {
+            time: Date.now(),
+            price: quote.price,
+            value: quote.price
+          };
+          updatedHistoricalData[symbol] = [...updatedHistoricalData[symbol].slice(1), newPoint];
+        }
+      });
+      
+      setHistoricalData(updatedHistoricalData);
+    }
+  }, [marketData]);
 
   const stats = [
     {
@@ -141,22 +196,54 @@ export function PortfolioOverview() {
       {marketData && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Live Market Data</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {Object.entries(marketData).map(([symbol, data]: [string, any]) => (
-              <div key={symbol} className="bg-gray-800/30 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-white">{symbol}</span>
-                  <span className={`text-sm ${data.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {data.change >= 0 ? '+' : ''}{data.change_percent?.toFixed(2)}%
-                  </span>
+              <motion.div 
+                key={symbol} 
+                className="bg-gray-800/30 rounded-lg p-4"
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <span className="font-medium text-white text-sm">{symbol}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-lg font-bold text-white">
+                        ${data.price?.toFixed(2)}
+                      </span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        data.change >= 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {data.change >= 0 ? '+' : ''}{data.change_percent?.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-lg font-bold text-white">
-                  ${data.price?.toFixed(2)}
-                </p>
-                <p className="text-xs text-gray-400">
-                  Vol: {data.volume?.toLocaleString()}
-                </p>
-              </div>
+                
+                {/* Mini Chart */}
+                {historicalData[symbol] && (
+                  <div className="h-16 mb-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={historicalData[symbol]}>
+                        <Line 
+                          type="monotone" 
+                          dataKey="value" 
+                          stroke={data.change >= 0 ? '#10b981' : '#ef4444'}
+                          strokeWidth={1.5}
+                          dot={false}
+                          activeDot={{ r: 2, fill: data.change >= 0 ? '#10b981' : '#ef4444' }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between text-xs text-gray-400">
+                  <span>Vol: {data.volume?.toLocaleString()}</span>
+                  <span>H: ${data.high?.toFixed(2)}</span>
+                  <span>L: ${data.low?.toFixed(2)}</span>
+                </div>
+              </motion.div>
             ))}
           </div>
         </Card>
