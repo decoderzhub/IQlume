@@ -322,34 +322,45 @@ export function AIChatView() {
   // Save messages to database when they change
   useEffect(() => {
     const saveMessage = async (message: ChatMessage) => {
-      if (!user || !currentSessionId || message.id === 'welcome') return;
+      if (!user || !currentSessionId || message.id === 'welcome' || message.isTyping) return;
       
       try {
+        console.log('💾 Saving message to database:', message.content.substring(0, 50) + '...');
+        
         const { error } = await supabase
           .from('chat_messages')
           .insert([{
             session_id: currentSessionId,
             role: message.role,
             content: message.content,
+            token_usage: message.role === 'assistant' && lastResponseTokens ? lastResponseTokens : null,
           }]);
 
         if (error) {
           console.error('Error saving message:', error);
+        } else {
+          console.log('✅ Message saved successfully');
+          
+          // Update session timestamp
+          await supabase
+            .from('chat_sessions')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', currentSessionId);
         }
       } catch (error) {
         console.error('Error saving message:', error);
       }
     };
 
-    // Save the last message if it's new
+    // Save new messages (but not typing messages)
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
-      // Only save if it's a new message (not from database load)
-      if (lastMessage && !lastMessage.isTyping) {
+      // Save if it's a new message and not currently typing
+      if (lastMessage && !lastMessage.isTyping && lastMessage.id !== 'welcome') {
         saveMessage(lastMessage);
       }
     }
-  }, [messages, user, currentSessionId]);
+  }, [messages, user, currentSessionId, lastResponseTokens]);
 
   const stopResponse = () => {
     setIsLoading(false);
@@ -540,6 +551,33 @@ export function AIChatView() {
     scrollToBottom();
   }, [messages]);
 
+  // Generate a smart title from the user's first message
+  const generateChatTitle = (firstMessage: string): string => {
+    const message = firstMessage.toLowerCase();
+    
+    // Strategy-related titles
+    if (message.includes('covered call')) return 'Covered Calls Discussion';
+    if (message.includes('iron condor')) return 'Iron Condor Strategy';
+    if (message.includes('straddle')) return 'Straddle Strategy';
+    if (message.includes('wheel')) return 'Wheel Strategy';
+    if (message.includes('grid') && message.includes('bot')) return 'Grid Bot Setup';
+    if (message.includes('dca')) return 'DCA Strategy';
+    if (message.includes('rebalance')) return 'Portfolio Rebalancing';
+    
+    // General topics
+    if (message.includes('risk')) return 'Risk Management';
+    if (message.includes('portfolio')) return 'Portfolio Discussion';
+    if (message.includes('options')) return 'Options Trading';
+    if (message.includes('crypto')) return 'Crypto Trading';
+    if (message.includes('beginner')) return 'Beginner Trading Help';
+    
+    // Extract key words for generic title
+    const words = firstMessage.split(' ').slice(0, 4);
+    const title = words.join(' ');
+    
+    return title.length > 30 ? title.substring(0, 30) + '...' : title;
+  };
+
   const sendMessage = async (message: string) => {
     if (!message.trim() || isLoading) return;
 
@@ -553,6 +591,9 @@ export function AIChatView() {
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
+
+    // Check if this is the first user message in the session (excluding welcome message)
+    const isFirstUserMessage = messages.filter(msg => msg.role === 'user').length === 0;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -597,6 +638,30 @@ export function AIChatView() {
         setLastResponseModel(result.model);
       }
       
+      // Update session title if this is the first user message
+      if (isFirstUserMessage && currentSessionId) {
+        const newTitle = generateChatTitle(message.trim());
+        
+        try {
+          const { error: titleError } = await supabase
+            .from('chat_sessions')
+            .update({ title: newTitle })
+            .eq('id', currentSessionId)
+            .eq('user_id', user?.id);
+
+          if (!titleError) {
+            // Update local state
+            setChatSessions(prev => prev.map(session => 
+              session.id === currentSessionId 
+                ? { ...session, title: newTitle }
+                : session
+            ));
+          }
+        } catch (error) {
+          console.error('Error updating session title:', error);
+        }
+      }
+
       // Check if the AI response suggests creating a strategy
       const shouldCreateStrategy = checkForStrategyCreation(message.trim(), result.message);
       
@@ -645,6 +710,10 @@ export function AIChatView() {
     const userLower = userMessage.toLowerCase();
     const aiLower = aiResponse.toLowerCase();
     
+    console.log('🔍 Checking for strategy creation...');
+    console.log('User message:', userMessage);
+    console.log('AI response preview:', aiResponse.substring(0, 200) + '...');
+    
     // Strategy creation keywords
     const creationKeywords = [
       'create', 'build', 'set up', 'design', 'make', 'generate', 'develop'
@@ -660,11 +729,15 @@ export function AIChatView() {
     const hasCreationIntent = creationKeywords.some(keyword => userLower.includes(keyword));
     const hasStrategyKeyword = strategyKeywords.some(keyword => userLower.includes(keyword));
     
+    console.log('Has creation intent:', hasCreationIntent);
+    console.log('Has strategy keyword:', hasStrategyKeyword);
+    
     if (!hasCreationIntent || !hasStrategyKeyword) {
+      console.log('❌ No strategy creation detected');
       return null;
     }
     
-    console.log('Strategy creation detected in user message:', userMessage);
+    console.log('✅ Strategy creation detected!');
     
     // Extract strategy details from user message and AI response
     let strategyType: TradingStrategy['type'] = 'covered_calls'; // default
@@ -700,6 +773,13 @@ export function AIChatView() {
     if (symbolMatch) {
       symbol = symbolMatch[1];
     }
+    
+    console.log('Extracted strategy details:', {
+      strategyType,
+      riskLevel,
+      minCapital,
+      symbol
+    });
     
     // Generate strategy name
     const strategyName = `AI ${strategyType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} - ${symbol}`;
