@@ -301,13 +301,6 @@ export function AIChatView() {
             onSubmit={handleSubmit}
             isLoading={isLoading}
             onStopResponse={stopResponse}
-            suggestedQuestions={suggestedQuestions}
-            actionablePrompts={actionablePrompts}
-            onSuggestedQuestion={handleSuggestedQuestion}
-            showSuggestions={showSuggestions}
-            setShowSuggestions={setShowSuggestions}
-            showActions={showActions}
-            setShowActions={setShowActions}
           />
         </Card>
       </div>

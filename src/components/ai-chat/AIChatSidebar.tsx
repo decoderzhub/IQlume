@@ -272,6 +272,171 @@ export function AIChatSidebar({
                 </div>
               </Card>
 
+              {/* Suggested Questions - Accordion */}
+              <Card className="p-4">
+                <button
+                  onClick={() => setShowSuggestions(!showSuggestions)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-400" />
+                    <h3 className="font-semibold text-white">Suggested Questions</h3>
+                  </div>
+                  {showSuggestions ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+                
+                <AnimatePresence>
+                  {showSuggestions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2">
+                        {suggestedQuestions.map((question, index) => (
+                          <motion.button
+                            key={index}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
+                            onClick={() => handleSuggestedQuestion(question)}
+                            className="w-full p-3 text-left bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-sm text-gray-300 hover:text-white transition-all border border-gray-700/50 hover:border-gray-600"
+                          >
+                            {question}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
+
+              {/* AI Strategy Actions - Accordion */}
+              <Card className="p-4">
+                <button
+                  onClick={() => setShowActions(!showActions)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-violet-400" />
+                    <h3 className="font-semibold text-white">AI Strategy Actions</h3>
+                  </div>
+                  {showActions ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+                
+                <AnimatePresence>
+                  {showActions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2">
+                        {actionablePrompts.map((prompt, index) => (
+                          <motion.button
+                            key={index}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
+                            onClick={() => handleSuggestedQuestion(prompt)}
+                            className="w-full p-3 text-left bg-gradient-to-r from-purple-900/20 to-violet-900/20 hover:from-purple-800/30 hover:to-violet-800/30 rounded-lg text-sm text-purple-200 hover:text-purple-100 transition-all border border-purple-500/20 hover:border-purple-400/40"
+                          >
+                            {prompt.length > 60 ? `${prompt.substring(0, 60)}...` : prompt}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
+
+              {/* AI Generated Strategies - Accordion */}
+              <Card className="p-4">
+                <button
+                  onClick={() => setShowAIStrategies(!showAIStrategies)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-green-400" />
+                    <h3 className="font-semibold text-white">AI Strategies</h3>
+                  </div>
+                  {showAIStrategies ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+                
+                <AnimatePresence>
+                  {showAIStrategies && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {aiGeneratedStrategies.length === 0 ? (
+                          <div className="text-center py-4 text-gray-400">
+                            <Brain className="w-8 h-8 mx-auto mb-2 text-gray-600" />
+                            <p className="text-sm">No AI strategies yet</p>
+                            <p className="text-xs">Ask me to create one!</p>
+                          </div>
+                        ) : (
+                          aiGeneratedStrategies.map((strategy) => (
+                            <motion.div
+                              key={strategy.id}
+                              whileHover={{ scale: 1.01 }}
+                              whileTap={{ scale: 0.99 }}
+                              className="p-3 rounded-lg border border-gray-700 bg-gray-800/30 hover:border-gray-600 cursor-pointer transition-all"
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                  <h4 className="font-medium text-white text-sm truncate">{strategy.name}</h4>
+                                  <p className="text-xs text-gray-400 mt-1 line-clamp-2">{strategy.description}</p>
+                                </div>
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${strategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <span className={`px-2 py-1 rounded text-xs font-medium border ${getRiskColor(strategy.risk_level)}`}>
+                                  {strategy.risk_level}
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                  {formatCurrency(strategy.min_capital)}
+                                </span>
+                              </div>
+                              
+                              {strategy.performance && (
+                                <div className="mt-2 pt-2 border-t border-gray-700">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-400">Return:</span>
+                                    <span className={strategy.performance.total_return >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                      {(strategy.performance.total_return * 100).toFixed(1)}%
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                            </motion.div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
+
               {/* AI Model Selection - Accordion */}
               <Card className="p-4">
                 <button
