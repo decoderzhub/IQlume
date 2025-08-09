@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { formatCurrency, formatPercent } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
+import { supabase } from '../../lib/supabase';
 
 // Mock data - replace with real data from your API
 const mockPortfolio = {
@@ -35,9 +36,50 @@ const mockPortfolio = {
 };
 
 export function PortfolioOverview() {
-  const { portfolio: storePortfolio } = useStore();
+  const { portfolio: storePortfolio, user } = useStore();
+  const [marketData, setMarketData] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(false);
+  
   const portfolio = storePortfolio ?? mockPortfolio;
   const isPositive = portfolio.day_change >= 0;
+
+  // Fetch real-time market data for portfolio symbols
+  React.useEffect(() => {
+    const fetchMarketData = async () => {
+      if (!user) return;
+      
+      setLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) return;
+
+        // Get symbols from portfolio accounts (simplified example)
+        const symbols = ['AAPL', 'MSFT', 'BTC', 'ETH'].join(',');
+        
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/live-prices?symbols=${symbols}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setMarketData(data);
+        }
+      } catch (error) {
+        console.error('Error fetching market data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMarketData();
+    
+    // Refresh market data every 30 seconds
+    const interval = setInterval(fetchMarketData, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const stats = [
     {
@@ -83,6 +125,9 @@ export function PortfolioOverview() {
                   <div>
                     <p className="text-sm font-medium text-gray-400">{stat.label}</p>
                     <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                    {loading && stat.label === 'Total Value' && (
+                      <p className="text-xs text-gray-500 mt-1">Updating...</p>
+                    )}
                   </div>
                   <Icon className={`w-8 h-8 ${stat.color}`} />
                 </div>
@@ -91,6 +136,31 @@ export function PortfolioOverview() {
           );
         })}
       </div>
+
+      {/* Real-time Market Data Display */}
+      {marketData && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Live Market Data</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(marketData).map(([symbol, data]: [string, any]) => (
+              <div key={symbol} className="bg-gray-800/30 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-white">{symbol}</span>
+                  <span className={`text-sm ${data.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {data.change >= 0 ? '+' : ''}{data.change_percent?.toFixed(2)}%
+                  </span>
+                </div>
+                <p className="text-lg font-bold text-white">
+                  ${data.price?.toFixed(2)}
+                </p>
+                <p className="text-xs text-gray-400">
+                  Vol: {data.volume?.toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Connected Accounts</h3>

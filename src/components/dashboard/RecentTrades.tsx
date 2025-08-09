@@ -4,44 +4,45 @@ import { ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Trade } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
-
-const mockTrades: Trade[] = [
-  {
-    id: '1',
-    strategy_id: '1',
-    symbol: 'AAPL',
-    type: 'sell',
-    quantity: 1,
-    price: 175.50,
-    timestamp: '2024-01-15T14:30:00Z',
-    profit_loss: 125.50,
-    status: 'executed',
-  },
-  {
-    id: '2',
-    strategy_id: '2',
-    symbol: 'SPY',
-    type: 'buy',
-    quantity: 4,
-    price: 470.25,
-    timestamp: '2024-01-15T13:45:00Z',
-    profit_loss: -45.00,
-    status: 'executed',
-  },
-  {
-    id: '3',
-    strategy_id: '3',
-    symbol: 'BTCUSD',
-    type: 'buy',
-    quantity: 0.1,
-    price: 42150.00,
-    timestamp: '2024-01-15T12:20:00Z',
-    profit_loss: 0,
-    status: 'pending',
-  },
-];
+import { supabase } from '../../lib/supabase';
+import { useStore } from '../../store/useStore';
 
 export function RecentTrades() {
+  const { user } = useStore();
+  const [trades, setTrades] = React.useState<Trade[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchRecentTrades = async () => {
+      if (!user) return;
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) return;
+
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/trades?limit=5`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setTrades(data.trades || []);
+        }
+      } catch (error) {
+        console.error('Error fetching recent trades:', error);
+        // Fallback to empty array on error
+        setTrades([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecentTrades();
+  }, [user]);
+
   const getStatusColor = (status: Trade['status']) => {
     switch (status) {
       case 'executed': return 'text-green-400 bg-green-400/10';
@@ -55,8 +56,20 @@ export function RecentTrades() {
     <Card className="p-6">
       <h3 className="text-lg font-semibold text-white mb-6">Recent Trades</h3>
       
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="flex items-center gap-2 text-gray-400">
+            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            <span>Loading trades...</span>
+          </div>
+        </div>
+      ) : trades.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">
+          <p>No recent trades found</p>
+        </div>
+      ) : (
       <div className="space-y-4">
-        {mockTrades.map((trade, index) => (
+        {trades.map((trade, index) => (
           <motion.div
             key={trade.id}
             initial={{ opacity: 0, y: 20 }}
@@ -104,6 +117,7 @@ export function RecentTrades() {
           </motion.div>
         ))}
       </div>
+      )}
     </Card>
   );
 }

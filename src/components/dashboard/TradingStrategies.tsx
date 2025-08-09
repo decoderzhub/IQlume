@@ -5,56 +5,58 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
 import { formatCurrency } from '../../lib/utils';
-
-const mockStrategies: TradingStrategy[] = [
-  {
-    id: '1',
-    name: 'Covered Calls - AAPL',
-    type: 'covered_calls',
-    description: 'Conservative income strategy on Apple stock',
-    risk_level: 'low',
-    min_capital: 15000,
-    is_active: true,
-    configuration: {
-      symbol: 'AAPL',
-      strike_delta: 0.3,
-      dte_target: 30,
-      profit_target: 0.5,
-    },
-  },
-  {
-    id: '2',
-    name: 'Iron Condor - SPY',
-    type: 'iron_condor',
-    description: 'Range-bound strategy on S&P 500 ETF',
-    risk_level: 'medium',
-    min_capital: 5000,
-    is_active: false,
-    configuration: {
-      symbol: 'SPY',
-      wing_width: 10,
-      dte_target: 45,
-      profit_target: 0.25,
-    },
-  },
-  {
-    id: '3',
-    name: 'Crypto Martingale - BTC',
-    type: 'martingale',
-    description: 'Double-down strategy for Bitcoin',
-    risk_level: 'high',
-    min_capital: 10000,
-    is_active: true,
-    configuration: {
-      symbol: 'BTCUSD',
-      base_size: 0.01,
-      max_levels: 5,
-      grid_spacing: 0.02,
-    },
-  },
-];
+import { supabase } from '../../lib/supabase';
+import { useStore } from '../../store/useStore';
 
 export function TradingStrategies() {
+  const { user } = useStore();
+  const [strategies, setStrategies] = React.useState<TradingStrategy[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchStrategies = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('trading_strategies')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .limit(3)
+          .order('updated_at', { ascending: false });
+
+        if (error) {
+          console.error('Error loading strategies:', error);
+          setStrategies([]);
+        } else {
+          const transformedStrategies: TradingStrategy[] = data.map(strategy => ({
+            id: strategy.id,
+            name: strategy.name,
+            type: strategy.type,
+            description: strategy.description,
+            risk_level: strategy.risk_level,
+            min_capital: strategy.min_capital,
+            is_active: strategy.is_active,
+            configuration: strategy.configuration,
+            performance: strategy.performance,
+            created_at: strategy.created_at,
+            updated_at: strategy.updated_at,
+          }));
+          
+          setStrategies(transformedStrategies);
+        }
+      } catch (error) {
+        console.error('Unexpected error loading strategies:', error);
+        setStrategies([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStrategies();
+  }, [user]);
+
   const getRiskColor = (level: TradingStrategy['risk_level']) => {
     switch (level) {
       case 'low': return 'text-green-400 bg-green-400/10';
@@ -74,8 +76,20 @@ export function TradingStrategies() {
         </Button>
       </div>
 
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="flex items-center gap-2 text-gray-400">
+            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            <span>Loading strategies...</span>
+          </div>
+        </div>
+      ) : strategies.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">
+          <p>No active strategies found</p>
+        </div>
+      ) : (
       <div className="space-y-4">
-        {mockStrategies.map((strategy, index) => (
+        {strategies.map((strategy, index) => (
           <motion.div
             key={strategy.id}
             initial={{ opacity: 0, x: -20 }}
@@ -129,6 +143,7 @@ export function TradingStrategies() {
           </motion.div>
         ))}
       </div>
+      )}
     </Card>
   );
 }

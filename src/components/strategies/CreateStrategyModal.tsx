@@ -106,23 +106,41 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-cap`, {
-        method: 'POST',
+      // Use the new market data endpoint for real-time quotes
+      const symbolsParam = symbols.join(',');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/quotes?symbols=${symbolsParam}`, {
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ symbols }),
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch market cap data: ${response.status}`);
+        throw new Error(`Failed to fetch market data: ${response.status}`);
       }
 
       const result = await response.json();
-      return result.data || [];
+      
+      // Transform quotes data to market cap format for allocation
+      const marketCapData: MarketCapData[] = [];
+      
+      if (result.quotes) {
+        Object.entries(result.quotes).forEach(([symbol, quote]: [string, any]) => {
+          // Estimate market cap based on price (this is simplified)
+          // In a real implementation, you'd need actual market cap data
+          const estimatedMarketCap = quote.bid_price * 1000000000; // Simplified estimation
+          
+          marketCapData.push({
+            symbol: symbol,
+            market_cap: estimatedMarketCap,
+            price: quote.bid_price || quote.ask_price || 0,
+            name: symbol, // You might want to add a name mapping
+          });
+        });
+      }
+      
+      return marketCapData;
     } catch (error) {
-      console.error('Error fetching market cap data:', error);
+      console.error('Error fetching market data:', error);
       // Fallback to mock data if API fails
       const mockMarketCapData: MarketCapData[] = [
         // Cryptocurrencies
