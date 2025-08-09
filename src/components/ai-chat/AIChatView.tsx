@@ -875,7 +875,7 @@ export function AIChatView() {
               <Brain className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">BrokerNomics Ai</h1>
+              <h1 className="text-2xl font-bold text-white">BroNomics Ai</h1>
               <p className="text-gray-400">Your intelligent trading strategy assistant</p>
             </div>
             </div>
