@@ -27,36 +27,58 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showActions, setShowActions] = useState(true);
+  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-resize textarea
+  // Optimized auto-resize textarea with debouncing
   useEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      // Reset height to auto to get the correct scrollHeight
-      textarea.style.height = 'auto';
-      
-      // Calculate the number of lines
-      const lineHeight = 24; // Approximate line height in pixels
-      const maxLines = 5;
-      const minHeight = lineHeight * 1; // 1 line minimum
-      const maxHeight = lineHeight * maxLines;
-      
-      // Set height based on content, but cap at max lines
-      const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
-      textarea.style.height = `${newHeight}px`;
+    // Clear any existing timeout
+    if (resizeTimeoutRef.current) {
+      clearTimeout(resizeTimeoutRef.current);
     }
+
+    // Debounce the resize operation
+    resizeTimeoutRef.current = setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      // Use requestAnimationFrame for smooth performance
+      requestAnimationFrame(() => {
+        // Reset height to auto to get the correct scrollHeight
+        textarea.style.height = 'auto';
+        
+        // Calculate the number of lines
+        const lineHeight = 24; // Approximate line height in pixels
+        const maxLines = 5;
+        const minHeight = lineHeight * 1; // 1 line minimum
+        const maxHeight = lineHeight * maxLines;
+        
+        // Set height based on content, but cap at max lines
+        const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+        textarea.style.height = `${newHeight}px`;
+      });
+    }, 10); // 10ms debounce
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+    };
   }, [inputMessage]);
 
-  // Close suggestions when user starts typing
+  // Optimized suggestion hiding - only run when input changes from empty to non-empty or vice versa
   useEffect(() => {
-    if (inputMessage.trim()) {
+    const textarea = textareaRef.current;
+    const hasInput = inputMessage.trim().length > 0;
+    
+    if (hasInput && (showSuggestions || showActions)) {
       setShowSuggestions(false);
       setShowActions(false);
-    } else {
+    } else if (!hasInput && (!showSuggestions || !showActions)) {
       setShowSuggestions(true);
       setShowActions(true);
     }
-  }, [inputMessage]);
+  }, [inputMessage.trim().length > 0]); // Only run when empty/non-empty state changes
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -74,6 +96,10 @@ export function ChatInput({
     }
   };
 
+  // Optimized input handler
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputMessage(e.target.value);
+  };
   return (
     <div className="border-t border-gray-800">
       {/* Suggested Questions - Above Input */}
@@ -181,7 +207,7 @@ export function ChatInput({
             <textarea
               ref={textareaRef}
               value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Ask me about trading strategies... (Shift+Enter for new line)"
               disabled={isLoading}
@@ -190,25 +216,26 @@ export function ChatInput({
               style={{ minHeight: '40px', maxHeight: '120px' }}
             />
           </div>
-          <button
+          <Button
             type="submit"
             disabled={!inputMessage.trim() && !isLoading}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center flex-shrink-0 min-w-[48px] sm:min-w-[56px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+            variant="primary"
             onClick={isLoading ? (e) => { e.preventDefault(); onStopResponse(); } : undefined}
-            style={{ 
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center flex-shrink-0 min-w-[48px] sm:min-w-[64px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+            style={{
               height: textareaRef.current?.style.height || '40px',
               minHeight: '40px',
               maxHeight: '120px'
             }}
           >
             {isLoading ? (
-              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-red-500 rounded flex items-center justify-center">
+              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-red-500 rounded flex items-center justify-center animate-pulse">
                 <div className="w-2 h-2 bg-white rounded-sm"></div>
               </div>
             ) : (
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             )}
-          </button>
+          </Button>
         </form>
         
         <p className="hidden sm:block text-xs text-gray-300 mt-2 sm:mt-3 text-center font-medium">
