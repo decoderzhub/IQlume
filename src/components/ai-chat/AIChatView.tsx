@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { AIChatSidebar } from './AIChatSidebar';
