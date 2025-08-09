@@ -17,7 +17,7 @@ import { cn } from '../../lib/utils';
 const navigation = [
   { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
   { id: 'strategies', name: 'Strategies', icon: TrendingUp },
-  { id: 'ai-chat', name: 'AI Chat', icon: Brain },
+  { id: 'ai-chat', name: 'BroNomex Ai', icon: Brain },
   { id: 'trades', name: 'Trades', icon: Activity },
   { id: 'accounts', name: 'Accounts', icon: Wallet },
   { id: 'analytics', name: 'Analytics', icon: PieChart },
