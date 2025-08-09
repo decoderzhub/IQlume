@@ -59,6 +59,9 @@ export function AIChatView() {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showActions, setShowActions] = useState(true);
 
+  const {
+    chatSessions,
+    currentSessionId,
     totalTokensUsed,
     sessionTokensUsed,
     lastResponseTokens,
@@ -354,7 +357,8 @@ export function AIChatView() {
             setShowStrategyModal(false);
             setPendingStrategy(null);
           }}
-            className="w-72 sm:min-w-80"
+          onStrategyCreated={handleStrategyCreated}
+          className="w-72 sm:min-w-80"
           strategyData={pendingStrategy}
         />
       )}
