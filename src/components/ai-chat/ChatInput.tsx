@@ -25,18 +25,6 @@ export function ChatInput(props: ChatInputProps) {
     showSuggestions, setShowSuggestions, showActions, setShowActions
   } = props;
 
-  // Local value to avoid parent re-render on every keypress
-  const [value, setValue] = useState(inputMessage);
-  useEffect(() => { setValue(inputMessage); }, [inputMessage]);
-
-  // Debounce syncing up to parent (feel free to tweak 120ms)
-  useEffect(() => {
-    const id = setTimeout(() => {
-      if (value !== inputMessage) setInputMessage(value);
-    }, 120);
-    return () => clearTimeout(id);
-  }, [value, inputMessage, setInputMessage]);
-
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Imperative auto-resize: no state, no timers, no rAF
@@ -54,12 +42,12 @@ export function ChatInput(props: ChatInputProps) {
   };
 
   useEffect(() => { autoResize(); }, []);     // initial
-  useEffect(() => { autoResize(); }, [value]); // on local value change
+  useEffect(() => { autoResize(); }, [inputMessage]); // on input message change
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (!isLoading && value.trim()) {
+      if (!isLoading && inputMessage.trim()) {
         onSubmit(e as any);
       }
     }
@@ -67,7 +55,7 @@ export function ChatInput(props: ChatInputProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoading && value.trim()) onSubmit(e);
+    if (!isLoading && inputMessage.trim()) onSubmit(e);
   };
 
   // Memoize slices to avoid work
@@ -142,8 +130,8 @@ export function ChatInput(props: ChatInputProps) {
           <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               onInput={autoResize}
               placeholder="Ask me about trading strategies... (Shift+Enter for new line)"
@@ -156,7 +144,7 @@ export function ChatInput(props: ChatInputProps) {
 
           <Button
             type="submit"
-            disabled={!value.trim() || isLoading}
+            disabled={!inputMessage.trim() || isLoading}
             variant="primary"
             onClick={isLoading ? (e) => { e.preventDefault(); onStopResponse(); } : undefined}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center flex-shrink-0 min-w-[48px] sm:min-w-[64px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
