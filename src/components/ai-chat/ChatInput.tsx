@@ -34,7 +34,6 @@ export function ChatInput({
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [needsResize, setNeedsResize] = useState(false);
-  const [hasInput, setHasInput] = useState(false);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Only resize when actually needed
@@ -80,17 +79,6 @@ export function ChatInput({
     };
   }, [needsResize]);
 
-  // Only check suggestions when hasInput state changes
-  useEffect(() => {
-    if (hasInput && (showSuggestions || showActions)) {
-      setShowSuggestions(false);
-      setShowActions(false);
-    } else if (!hasInput && (!showSuggestions || !showActions)) {
-      setShowSuggestions(true);
-      setShowActions(true);
-    }
-  }, [hasInput, showSuggestions, showActions]);
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -110,19 +98,8 @@ export function ChatInput({
   // Highly optimized input handler with early returns
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
-    const newHasInput = newValue.trim().length > 0;
-    
-    // Early return if input state hasn't changed
-    if (newHasInput === hasInput && newValue === inputMessage) {
-      return;
-    }
     
     setInputMessage(newValue);
-    
-    // Only update hasInput state if it actually changed
-    if (newHasInput !== hasInput) {
-      setHasInput(newHasInput);
-    }
     
     // Only trigger resize if content length changed significantly
     const currentLines = newValue.split('\n').length;
@@ -170,7 +147,6 @@ export function ChatInput({
                     key={index}
                     onClick={() => {
                       onSuggestedQuestion(question);
-                      setShowSuggestions(false);
                     }}
                     className="px-2 py-1.5 sm:px-3 sm:py-2 bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-xs sm:text-sm text-gray-300 hover:text-white transition-all duration-200 border border-gray-700/50 hover:border-gray-600"
                   >
@@ -219,7 +195,6 @@ export function ChatInput({
                     key={index}
                     onClick={() => {
                       onSuggestedQuestion(prompt);
-                      setShowActions(false);
                     }}
                     className="px-2 py-1.5 sm:px-3 sm:py-2 bg-gradient-to-r from-purple-900/20 to-violet-900/20 hover:from-purple-800/30 hover:to-violet-800/30 rounded-lg text-xs sm:text-sm text-purple-200 hover:text-purple-100 transition-all duration-200 border border-purple-500/20 hover:border-purple-400/40"
                   >
@@ -237,10 +212,6 @@ export function ChatInput({
         <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-stretch">
           <div className="flex-1 relative">
             <textarea
-              ref={textareaRef}
-              value={inputMessage}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
               placeholder="Ask me about trading strategies... (Shift+Enter for new line)"
               disabled={isLoading}
               rows={1}

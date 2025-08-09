@@ -59,11 +59,6 @@ export function AIChatView() {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showActions, setShowActions] = useState(true);
 
-  // Use custom hooks
-  const {
-    currentSessionId,
-    chatSessions,
-    isLoadingHistory,
     totalTokensUsed,
     sessionTokensUsed,
     lastResponseTokens,
@@ -294,7 +289,6 @@ export function AIChatView() {
             isLoading={isLoading}
             onTypingComplete={handleTypingComplete}
             messagesEndRef={messagesEndRef}
-            onChatAreaClick={handleChatAreaClick}
           />
 
           {/* Input Form */}
