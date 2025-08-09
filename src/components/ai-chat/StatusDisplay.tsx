@@ -36,7 +36,7 @@ export function StatusDisplay({
       src="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
       loop
       autoplay
-      className="w-55 h-55 scale-150" // This will make it fill the container
+      className="w-60 h-55 scale-150" // This will make it fill the container
     />
   </div>
 </div>
