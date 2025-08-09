@@ -5,24 +5,12 @@ import { Dashboard } from './dashboard/Dashboard';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { AIChatView } from './ai-chat/AIChatView';
+import { SettingsView } from './settings/SettingsView';
+import { AnalyticsView } from './analytics/AnalyticsView';
 
 import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
 import { TradesView } from './trades/TradesView';
-
-const AnalyticsView = () => (
-  <div className="p-8 text-center text-gray-400">
-    <h2 className="text-2xl font-bold text-white mb-4">Analytics</h2>
-    <p>Advanced portfolio analytics and risk metrics coming soon...</p>
-  </div>
-);
-
-const SettingsView = () => (
-  <div className="p-8 text-center text-gray-400">
-    <h2 className="text-2xl font-bold text-white mb-4">Settings</h2>
-    <p>Account settings and preferences coming soon...</p>
-  </div>
-);
 
 export function MainApp() {
   const { activeView, sidebarOpen } = useStore();
