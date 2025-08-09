@@ -278,9 +278,6 @@ export function AIChatView() {
         <ChatHeader
           rightSidebarOpen={rightSidebarOpen}
           setRightSidebarOpen={setRightSidebarOpen}
-          suggestedQuestions={suggestedQuestions}
-          actionablePrompts={actionablePrompts}
-          onSuggestedQuestion={handleSuggestedQuestion}
         />
 
         {/* Chat Messages */}
@@ -299,6 +296,9 @@ export function AIChatView() {
             onSubmit={handleSubmit}
             isLoading={isLoading}
             onStopResponse={stopResponse}
+            suggestedQuestions={suggestedQuestions}
+            actionablePrompts={actionablePrompts}
+            onSuggestedQuestion={handleSuggestedQuestion}
           />
         </Card>
       </div>
