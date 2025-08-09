@@ -105,7 +105,7 @@ const TypingText: React.FC<{ text: string; onComplete?: () => void; isMarkdown?:
     } else if (onComplete) {
       onComplete();
     }
-  }, [currentIndex, text, onComplete]);
+  }, 0.25); // Much faster typing speed - 2x faster than before
 
   if (isMarkdown) {
     return (
