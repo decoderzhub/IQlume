@@ -301,6 +301,8 @@ export function AIChatView() {
             onSubmit={handleSubmit}
             isLoading={isLoading}
             onStopResponse={stopResponse}
+            suggestedQuestions={suggestedQuestions}
+            actionablePrompts={actionablePrompts}
           />
         </Card>
       </div>
@@ -341,6 +343,8 @@ export function AIChatView() {
         onNewChat={createNewChat}
         onSwitchSession={switchToSession}
         onDeleteSession={deleteSession}
+        actionablePrompts={actionablePrompts}
+        aiGeneratedStrategies={strategies}
       />
 
       {/* Strategy Creation Modal */}

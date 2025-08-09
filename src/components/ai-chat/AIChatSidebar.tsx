@@ -231,9 +231,9 @@ export function AIChatSidebar({
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
+            <button
               transition={{ duration: 0.2 }}
-              className="flex-1 overflow-y-auto p-6 space-y-6"
+              className="w-full flex items-center justify-between text-left text-xs font-medium text-gray-300 hover:text-white transition-colors"
             >
               {/* New Chat Button */}
               <Button
