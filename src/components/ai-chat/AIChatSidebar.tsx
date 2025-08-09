@@ -305,7 +305,7 @@ export function AIChatSidebar({
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.99 }}
                             onClick={() => handleSuggestedQuestion(question)}
-                            className="w-full p-3 text-left bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-sm text-gray-300 hover:text-white transition-all border border-gray-700/50 hover:border-gray-600"
+                            className="w-full p-2 text-left bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all border border-gray-700/50 hover:border-gray-600"
                           >
                             {question}
                           </motion.button>
@@ -349,7 +349,7 @@ export function AIChatSidebar({
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.99 }}
                             onClick={() => handleSuggestedQuestion(prompt)}
-                            className="w-full p-3 text-left bg-gradient-to-r from-purple-900/20 to-violet-900/20 hover:from-purple-800/30 hover:to-violet-800/30 rounded-lg text-sm text-purple-200 hover:text-purple-100 transition-all border border-purple-500/20 hover:border-purple-400/40"
+                            className="w-full p-2 text-left bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all border border-gray-700/50 hover:border-gray-600"
                           >
                             {prompt.length > 60 ? `${prompt.substring(0, 60)}...` : prompt}
                           </motion.button>
@@ -399,18 +399,18 @@ export function AIChatSidebar({
                               key={strategy.id}
                               whileHover={{ scale: 1.01 }}
                               whileTap={{ scale: 0.99 }}
-                              className="p-3 rounded-lg border border-gray-700 bg-gray-800/30 hover:border-gray-600 cursor-pointer transition-all"
+                              className="p-2 rounded-lg border border-gray-700/50 bg-gray-800/30 hover:bg-gray-800/50 hover:border-gray-600 cursor-pointer transition-all"
                             >
                               <div className="flex items-start justify-between mb-2">
                                 <div className="flex-1">
-                                  <h4 className="font-medium text-white text-sm truncate">{strategy.name}</h4>
-                                  <p className="text-xs text-gray-400 mt-1 line-clamp-2">{strategy.description}</p>
+                                  <h4 className="font-medium text-white text-xs truncate">{strategy.name}</h4>
+                                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{strategy.description}</p>
                                 </div>
                                 <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${strategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
                               </div>
                               
                               <div className="flex items-center justify-between">
-                                <span className={`px-2 py-1 rounded text-xs font-medium border ${getRiskColor(strategy.risk_level)}`}>
+                                <span className={`px-1.5 py-0.5 rounded text-xs font-medium border ${getRiskColor(strategy.risk_level)}`}>
                                   {strategy.risk_level}
                                 </span>
                                 <span className="text-xs text-gray-400">
@@ -419,7 +419,7 @@ export function AIChatSidebar({
                               </div>
                               
                               {strategy.performance && (
-                                <div className="mt-2 pt-2 border-t border-gray-700">
+                                <div className="mt-1.5 pt-1.5 border-t border-gray-700">
                                   <div className="flex items-center justify-between text-xs">
                                     <span className="text-gray-400">Return:</span>
                                     <span className={strategy.performance.total_return >= 0 ? 'text-green-400' : 'text-red-400'}>
