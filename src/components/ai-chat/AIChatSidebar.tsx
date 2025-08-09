@@ -224,7 +224,7 @@ export function AIChatSidebar({
             damping: 40
           }
         }}
-        className="hidden lg:flex fixed right-0 top-20 h-[calc(100vh-80px)] bg-gray-900/95 backdrop-blur-xl border-l border-gray-800 z-30 flex-col"
+        className="hidden lg:flex fixed right-0 top-20 h-[calc(100vh-80px)] bg-gray-900/95 backdrop-blur-xl border-l border-gray-800 z-30 flex-col overflow-hidden"
       >
         <AnimatePresence>
           {rightSidebarOpen && (
@@ -233,7 +233,7 @@ export function AIChatSidebar({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.2 }}
-              className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar"
+              className="flex-1 overflow-y-auto p-6 space-y-6"
             >
               {/* New Chat Button */}
               <Button
@@ -349,7 +349,7 @@ export function AIChatSidebar({
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.99 }}
                             onClick={() => handleSuggestedQuestion(prompt)}
-                            className="w-full p-2 text-left bg-gradient-to-r from-purple-900/20 to-violet-900/20 hover:from-purple-800/30 hover:to-violet-800/30 rounded-lg text-xs text-purple-200 hover:text-purple-100 transition-all border border-purple-500/20 hover:border-purple-400/40"
+                            className="w-full p-2 text-left bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all border border-gray-700/50 hover:border-gray-600"
                           >
                             {prompt.length > 60 ? `${prompt.substring(0, 60)}...` : prompt}
                           </motion.button>
@@ -368,7 +368,7 @@ export function AIChatSidebar({
                 >
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-green-400" />
-                    <h3 className="font-medium text-white text-sm">AI Strategies</h3>
+                    <h3 className="font-semibold text-white">AI Strategies</h3>
                   </div>
                   {showAIStrategies ? (
                     <ChevronUp className="w-4 h-4 text-gray-400" />
