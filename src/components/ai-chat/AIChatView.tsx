@@ -1016,13 +1016,13 @@ export function AIChatView() {
               </div>
               <Button
                 type="submit"
-                disabled={!inputMessage.trim() || isLoading}
+                disabled={!inputMessage.trim() && !isLoading}
                 className="px-6"
-                onClick={isLoading ? stopResponse : undefined}
+                onClick={isLoading ? (e) => { e.preventDefault(); stopResponse(); } : undefined}
               >
                 {isLoading ? (
-                  <div className="w-4 h-4 bg-red-500 rounded-sm flex items-center justify-center">
-                    <div className="w-2 h-2 bg-white rounded-sm"></div>
+                  <div className="w-4 h-4 bg-red-500 rounded flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded"></div>
                   </div>
                 ) : (
                   <Send className="w-4 h-4" />
