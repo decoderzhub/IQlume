@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { TrendingUp, TrendingDown, DollarSign, Activity, Info } from 'lucide-react';
+import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Card } from '../ui/Card';
 import { formatCurrency, formatPercent } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
@@ -47,17 +47,20 @@ export function PortfolioOverview() {
 
   // Generate mock historical data for charts (in production, this would come from your API)
   const generateMockHistoricalData = (currentPrice: number, symbol: string) => {
-    const points = 20;
+    const points = 50; // More data points for smoother chart
     const data = [];
     let price = currentPrice * 0.95; // Start 5% below current price
     
     for (let i = 0; i < points; i++) {
       const change = (Math.random() - 0.5) * 0.02; // ±1% random change
       price = price * (1 + change);
+      const now = new Date();
+      const time = new Date(now.getTime() - (points - i) * 30000); // 30 second intervals
       data.push({
-        time: Date.now() - (points - i) * 60000, // 1 minute intervals
+        time: time.getTime(),
+        timeLabel: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         price: price,
-        value: price
+        value: price,
       });
     }
     
@@ -124,11 +127,12 @@ export function PortfolioOverview() {
         if (updatedHistoricalData[symbol]) {
           // Add new data point and keep only last 20 points
           const newPoint = {
-            time: Date.now(),
+            time: now.getTime(),
+            timeLabel: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             price: quote.price,
-            value: quote.price
+            value: quote.price,
           };
-          updatedHistoricalData[symbol] = [...updatedHistoricalData[symbol].slice(1), newPoint];
+          updatedHistoricalData[symbol] = [...updatedHistoricalData[symbol].slice(-49), newPoint];
         }
       });
       
@@ -194,59 +198,188 @@ export function PortfolioOverview() {
 
       {/* Real-time Market Data Display */}
       {marketData && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Live Market Data</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {Object.entries(marketData).map(([symbol, data]: [string, any]) => (
-              <motion.div 
-                key={symbol} 
-                className="bg-gray-800/30 rounded-lg p-4"
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.2 }}
+              <Card 
+                key={symbol}
+                className="p-6"
+                hoverable
               >
-                <div className="flex items-center justify-between mb-3">
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-yellow-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">
+                      {symbol === 'BTC' ? '₿' : symbol === 'ETH' ? 'Ξ' : symbol.charAt(0)}
+                    </span>
+                  </div>
                   <div>
-                    <span className="font-medium text-white text-sm">{symbol}</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-lg font-bold text-white">
-                        ${data.price?.toFixed(2)}
-                      </span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        data.change >= 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        {data.change >= 0 ? '+' : ''}{data.change_percent?.toFixed(2)}%
-                      </span>
+                    <h3 className="text-lg font-semibold text-white">{symbol}/USDT Grid Trading</h3>
+                    <p className="text-sm text-gray-400">
+                      Active for {Math.floor(Math.random() * 24)}h {Math.floor(Math.random() * 60)}m (Created {new Date().toLocaleDateString()})
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Investment and Profit Section */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-gray-800/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm text-gray-400">Investment</span>
+                      <span className="text-xs text-gray-500">USDT</span>
+                    </div>
+                    <div className="text-2xl font-bold text-white">
+                      {(Math.random() * 5000 + 1000).toFixed(1)}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-green-600/20 to-green-500/20 border border-green-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm text-green-400">Current profit</span>
+                      <span className="text-xs text-green-400">USDT</span>
+                      <Info className="w-3 h-3 text-green-400" />
+                    </div>
+                    <div className="text-2xl font-bold text-green-400">
+                      +{(data.change * 10).toFixed(4)}({data.change_percent?.toFixed(2)}%)
                     </div>
                   </div>
                 </div>
                 
-                {/* Mini Chart */}
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div>
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-sm text-gray-400">Grid profit</span>
+                      <span className="text-xs text-gray-500">USDT</span>
+                    </div>
+                    <div className="text-green-400 font-semibold">
+                      +{(Math.random() * 50).toFixed(4)}
+                    </div>
+                    <div className="text-green-400 text-sm">
+                      +{(Math.random() * 0.1).toFixed(2)}%
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-sm text-gray-400">Holding profit</span>
+                      <span className="text-xs text-gray-500">USDT</span>
+                    </div>
+                    <div className="text-green-400 font-semibold">
+                      +{(data.change * 8).toFixed(4)}
+                    </div>
+                    <div className="text-green-400 text-sm">
+                      +{(Math.random() * 1 + 0.5).toFixed(2)}%
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-sm text-gray-400">Grid/Total annualized</span>
+                    </div>
+                    <div className="text-green-400 font-semibold">
+                      {(Math.random() * 10 + 5).toFixed(1)}%
+                    </div>
+                    <div className="text-green-400 text-sm">
+                      {(Math.random() * 200 + 50).toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Additional Metrics */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div>
+                    <div className="text-sm text-gray-400 mb-1">24H/Total Transactions</div>
+                    <div className="text-white font-semibold">
+                      {Math.floor(Math.random() * 5)}/{Math.floor(Math.random() * 20 + 5)} times
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-sm text-gray-400 mb-1">Price range <span className="text-xs">USDT</span></div>
+                    <div className="text-white font-semibold">
+                      {(data.low * 0.95).toFixed(0)} - {(data.high * 1.05).toFixed(0)}
+                    </div>
+                    <div className="text-gray-400 text-sm">
+                      ({Math.floor(Math.random() * 50 + 20)} grids)
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-sm text-gray-400">Accum grid/</span>
+                      <span className="text-xs text-gray-500">USDT</span>
+                      <span className="text-sm text-gray-400">Total profit</span>
+                    </div>
+                    <div className="text-green-400 font-semibold">
+                      +{(Math.random() * 50).toFixed(4)}
+                    </div>
+                    <div className="text-green-400 text-sm">
+                      +{(data.change * 10).toFixed(4)}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Price Info */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <div className="text-sm text-gray-400 mb-1">Price <span className="text-xs">USDT</span></div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-semibold text-lg">
+                        {data.price?.toFixed(3)}
+                      </span>
+                      <TrendingUp className="w-4 h-4 text-orange-400" />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-sm text-gray-400 mb-1">Start price <span className="text-xs">USDT</span></div>
+                    <div className="text-white font-semibold text-lg">
+                      {(data.open || data.price * 0.98)?.toFixed(3)}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Large Chart */}
                 {historicalData[symbol] && (
-                  <div className="h-16 mb-2">
+                  <div className="h-48 mb-4">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={historicalData[symbol]}>
-                        <Line 
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke={data.change >= 0 ? '#10b981' : '#ef4444'}
-                          strokeWidth={1.5}
-                          dot={false}
-                          activeDot={{ r: 2, fill: data.change >= 0 ? '#10b981' : '#ef4444' }}
+                      <AreaChart data={historicalData[symbol]}>
+                        <defs>
+                          <linearGradient id={`gradient-${symbol}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis 
+                          dataKey="timeLabel" 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                          interval="preserveStartEnd"
                         />
-                      </LineChart>
+                        <YAxis 
+                          domain={['dataMin - 1', 'dataMax + 1']}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                          tickFormatter={(value) => `${value.toFixed(0)}`}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="value"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          fill={`url(#gradient-${symbol})`}
+                          dot={false}
+                          activeDot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#ffffff' }}
+                        />
+                      </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 )}
-                
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                  <span>Vol: {data.volume?.toLocaleString()}</span>
-                  <span>H: ${data.high?.toFixed(2)}</span>
-                  <span>L: ${data.low?.toFixed(2)}</span>
-                </div>
-              </motion.div>
+              </Card>
             ))}
-          </div>
-        </Card>
+        </div>
       )}
 
       <Card className="p-6">
