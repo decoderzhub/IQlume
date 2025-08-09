@@ -21,45 +21,45 @@ interface ChatMessageProps {
 
 // Custom markdown components for better styling
 const MarkdownComponents = {
-  h1: ({ children }: any) => <h1 className="text-2xl font-bold mb-4 text-white">{children}</h1>,
-  h2: ({ children }: any) => <h2 className="text-xl font-semibold mb-3 text-white">{children}</h2>,
-  h3: ({ children }: any) => <h3 className="text-lg font-medium mb-2 text-white">{children}</h3>,
-  p: ({ children }: any) => <p className="mb-3 leading-relaxed">{children}</p>,
-  ul: ({ children }: any) => <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>,
-  ol: ({ children }: any) => <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>,
-  li: ({ children }: any) => <li className="ml-2">{children}</li>,
+  h1: ({ children }: any) => <h1 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-white">{children}</h1>,
+  h2: ({ children }: any) => <h2 className="text-base sm:text-xl font-semibold mb-2 sm:mb-3 text-white">{children}</h2>,
+  h3: ({ children }: any) => <h3 className="text-sm sm:text-lg font-medium mb-2 text-white">{children}</h3>,
+  p: ({ children }: any) => <p className="mb-2 sm:mb-3 leading-relaxed text-sm sm:text-base">{children}</p>,
+  ul: ({ children }: any) => <ul className="list-disc list-inside mb-2 sm:mb-3 space-y-1 text-sm sm:text-base">{children}</ul>,
+  ol: ({ children }: any) => <ol className="list-decimal list-inside mb-2 sm:mb-3 space-y-1 text-sm sm:text-base">{children}</ol>,
+  li: ({ children }: any) => <li className="ml-2 text-sm sm:text-base">{children}</li>,
   code: ({ inline, children, ...props }: any) => 
     inline ? (
-      <code className="bg-black/30 px-1.5 py-0.5 rounded text-sm font-mono text-blue-200" {...props}>
+      <code className="bg-black/30 px-1 sm:px-1.5 py-0.5 rounded text-xs sm:text-sm font-mono text-blue-200" {...props}>
         {children}
       </code>
     ) : (
-      <code className="block bg-black/50 p-3 rounded-lg text-sm font-mono overflow-x-auto mb-3" {...props}>
+      <code className="block bg-black/50 p-2 sm:p-3 rounded-lg text-xs sm:text-sm font-mono overflow-x-auto mb-2 sm:mb-3" {...props}>
         {children}
       </code>
     ),
-  pre: ({ children }: any) => <pre className="bg-black/50 p-3 rounded-lg overflow-x-auto mb-3">{children}</pre>,
+  pre: ({ children }: any) => <pre className="bg-black/50 p-2 sm:p-3 rounded-lg overflow-x-auto mb-2 sm:mb-3 text-xs sm:text-sm">{children}</pre>,
   blockquote: ({ children }: any) => (
-    <blockquote className="border-l-4 border-blue-400 pl-4 italic mb-3 text-gray-200">
+    <blockquote className="border-l-4 border-blue-400 pl-3 sm:pl-4 italic mb-2 sm:mb-3 text-gray-200 text-sm sm:text-base">
       {children}
     </blockquote>
   ),
   table: ({ children }: any) => (
-    <div className="overflow-x-auto mb-3">
+    <div className="overflow-x-auto mb-2 sm:mb-3">
       <table className="min-w-full border border-gray-600 rounded-lg">{children}</table>
     </div>
   ),
   thead: ({ children }: any) => <thead className="bg-gray-800">{children}</thead>,
   tbody: ({ children }: any) => <tbody>{children}</tbody>,
   tr: ({ children }: any) => <tr className="border-b border-gray-600">{children}</tr>,
-  th: ({ children }: any) => <th className="px-3 py-2 text-left font-medium text-white">{children}</th>,
-  td: ({ children }: any) => <td className="px-3 py-2 text-gray-200">{children}</td>,
-  strong: ({ children }: any) => <strong className="font-semibold text-white">{children}</strong>,
-  em: ({ children }: any) => <em className="italic text-gray-200">{children}</em>,
+  th: ({ children }: any) => <th className="px-2 sm:px-3 py-1 sm:py-2 text-left font-medium text-white text-xs sm:text-sm">{children}</th>,
+  td: ({ children }: any) => <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 text-xs sm:text-sm">{children}</td>,
+  strong: ({ children }: any) => <strong className="font-semibold text-white text-sm sm:text-base">{children}</strong>,
+  em: ({ children }: any) => <em className="italic text-gray-200 text-sm sm:text-base">{children}</em>,
   a: ({ children, href, ...props }: any) => (
     <a 
       href={href} 
-      className="text-blue-400 hover:text-blue-300 underline" 
+      className="text-blue-400 hover:text-blue-300 underline text-sm sm:text-base" 
       target="_blank" 
       rel="noopener noreferrer"
       {...props}
@@ -142,12 +142,12 @@ export function ChatMessage({ message, onTypingComplete }: ChatMessageProps) {
       className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
     >
       {message.role === 'assistant' && (
-        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-          <Bot className="w-4 h-4 text-white" />
+        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+          <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
         </div>
       )}
       
-      <div className={`max-w-[70%] ${message.role === 'user' ? 'order-first' : ''}`}>
+      <div className={`max-w-[85%] sm:max-w-[70%] ${message.role === 'user' ? 'order-first' : ''}`}>
         <div
           className={`p-4 rounded-2xl ${
             message.role === 'user'
@@ -155,7 +155,7 @@ export function ChatMessage({ message, onTypingComplete }: ChatMessageProps) {
               : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
           }`}
         >
-          <div className="whitespace-pre-wrap leading-relaxed">
+          <div className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base">
             {message.role === 'assistant' && message.isTyping ? (
               <TypingText 
                 text={message.content}
@@ -177,14 +177,14 @@ export function ChatMessage({ message, onTypingComplete }: ChatMessageProps) {
             )}
           </div>
         </div>
-        <p className={`text-sm text-gray-300 mt-2 font-medium ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
+        <p className={`text-xs sm:text-sm text-gray-300 mt-2 font-medium ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
           {formatTime(message.timestamp)}
         </p>
       </div>
 
       {message.role === 'user' && (
-        <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
-          <User className="w-4 h-4 text-gray-300" />
+        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+          <User className="w-3 h-3 sm:w-4 sm:h-4 text-gray-300" />
         </div>
       )}
     </motion.div>
