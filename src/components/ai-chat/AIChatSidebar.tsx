@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Brain, ChevronDown, ChevronUp, X, Lightbulb } from 'lucide-react';
 import { Card } from '../ui/Card';
 
 interface AIChatSidebarProps {
