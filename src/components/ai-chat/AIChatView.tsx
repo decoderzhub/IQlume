@@ -51,9 +51,9 @@ export function AIChatView() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const { user } = useStore();
-  const [selectedModel, setSelectedModel] = useState('claude-3-5-sonnet-20241022');
+  const [selectedModel, setSelectedModel] = useState('claude-opus-4-1-20250805');
   const [lastResponseTokens, setLastResponseTokens] = useState<TokenUsage | null>(null);
   const [lastResponseModel, setLastResponseModel] = useState<string | null>(null);
 
@@ -195,6 +195,38 @@ export function AIChatView() {
             >
               <Menu className="w-5 h-5" />
             </Button>
+          </div>
+          
+          {/* Suggested Questions */}
+          <div className="mt-6">
+            <h3 className="text-sm font-medium text-gray-400 mb-3">Suggested Questions</h3>
+            <div className="flex flex-wrap gap-2">
+              {suggestedQuestions.slice(0, 3).map((question, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSuggestedQuestion(question)}
+                  className="px-3 py-2 bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-sm text-gray-300 hover:text-white transition-all duration-200 border border-gray-700/50 hover:border-gray-600"
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* AI Actions */}
+          <div className="mt-4">
+            <h3 className="text-sm font-medium text-gray-400 mb-3">AI Actions</h3>
+            <div className="flex flex-wrap gap-2">
+              {actionablePrompts.slice(0, 2).map((prompt, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSuggestedQuestion(prompt)}
+                  className="px-3 py-2 bg-gradient-to-r from-blue-900/20 to-purple-900/20 hover:from-blue-800/30 hover:to-purple-800/30 rounded-lg text-sm text-blue-200 hover:text-blue-100 transition-all duration-200 border border-blue-500/20 hover:border-blue-400/40"
+                >
+                  {prompt.length > 50 ? `${prompt.substring(0, 50)}...` : prompt}
+                </button>
+              ))}
+            </div>
           </div>
         </Card>
 
@@ -339,9 +371,6 @@ export function AIChatView() {
         setRightSidebarOpen={setRightSidebarOpen}
         selectedModel={selectedModel}
         setSelectedModel={setSelectedModel}
-        suggestedQuestions={suggestedQuestions}
-        actionablePrompts={actionablePrompts}
-        handleSuggestedQuestion={handleSuggestedQuestion}
       />
     </motion.div>
   );

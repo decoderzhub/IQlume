@@ -9,41 +9,70 @@ interface AIChatSidebarProps {
   setRightSidebarOpen: (open: boolean) => void;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
-  suggestedQuestions: string[];
-  actionablePrompts: string[];
-  handleSuggestedQuestion: (question: string) => void;
 }
 
 const anthropicModels = [
   {
-    id: 'claude-3-5-sonnet-20241022',
-    name: 'claude-3-5-sonnet-20241022',
-    label: 'Claude 3.5 Sonnet',
-    description: 'Most intelligent model for complex tasks',
+    id: 'claude-opus-4-1-20250805',
+    name: 'claude-opus-4-1-20250805',
+    label: 'claude-opus-4-1-20250805',
+    description: 'Powerful, large model for complex challenges',
     badge: 'latest',
     recommended: true,
   },
   {
+    id: 'claude-sonnet-4-20250514',
+    name: 'claude-sonnet-4-20250514',
+    label: 'claude-sonnet-4-20250514',
+    description: 'Smart, efficient model for everyday use',
+    badge: 'latest',
+    recommended: false,
+  },
+  {
     id: 'claude-3-5-haiku-20241022',
     name: 'claude-3-5-haiku-20241022',
-    label: 'Claude 3.5 Haiku',
+    label: 'claude-3-5-haiku-20241022',
     description: 'Fastest model for daily tasks',
     badge: 'latest',
     recommended: false,
   },
   {
-    id: 'claude-3-opus-20240229',
-    name: 'claude-3-opus-20240229',
-    label: 'Claude 3 Opus',
-    description: 'Powerful model for complex challenges',
+    id: 'claude-opus-4-20250514',
+    name: 'claude-opus-4-20250514',
+    label: 'claude-opus-4-20250514',
+    description: 'Powerful model for complex tasks',
     badge: null,
     recommended: false,
   },
   {
-    id: 'claude-3-sonnet-20240229',
-    name: 'claude-3-sonnet-20240229',
-    label: 'Claude 3 Sonnet',
-    description: 'Smart, efficient model for everyday use',
+    id: 'claude-3-7-sonnet-20250219',
+    name: 'claude-3-7-sonnet-20250219',
+    label: 'claude-3-7-sonnet-20250219',
+    description: 'Advanced sonnet model',
+    badge: null,
+    recommended: false,
+  },
+  {
+    id: 'claude-3-5-sonnet-20241022',
+    name: 'claude-3-5-sonnet-20241022',
+    label: 'claude-3-5-sonnet-20241022',
+    description: 'Intelligent model for complex tasks',
+    badge: null,
+    recommended: false,
+  },
+  {
+    id: 'claude-3-5-sonnet-20240620',
+    name: 'claude-3-5-sonnet-20240620',
+    label: 'claude-3-5-sonnet-20240620',
+    description: 'Previous sonnet model version',
+    badge: null,
+    recommended: false,
+  },
+  {
+    id: 'claude-3-haiku-20240307',
+    name: 'claude-3-haiku-20240307',
+    label: 'claude-3-haiku-20240307',
+    description: 'Fast model for simple tasks',
     badge: null,
     recommended: false,
   },
@@ -54,13 +83,8 @@ export function AIChatSidebar({
   setRightSidebarOpen,
   selectedModel, 
   setSelectedModel,
-  suggestedQuestions,
-  actionablePrompts,
-  handleSuggestedQuestion
 }: AIChatSidebarProps) {
   const [showModels, setShowModels] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(true);
-  const [showActions, setShowActions] = useState(true);
 
   const sidebarVariants = {
     open: {
@@ -205,102 +229,6 @@ export function AIChatSidebar({
                 </AnimatePresence>
               </Card>
 
-              {/* Suggested Questions - Accordion */}
-              <Card className="p-4">
-                <button
-                  onClick={() => setShowSuggestions(!showSuggestions)}
-                  className="flex items-center justify-between w-full mb-4"
-                >
-                  <div className="flex items-center gap-2">
-                    <Lightbulb className="w-5 h-5 text-yellow-400" />
-                    <h3 className="font-semibold text-white">Suggested Questions</h3>
-                  </div>
-                  {showSuggestions ? (
-                    <ChevronUp className="w-4 h-4 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  )}
-                </button>
-                
-                <AnimatePresence>
-                  {showSuggestions && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="space-y-2">
-                        {suggestedQuestions.map((question, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSuggestedQuestion(question)}
-                            className="w-full text-left p-3 bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-sm text-gray-300 hover:text-white transition-all duration-200 border border-gray-700/50 hover:border-gray-600"
-                          >
-                            {question}
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Card>
-
-              {/* AI Actions - Accordion */}
-              <Card className="p-4">
-                <button
-                  onClick={() => setShowActions(!showActions)}
-                  className="flex items-center justify-between w-full mb-4"
-                >
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-blue-400" />
-                    <h3 className="font-semibold text-white">AI Actions</h3>
-                  </div>
-                  {showActions ? (
-                    <ChevronUp className="w-4 h-4 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  )}
-                </button>
-                
-                <AnimatePresence>
-                  {showActions && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="space-y-2">
-                        {actionablePrompts.map((prompt, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSuggestedQuestion(prompt)}
-                            className="w-full text-left p-3 bg-gradient-to-r from-blue-900/20 to-purple-900/20 hover:from-blue-800/30 hover:to-purple-800/30 rounded-lg text-sm text-blue-200 hover:text-blue-100 transition-all duration-200 border border-blue-500/20 hover:border-blue-400/40"
-                          >
-                            <div className="flex items-start gap-2">
-                              <Zap className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
-                              <span>{prompt}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      
-                      <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <Brain className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                          <div className="text-xs text-blue-300">
-                            <p className="font-medium mb-1">💡 Pro Tip:</p>
-                            <p>These prompts can help the AI understand your intent to create specific strategies. The AI will guide you through the parameters and can suggest opening the strategy creation modal with pre-filled settings.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Card>
             </motion.div>
           )}
         </AnimatePresence>
@@ -447,63 +375,6 @@ export function AIChatSidebar({
                 </AnimatePresence>
               </Card>
 
-              {/* AI Actions - Accordion */}
-              <Card className="p-4">
-                <button
-                  onClick={() => setShowActions(!showActions)}
-                  className="flex items-center justify-between w-full mb-4"
-                >
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-blue-400" />
-                    <h3 className="font-semibold text-white">AI Actions</h3>
-                  </div>
-                  {showActions ? (
-                    <ChevronUp className="w-4 h-4 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  )}
-                </button>
-                
-                <AnimatePresence>
-                  {showActions && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="space-y-2">
-                        {actionablePrompts.map((prompt, index) => (
-                          <button
-                            key={index}
-                            onClick={() => {
-                              handleSuggestedQuestion(prompt);
-                              setRightSidebarOpen(false);
-                            }}
-                            className="w-full text-left p-3 bg-gradient-to-r from-blue-900/20 to-purple-900/20 hover:from-blue-800/30 hover:to-purple-800/30 rounded-lg text-sm text-blue-200 hover:text-blue-100 transition-all duration-200 border border-blue-500/20 hover:border-blue-400/40"
-                          >
-                            <div className="flex items-start gap-2">
-                              <Zap className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
-                              <span>{prompt}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      
-                      <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <Brain className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                          <div className="text-xs text-blue-300">
-                            <p className="font-medium mb-1">💡 Pro Tip:</p>
-                            <p>These prompts can help the AI understand your intent to create specific strategies. The AI will guide you through the parameters and can suggest opening the strategy creation modal with pre-filled settings.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Card>
             </div>
           </motion.aside>
         )}
