@@ -348,7 +348,7 @@ export function AIChatView() {
             setShowStrategyModal(false);
             setPendingStrategy(null);
           }}
-          onCreateStrategy={handleStrategyCreated}
+            className="w-72 sm:min-w-80"
           strategyData={pendingStrategy}
         />
       )}
