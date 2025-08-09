@@ -9,9 +9,11 @@ import {
   Settings,
   Brain,
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { auth } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 
 const navigation = [
@@ -25,7 +27,16 @@ const navigation = [
 ];
 
 export function Sidebar() {
-  const { sidebarOpen, setSidebarOpen, activeView, setActiveView } = useStore();
+  const { sidebarOpen, setSidebarOpen, activeView, setActiveView, setUser } = useStore();
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   const sidebarVariants = {
     open: {
@@ -222,6 +233,42 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        {/* Sign Out Button */}
+        <div className="p-4 border-t border-gray-800">
+          <motion.button
+            whileHover={{ 
+              x: sidebarOpen ? 4 : 0,
+              scale: sidebarOpen ? 1 : 1.1
+            }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+            title={!sidebarOpen ? 'Sign Out' : undefined}
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            <AnimatePresence>
+              {sidebarOpen && (
+                <motion.span 
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ 
+                    opacity: 1, 
+                    width: "auto",
+                    transition: { delay: 0.1, duration: 0.2 }
+                  }}
+                  exit={{ 
+                    opacity: 0, 
+                    width: 0,
+                    transition: { duration: 0.1 }
+                  }}
+                  className="font-medium whitespace-nowrap overflow-hidden"
+                >
+                  Sign Out
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </motion.button>
+        </div>
       </motion.aside>
 
       {/* Mobile sidebar */}
@@ -295,6 +342,25 @@ export function Sidebar() {
                 );
               })}
             </nav>
+
+            {/* Mobile Sign Out Button */}
+            <div className="p-6 border-t border-gray-800">
+              <motion.button
+                whileHover={{ 
+                  x: 8,
+                  transition: { type: "spring", stiffness: 400, damping: 25 }
+                }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  handleSignOut();
+                  setSidebarOpen(false);
+                }}
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-all duration-200 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20"
+              >
+                <LogOut className="w-6 h-6 flex-shrink-0" />
+                <span className="font-medium text-lg">Sign Out</span>
+              </motion.button>
+            </div>
 
             {/* Mobile footer */}
             <div className="p-6 border-t border-gray-800">
