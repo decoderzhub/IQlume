@@ -10,14 +10,21 @@ interface StrategyDetailsModalProps {
   strategy: TradingStrategy;
   onClose: () => void;
   onSave: (strategy: TradingStrategy) => void;
+  onDelete?: (strategyId: string) => void;
 }
 
-export function StrategyDetailsModal({ strategy, onClose, onSave }: StrategyDetailsModalProps) {
+export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: StrategyDetailsModalProps) {
   const [editedStrategy, setEditedStrategy] = useState<TradingStrategy>(strategy);
   const [activeTab, setActiveTab] = useState<'config' | 'performance' | 'logs'>('config');
 
   const handleSave = () => {
     onSave(editedStrategy);
+  };
+
+  const handleDelete = () => {
+    if (window.confirm(`Are you sure you want to delete the strategy "${strategy.name}"? This action cannot be undone.`)) {
+      onDelete?.(strategy.id);
+    }
   };
 
   const updateConfiguration = (key: string, value: any) => {
@@ -840,7 +847,11 @@ export function StrategyDetailsModal({ strategy, onClose, onSave }: StrategyDeta
 
             <div className="flex-1" />
 
-            <Button variant="ghost" className="text-red-400 hover:text-red-300">
+            <Button 
+              variant="ghost" 
+              onClick={handleDelete}
+              className="text-red-400 hover:text-red-300"
+            >
               <Trash2 className="w-4 h-4 mr-2" />
               Delete
             </Button>

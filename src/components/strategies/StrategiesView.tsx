@@ -276,6 +276,44 @@ export function StrategiesView() {
     }
   };
 
+  const handleDeleteStrategy = async (strategyId: string) => {
+    if (!user) {
+      console.error('No user found');
+      alert('You must be logged in to delete strategies');
+      return;
+    }
+
+    try {
+      console.log('Deleting strategy from database:', strategyId);
+      
+      // Delete strategy from Supabase
+      const { error } = await supabase
+        .from('trading_strategies')
+        .delete()
+        .eq('id', strategyId)
+        .eq('user_id', user.id); // Ensure user can only delete their own strategies
+
+      if (error) {
+        console.error('Error deleting strategy:', error);
+        alert(`Failed to delete strategy: ${error.message}`);
+        return;
+      }
+
+      console.log('Strategy deleted successfully');
+      
+      // Remove the strategy from local state
+      setStrategies(prev => prev.filter(strategy => strategy.id !== strategyId));
+      setShowDetailsModal(false);
+      
+      // Show success message
+      alert('Strategy deleted successfully!');
+      
+    } catch (error) {
+      console.error('Unexpected error deleting strategy:', error);
+      alert('An unexpected error occurred while deleting the strategy');
+    }
+  };
+
   const activeStrategies = strategies.filter(s => s.is_active).length;
   const totalReturn = strategies.reduce((sum, s) => sum + (s.performance?.total_return || 0), 0) / strategies.length;
   const avgWinRate = strategies.reduce((sum, s) => sum + (s.performance?.win_rate || 0), 0) / strategies.length;
@@ -442,6 +480,7 @@ export function StrategiesView() {
             ));
             setShowDetailsModal(false);
           }}
+          onDelete={handleDeleteStrategy}
         />
       )}
 
