@@ -109,6 +109,7 @@ export function ChatInput({
       setNeedsResize(true);
     }
   };
+
   return (
     <div className="border-t border-gray-800">
       {/* Suggested Questions - Above Input */}
@@ -212,6 +213,10 @@ export function ChatInput({
         <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-stretch">
           <div className="flex-1 relative">
             <textarea
+              ref={textareaRef}
+              value={inputMessage}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
               placeholder="Ask me about trading strategies... (Shift+Enter for new line)"
               disabled={isLoading}
               rows={1}
