@@ -10,6 +10,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { AIChatSidebar } from './AIChatSidebar';
 import { StrategyCreationModal } from './StrategyCreationModal';
+import { StatusDisplay } from './StatusDisplay';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
 import { TradingStrategy } from '../../types';
@@ -189,6 +190,8 @@ export function AIChatView() {
   const [lastResponseModel, setLastResponseModel] = useState<string | null>(null);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [pendingStrategy, setPendingStrategy] = useState<any>(null);
+  const [showCreatingStatus, setShowCreatingStatus] = useState(false);
+  const [creationStatusText, setCreationStatusText] = useState('');
 
   // Load chat history from database on component mount
   useEffect(() => {
@@ -378,8 +381,15 @@ export function AIChatView() {
       return;
     }
 
+    // Show creation status
+    setShowCreatingStatus(true);
+    setCreationStatusText('Creating your trading strategy...');
+    
     try {
       console.log('Creating AI-generated strategy:', strategy);
+      
+      // Update status
+      setCreationStatusText('Saving to database...');
       
       // Insert strategy into Supabase database
       const { data, error } = await supabase
@@ -402,11 +412,15 @@ export function AIChatView() {
 
       if (error) {
         console.error('Error saving strategy:', error);
+        setShowCreatingStatus(false);
         alert(`Failed to save strategy: ${error.message}`);
         return;
       }
 
       console.log('Strategy saved successfully:', data);
+      
+      // Update status
+      setCreationStatusText('Strategy created successfully!');
       
       // Add the new strategy to local state with the returned ID
       const newStrategy: TradingStrategy = {
@@ -429,6 +443,11 @@ export function AIChatView() {
       setShowStrategyModal(false);
       setPendingStrategy(null);
       
+      // Show success status briefly
+      setTimeout(() => {
+        setShowCreatingStatus(false);
+      }, 2000);
+      
       // Add confirmation message to chat
       const confirmationMessage: ChatMessage = {
         id: Date.now().toString(),
@@ -440,11 +459,9 @@ export function AIChatView() {
       
       setMessages(prev => [...prev, confirmationMessage]);
       
-      // Show success message
-      alert('Strategy created and saved successfully! Check your Strategies page.');
-      
     } catch (error) {
       console.error('Error creating strategy:', error);
+      setShowCreatingStatus(false);
       alert('An unexpected error occurred while saving the strategy. Please try again.');
     }
   };
@@ -982,18 +999,12 @@ export function AIChatView() {
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
                   <Bot className="w-4 h-4 text-white" />
                 </div>
-                <div className="bg-gray-800/50 p-4 rounded-2xl flex items-center justify-center">
-                  <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-1 flex items-center justify-center">
-                    <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
-                      <DotLottieReact
-                        src="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
-                        loop
-                        autoplay
-                        className="w-60 h-60"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <StatusDisplay
+                  title="BrokerNomics AI is thinking..."
+                  subtitle="Analyzing your request and generating response"
+                  showLottie={true}
+                  className="max-w-md"
+                />
               </motion.div>
             )}
 
@@ -1035,6 +1046,26 @@ export function AIChatView() {
           </div>
         </Card>
       </div>
+
+      {/* Strategy Creation Status */}
+      <AnimatePresence>
+        {showCreatingStatus && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed bottom-6 right-6 z-50"
+          >
+            <StatusDisplay
+              title={creationStatusText}
+              subtitle={creationStatusText.includes('successfully') ? 'Check your Strategies page' : 'Please wait...'}
+              showLottie={!creationStatusText.includes('successfully')}
+              lottieUrl="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
+              className="min-w-80"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Right Sidebar */}
       <AIChatSidebar
