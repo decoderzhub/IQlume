@@ -23,6 +23,7 @@ import {
   CartesianGrid, 
   Tooltip,
   PieChart as RechartsPieChart,
+  Pie,
   Cell,
   BarChart,
   Bar,
