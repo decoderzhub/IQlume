@@ -151,11 +151,11 @@ export function ChatMessage({ message, onTypingComplete }: ChatMessageProps) {
         <div
           className={`p-4 rounded-2xl ${
             message.role === 'user'
-              ? 'bg-gray-800/50 text-gray-100 ml-auto'
-              : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+              ? 'bg-gray-800/50 text-gray-100 ml-auto max-w-[90%] sm:max-w-full'
+              : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white max-w-[95%] sm:max-w-full'
           }`}
         >
-          <div className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base">
+          <div className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm">
             {message.role === 'assistant' && message.isTyping ? (
               <TypingText 
                 text={message.content}
