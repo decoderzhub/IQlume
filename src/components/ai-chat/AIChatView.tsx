@@ -203,6 +203,14 @@ export function AIChatView() {
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [pendingStrategy, setPendingStrategy] = useState<any>(null);
 
+  const stopResponse = () => {
+    setIsLoading(false);
+    // Remove any typing messages
+    setMessages(prev => prev.map(msg => 
+      msg.isTyping ? { ...msg, isTyping: false, content: msg.content + '\n\n*Response stopped by user*' } : msg
+    ));
+  };
+
   const handleCreateStrategy = async (strategy: Omit<TradingStrategy, 'id'>) => {
     if (!user) {
       console.error('No user found');
@@ -675,9 +683,12 @@ export function AIChatView() {
                 type="submit"
                 disabled={!inputMessage.trim() || isLoading}
                 className="px-6"
+                onClick={isLoading ? stopResponse : undefined}
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <div className="w-4 h-4 bg-red-500 rounded-sm flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-sm"></div>
+                  </div>
                 ) : (
                   <Send className="w-4 h-4" />
                 )}
