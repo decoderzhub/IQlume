@@ -99,13 +99,13 @@ const TypingText: React.FC<{ text: string; onComplete?: () => void; isMarkdown?:
       const timer = setTimeout(() => {
         setDisplayedText(prev => prev + text[currentIndex]);
         setCurrentIndex(prev => prev + 1);
-      }, 0.5); // Much faster typing speed
+      }, 25); // 25ms delay for smooth typing
 
       return () => clearTimeout(timer);
     } else if (onComplete) {
       onComplete();
     }
-  }, 0.25); // Much faster typing speed - 2x faster than before
+  }, [currentIndex, text, onComplete]); // Fixed dependency array
 
   if (isMarkdown) {
     return (
