@@ -111,7 +111,7 @@ export function AIChatSidebar({
             animate="open"
             exit="closed"
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-            onClick={() => setRightSidebarOpen(false)}
+            onClick={() => setRightSidebarOpen(true)}
           />
         )}
       </AnimatePresence>
