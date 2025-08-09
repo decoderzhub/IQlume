@@ -677,6 +677,9 @@ export function AIChatView() {
 
       // If strategy creation is detected, show the modal after typing completes
       if (shouldCreateStrategy) {
+        // Mark this message as a strategy creation message
+        setStrategyCreationMessages(prev => new Set([...prev, aiMessage.id]));
+        
         setTimeout(() => {
           setPendingStrategy(shouldCreateStrategy);
           setShowStrategyModal(true);
@@ -924,39 +927,83 @@ export function AIChatView() {
                   )}
                   
                   <div className={`max-w-[70%] ${message.role === 'user' ? 'order-first' : ''}`}>
-                    <div
-                      className={`p-4 rounded-2xl ${
-                        message.role === 'user'
-                          ? 'bg-gray-800/50 text-gray-100 ml-auto'
-                          : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        {message.role === 'assistant' && message.isTyping ? (
-                          <TypingText 
-                            text={message.content}
-                            isMarkdown={true}
-                            onComplete={() => {
-                              setMessages(prev => prev.map(msg => 
-                                msg.id === message.id ? { ...msg, isTyping: false } : msg
-                              ));
-                            }}
-                          />
-                        ) : (
-                          message.role === 'assistant' ? (
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              rehypePlugins={[rehypeHighlight]}
-                              components={MarkdownComponents}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
+                    {message.role === 'assistant' && strategyCreationMessages.has(message.id) ? (
+                      // Special layout for strategy creation messages
+                      <div className="flex gap-4 items-start">
+                        <div
+                          className="flex-1 p-4 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                        >
+                          <p className="whitespace-pre-wrap leading-relaxed">
+                            {message.isTyping ? (
+                              <TypingText 
+                                text={message.content}
+                                isMarkdown={true}
+                                onComplete={() => {
+                                  setMessages(prev => prev.map(msg => 
+                                    msg.id === message.id ? { ...msg, isTyping: false } : msg
+                                  ));
+                                }}
+                              />
+                            ) : (
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeHighlight]}
+                                components={MarkdownComponents}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            )}
+                          </p>
+                        </div>
+                        
+                        {/* Lottie Animation for Strategy Creation */}
+                        <div className="w-24 h-24 flex-shrink-0 rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-1">
+                          <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
+                            <DotLottieReact
+                              src="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
+                              loop
+                              autoplay
+                              className="w-16 h-16"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      // Regular message layout
+                      <div
+                        className={`p-4 rounded-2xl ${
+                          message.role === 'user'
+                            ? 'bg-gray-800/50 text-gray-100 ml-auto'
+                            : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap leading-relaxed">
+                          {message.role === 'assistant' && message.isTyping ? (
+                            <TypingText 
+                              text={message.content}
+                              isMarkdown={true}
+                              onComplete={() => {
+                                setMessages(prev => prev.map(msg => 
+                                  msg.id === message.id ? { ...msg, isTyping: false } : msg
+                                ));
+                              }}
+                            />
                           ) : (
-                            message.content
-                          )
-                        )}
-                      </p>
-                    </div>
+                            message.role === 'assistant' ? (
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeHighlight]}
+                                components={MarkdownComponents}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            ) : (
+                              message.content
+                            )
+                          )}
+                        </p>
+                      </div>
+                    )}
                     <p className={`text-sm text-gray-300 mt-2 font-medium ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
                       {formatTime(message.timestamp)}
                     </p>
