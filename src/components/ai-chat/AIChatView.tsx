@@ -962,13 +962,13 @@ export function AIChatView() {
                         </div>
                         
                         {/* Lottie Animation for Strategy Creation */}
-                        <div className="w-24 h-24 flex-shrink-0 rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-1">
+                        <div className="w-32 h-32 flex-shrink-0 rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-1 self-end">
                           <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
                             <DotLottieReact
                               src="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
                               loop
                               autoplay
-                              className="w-20 h-20"
+                              className="w-28 h-28"
                             />
                           </div>
                         </div>
