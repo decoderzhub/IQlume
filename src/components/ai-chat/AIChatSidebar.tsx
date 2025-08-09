@@ -537,14 +537,14 @@ export function AIChatSidebar({
                             key={session.id}
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.99 }}
-                            className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                            className={`p-2 rounded-lg border cursor-pointer transition-all ${
                               currentSessionId === session.id
                                 ? 'border-purple-500 bg-purple-500/10'
-                                : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+                                : 'border-gray-700/50 bg-gray-800/30 hover:bg-gray-800/50 hover:border-gray-600'
                             }`}
                           >
                             <div className="flex items-start justify-between mb-1" onClick={() => onSwitchSession(session.id)}>
-                              <span className="font-medium text-white text-sm truncate flex-1">
+                              <span className="font-medium text-white text-xs truncate flex-1">
                                 {session.title}
                               </span>
                               <div className="flex items-center gap-1 text-xs text-gray-400 ml-2">
