@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 interface ChatInputProps {
@@ -80,9 +80,16 @@ export function ChatInput({
       <div className="px-4 sm:px-6 pt-4">
         <button
           onClick={() => setShowSuggestions(!showSuggestions)}
-          className="flex items-center justify-between w-full mb-2"
+          className="flex items-center justify-between w-full mb-2 group"
         >
-          <h3 className="text-xs sm:text-sm font-medium text-gray-400">Suggested Questions</h3>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500 rounded flex items-center justify-center">
+              <Sparkles className="w-2.5 h-2.5 text-white" />
+            </div>
+            <h3 className="text-xs sm:text-sm font-medium text-gray-200 group-hover:text-white transition-colors">
+              Suggested Questions
+            </h3>
+          </div>
           {showSuggestions ? (
             <ChevronUp className="w-4 h-4 text-gray-400" />
           ) : (
@@ -122,9 +129,16 @@ export function ChatInput({
       <div className="px-4 sm:px-6">
         <button
           onClick={() => setShowActions(!showActions)}
-          className="flex items-center justify-between w-full mb-2"
+          className="flex items-center justify-between w-full mb-2 group"
         >
-          <h3 className="text-xs sm:text-sm font-medium text-gray-400">AI Actions</h3>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 rounded flex items-center justify-center">
+              <Zap className="w-2.5 h-2.5 text-white" />
+            </div>
+            <h3 className="text-xs sm:text-sm font-medium text-purple-300 group-hover:text-purple-200 transition-colors">
+              AI Strategy Actions
+            </h3>
+          </div>
           {showActions ? (
             <ChevronUp className="w-4 h-4 text-gray-400" />
           ) : (
@@ -149,7 +163,7 @@ export function ChatInput({
                       onSuggestedQuestion(prompt);
                       setShowActions(false);
                     }}
-                    className="px-2 py-1.5 sm:px-3 sm:py-2 bg-gradient-to-r from-blue-900/20 to-purple-900/20 hover:from-blue-800/30 hover:to-purple-800/30 rounded-lg text-xs sm:text-sm text-blue-200 hover:text-blue-100 transition-all duration-200 border border-blue-500/20 hover:border-blue-400/40"
+                    className="px-2 py-1.5 sm:px-3 sm:py-2 bg-gradient-to-r from-purple-900/20 to-violet-900/20 hover:from-purple-800/30 hover:to-violet-800/30 rounded-lg text-xs sm:text-sm text-purple-200 hover:text-purple-100 transition-all duration-200 border border-purple-500/20 hover:border-purple-400/40"
                   >
                     {prompt.length > 50 ? `${prompt.substring(0, 50)}...` : prompt}
                   </button>
@@ -197,7 +211,7 @@ export function ChatInput({
           </button>
         </form>
         
-        <p className="text-xs text-gray-300 mt-2 sm:mt-3 text-center font-medium">
+        <p className="hidden sm:block text-xs text-gray-300 mt-2 sm:mt-3 text-center font-medium">
           Claude responses are generated and may not always be accurate. Always do your own research.
         </p>
       </div>
