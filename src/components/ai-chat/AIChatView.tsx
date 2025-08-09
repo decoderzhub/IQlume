@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, Loader2, Brain, Lightbulb, TrendingUp, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Send, Bot, User, Loader2, Brain, Menu, Coins } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { AIChatSidebar } from './AIChatSidebar';
@@ -51,8 +51,7 @@ export function AIChatView() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showSuggestions, setShowSuggestions] = useState(true);
-  const [showActions, setShowActions] = useState(true);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const { user } = useStore();
   const [selectedModel, setSelectedModel] = useState('claude-3-5-sonnet-20241022');
   const [lastResponseTokens, setLastResponseTokens] = useState<TokenUsage | null>(null);
@@ -166,13 +165,19 @@ export function AIChatView() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="h-full flex gap-6 max-h-[calc(100vh-120px)]"
+      className="h-full flex max-h-[calc(100vh-120px)]"
     >
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div 
+        className="flex-1 flex flex-col min-w-0 transition-all duration-300"
+        style={{
+          marginRight: rightSidebarOpen ? '320px' : '0',
+        }}
+      >
         {/* Header */}
         <Card className="p-6 mb-6">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
               <Brain className="w-6 h-6 text-white" />
             </div>
@@ -180,6 +185,16 @@ export function AIChatView() {
               <h1 className="text-2xl font-bold text-white">Brokernomex AI</h1>
               <p className="text-gray-400">Your intelligent trading strategy assistant</p>
             </div>
+            </div>
+            
+            {/* Right sidebar toggle */}
+            <Button
+              variant="ghost"
+              onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
+              className="p-2"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
           </div>
         </Card>
 
@@ -247,109 +262,41 @@ export function AIChatView() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Suggested Questions */}
-          {messages.length === 1 && (
+          {/* Token Usage Display */}
+          {lastResponseTokens && (
             <div className="px-6 pb-4">
-              <button
-                onClick={() => setShowSuggestions(!showSuggestions)}
-                className="flex items-center gap-2 mb-3 text-gray-400 hover:text-gray-300 transition-colors"
-              >
-                <Lightbulb className="w-4 h-4 text-yellow-400" />
-                <span className="text-sm font-medium text-gray-400">Suggested questions:</span>
-                {showSuggestions ? (
-                  <ChevronUp className="w-4 h-4" />
-                ) : (
-                  <ChevronDown className="w-4 h-4" />
-                )}
-              </button>
-              
-              <AnimatePresence>
-                {showSuggestions && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {suggestedQuestions.map((question, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleSuggestedQuestion(question)}
-                          className="text-left p-3 bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-sm text-gray-300 hover:text-white transition-all duration-200 border border-gray-700/50 hover:border-gray-600"
-                        >
-                          {question}
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Actionable Prompts Section */}
-              <div className="mt-8">
-                <button
-                  onClick={() => setShowActions(!showActions)}
-                  className="flex items-center gap-2 mb-3 text-gray-400 hover:text-gray-300 transition-colors"
-                >
-                  <Zap className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm font-medium text-gray-400">AI Actions - Try these prompts:</span>
-                  {showActions ? (
-                    <ChevronUp className="w-4 h-4" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4" />
-                  )}
-                </button>
+              <div className="bg-gray-800/30 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Coins className="w-4 h-4 text-yellow-400" />
+                  <h4 className="text-sm font-medium text-white">Token Usage</h4>
+                </div>
                 
-                <AnimatePresence>
-                  {showActions && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {actionablePrompts.map((prompt, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSuggestedQuestion(prompt)}
-                            className="text-left p-3 bg-gradient-to-r from-blue-900/20 to-purple-900/20 hover:from-blue-800/30 hover:to-purple-800/30 rounded-lg text-sm text-blue-200 hover:text-blue-100 transition-all duration-200 border border-blue-500/20 hover:border-blue-400/40"
-                          >
-                            <div className="flex items-start gap-2">
-                              <Zap className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
-                              <span>{prompt}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="text-center">
+                    <p className="text-gray-400">Input</p>
+                    <p className="font-medium text-white">
+                      {lastResponseTokens.input_tokens.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-gray-400">Output</p>
+                    <p className="font-medium text-white">
+                      {lastResponseTokens.output_tokens.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-gray-400">Total</p>
+                    <p className="font-bold text-yellow-400">
+                      {lastResponseTokens.total_tokens.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
                 
-                <AnimatePresence>
-                  {showActions && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3, delay: 0.1 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <Brain className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-                          <div className="text-xs text-blue-300">
-                            <p className="font-medium mb-1">💡 Pro Tip:</p>
-                            <p>These prompts can help the AI understand your intent to create specific strategies. The AI will guide you through the parameters and can suggest opening the strategy creation modal with pre-filled settings.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {lastResponseModel && (
+                  <div className="mt-3 pt-3 border-t border-gray-700">
+                    <p className="text-xs text-gray-500">Model: {lastResponseModel}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -388,10 +335,13 @@ export function AIChatView() {
 
       {/* Right Sidebar */}
       <AIChatSidebar
+        rightSidebarOpen={rightSidebarOpen}
+        setRightSidebarOpen={setRightSidebarOpen}
         selectedModel={selectedModel}
         setSelectedModel={setSelectedModel}
-        lastResponseTokens={lastResponseTokens}
-        lastResponseModel={lastResponseModel}
+        suggestedQuestions={suggestedQuestions}
+        actionablePrompts={actionablePrompts}
+        handleSuggestedQuestion={handleSuggestedQuestion}
       />
     </motion.div>
   );

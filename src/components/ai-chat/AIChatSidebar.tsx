@@ -1,19 +1,17 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Brain, Zap, TrendingUp, Target, Info, Clock, Coins } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Brain, Zap, TrendingUp, Target, Lightbulb, ChevronDown, ChevronUp, X, Menu } from 'lucide-react';
 import { Card } from '../ui/Card';
-
-interface TokenUsage {
-  input_tokens: number;
-  output_tokens: number;
-  total_tokens: number;
-}
+import { cn } from '../../lib/utils';
 
 interface AIChatSidebarProps {
+  rightSidebarOpen: boolean;
+  setRightSidebarOpen: (open: boolean) => void;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
-  lastResponseTokens: TokenUsage | null;
-  lastResponseModel: string | null;
+  suggestedQuestions: string[];
+  actionablePrompts: string[];
+  handleSuggestedQuestion: (question: string) => void;
 }
 
 const anthropicModels = [
@@ -51,166 +49,465 @@ const anthropicModels = [
   },
 ];
 
-const chatTips = [
-  {
-    icon: TrendingUp,
-    title: 'Strategy Creation',
-    tip: 'Ask me to "Create a covered calls strategy for AAPL with $30K capital" for specific configurations.',
-  },
-  {
-    icon: Target,
-    title: 'Risk Analysis',
-    tip: 'Request risk assessments like "What are the risks of iron condor strategies in volatile markets?"',
-  },
-  {
-    icon: Brain,
-    title: 'Market Insights',
-    tip: 'Get market analysis with "Analyze current market conditions for options trading".',
-  },
-  {
-    icon: Zap,
-    title: 'Quick Actions',
-    tip: 'Use action prompts like "Build me a DCA bot for ETH" for immediate strategy creation.',
-  },
-];
-
 export function AIChatSidebar({ 
+  rightSidebarOpen,
+  setRightSidebarOpen,
   selectedModel, 
-  setSelectedModel, 
-  lastResponseTokens, 
-  lastResponseModel 
+  setSelectedModel,
+  suggestedQuestions,
+  actionablePrompts,
+  handleSuggestedQuestion
 }: AIChatSidebarProps) {
+  const [showModels, setShowModels] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showActions, setShowActions] = useState(true);
+
+  const sidebarVariants = {
+    open: {
+      x: 0,
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 40,
+        mass: 0.8
+      }
+    },
+    closed: {
+      x: "100%",
+      transition: {
+        type: "spring",
+        stiffness: 400,
+        damping: 40,
+        mass: 0.8
+      }
+    }
+  };
+
+  const overlayVariants = {
+    open: {
+      opacity: 1,
+      transition: {
+        duration: 0.3,
+        ease: "easeOut"
+      }
+    },
+    closed: {
+      opacity: 0,
+      transition: {
+        duration: 0.2,
+        ease: "easeIn"
+      }
+    }
+  };
+
   return (
-    <div className="w-80 flex-shrink-0 space-y-6">
-      {/* Model Selection */}
-      <Card className="p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Brain className="w-5 h-5 text-blue-400" />
-          <h3 className="font-semibold text-white">AI Model</h3>
-        </div>
-        
-        <div className="space-y-2">
-          {anthropicModels.map((model) => (
+    <>
+      {/* Mobile overlay */}
+      <AnimatePresence>
+        {rightSidebarOpen && (
+          <motion.div
+            variants={overlayVariants}
+            initial="closed"
+            animate="open"
+            exit="closed"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            onClick={() => setRightSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Desktop sidebar - always visible but can be collapsed */}
+      <motion.aside
+        animate={{
+          width: rightSidebarOpen ? 320 : 0,
+          transition: {
+            type: "spring",
+            stiffness: 400,
+            damping: 40
+          }
+        }}
+        className="hidden lg:flex fixed right-0 top-20 h-[calc(100vh-80px)] bg-gray-900/95 backdrop-blur-xl border-l border-gray-800 z-30 flex-col overflow-hidden"
+      >
+        <AnimatePresence>
+          {rightSidebarOpen && (
             <motion.div
-              key={model.id}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              onClick={() => setSelectedModel(model.name)}
-              className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                selectedModel === model.name
-                  ? 'border-blue-500 bg-blue-500/10'
-                  : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
-              }`}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1 overflow-y-auto p-6 space-y-6"
             >
-              <div className="flex items-start justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    selectedModel === model.name ? 'bg-blue-500' : 'bg-gray-500'
-                  }`} />
-                  <span className="font-medium text-white text-sm">{model.label}</span>
-                </div>
-                <div className="flex gap-1">
-                  {model.badge && (
-                    <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-xs rounded border border-green-500/30">
-                      {model.badge}
-                    </span>
+              {/* AI Model Selection - Accordion */}
+              <Card className="p-4">
+                <button
+                  onClick={() => setShowModels(!showModels)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-blue-400" />
+                    <h3 className="font-semibold text-white">AI Model</h3>
+                  </div>
+                  {showModels ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
                   )}
-                  {model.recommended && (
-                    <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded border border-blue-500/30">
-                      recommended
-                    </span>
+                </button>
+                
+                <AnimatePresence>
+                  {showModels && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2">
+                        {anthropicModels.map((model) => (
+                          <motion.div
+                            key={model.id}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
+                            onClick={() => setSelectedModel(model.name)}
+                            className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                              selectedModel === model.name
+                                ? 'border-blue-500 bg-blue-500/10'
+                                : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${
+                                  selectedModel === model.name ? 'bg-blue-500' : 'bg-gray-500'
+                                }`} />
+                                <span className="font-medium text-white text-sm">{model.label}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                {model.badge && (
+                                  <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-xs rounded border border-green-500/30">
+                                    {model.badge}
+                                  </span>
+                                )}
+                                {model.recommended && (
+                                  <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded border border-blue-500/30">
+                                    recommended
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-400 leading-relaxed">{model.description}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
                   )}
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 leading-relaxed">{model.description}</p>
+                </AnimatePresence>
+              </Card>
+
+              {/* Suggested Questions - Accordion */}
+              <Card className="p-4">
+                <button
+                  onClick={() => setShowSuggestions(!showSuggestions)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <Lightbulb className="w-5 h-5 text-yellow-400" />
+                    <h3 className="font-semibold text-white">Suggested Questions</h3>
+                  </div>
+                  {showSuggestions ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+                
+                <AnimatePresence>
+                  {showSuggestions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2">
+                        {suggestedQuestions.map((question, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleSuggestedQuestion(question)}
+                            className="w-full text-left p-3 bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-sm text-gray-300 hover:text-white transition-all duration-200 border border-gray-700/50 hover:border-gray-600"
+                          >
+                            {question}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
+
+              {/* AI Actions - Accordion */}
+              <Card className="p-4">
+                <button
+                  onClick={() => setShowActions(!showActions)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-blue-400" />
+                    <h3 className="font-semibold text-white">AI Actions</h3>
+                  </div>
+                  {showActions ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+                
+                <AnimatePresence>
+                  {showActions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2">
+                        {actionablePrompts.map((prompt, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleSuggestedQuestion(prompt)}
+                            className="w-full text-left p-3 bg-gradient-to-r from-blue-900/20 to-purple-900/20 hover:from-blue-800/30 hover:to-purple-800/30 rounded-lg text-sm text-blue-200 hover:text-blue-100 transition-all duration-200 border border-blue-500/20 hover:border-blue-400/40"
+                          >
+                            <div className="flex items-start gap-2">
+                              <Zap className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
+                              <span>{prompt}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      
+                      <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <Brain className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                          <div className="text-xs text-blue-300">
+                            <p className="font-medium mb-1">💡 Pro Tip:</p>
+                            <p>These prompts can help the AI understand your intent to create specific strategies. The AI will guide you through the parameters and can suggest opening the strategy creation modal with pre-filled settings.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
             </motion.div>
-          ))}
-        </div>
-      </Card>
+          )}
+        </AnimatePresence>
+      </motion.aside>
 
-      {/* Token Usage */}
-      {lastResponseTokens && (
-        <Card className="p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Coins className="w-5 h-5 text-yellow-400" />
-            <h3 className="font-semibold text-white">Token Usage</h3>
-          </div>
-          
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">Input Tokens:</span>
-              <span className="text-sm font-medium text-white">
-                {lastResponseTokens.input_tokens.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">Output Tokens:</span>
-              <span className="text-sm font-medium text-white">
-                {lastResponseTokens.output_tokens.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between items-center pt-2 border-t border-gray-700">
-              <span className="text-sm font-medium text-gray-300">Total:</span>
-              <span className="text-sm font-bold text-yellow-400">
-                {lastResponseTokens.total_tokens.toLocaleString()}
-              </span>
-            </div>
-            {lastResponseModel && (
-              <div className="pt-2 border-t border-gray-700">
-                <span className="text-xs text-gray-500">Model: {lastResponseModel}</span>
+      {/* Mobile sidebar */}
+      <AnimatePresence>
+        {rightSidebarOpen && (
+          <motion.aside
+            variants={sidebarVariants}
+            initial="closed"
+            animate="open"
+            exit="closed"
+            className="fixed right-0 top-0 h-full w-80 bg-gray-900/98 backdrop-blur-xl border-l border-gray-800 z-50 lg:hidden flex flex-col"
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <Brain className="w-6 h-6 text-blue-400" />
+                <span className="text-white font-semibold">AI Assistant</span>
               </div>
-            )}
-          </div>
-        </Card>
-      )}
+              
+              <motion.button
+                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setRightSidebarOpen(false)}
+                className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </motion.button>
+            </div>
 
-      {/* Chat Tips */}
-      <Card className="p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Info className="w-5 h-5 text-purple-400" />
-          <h3 className="font-semibold text-white">Chat Tips</h3>
-        </div>
-        
-        <div className="space-y-4">
-          {chatTips.map((tip, index) => {
-            const Icon = tip.icon;
-            return (
-              <div key={index} className="flex gap-3">
-                <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Icon className="w-4 h-4 text-gray-400" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-white mb-1">{tip.title}</h4>
-                  <p className="text-xs text-gray-400 leading-relaxed">{tip.tip}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Same content as desktop but in mobile layout */}
+              {/* AI Model Selection - Accordion */}
+              <Card className="p-4">
+                <button
+                  onClick={() => setShowModels(!showModels)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-blue-400" />
+                    <h3 className="font-semibold text-white">AI Model</h3>
+                  </div>
+                  {showModels ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+                
+                <AnimatePresence>
+                  {showModels && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2">
+                        {anthropicModels.map((model) => (
+                          <motion.div
+                            key={model.id}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
+                            onClick={() => setSelectedModel(model.name)}
+                            className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                              selectedModel === model.name
+                                ? 'border-blue-500 bg-blue-500/10'
+                                : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${
+                                  selectedModel === model.name ? 'bg-blue-500' : 'bg-gray-500'
+                                }`} />
+                                <span className="font-medium text-white text-sm">{model.label}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                {model.badge && (
+                                  <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-xs rounded border border-green-500/30">
+                                    {model.badge}
+                                  </span>
+                                )}
+                                {model.recommended && (
+                                  <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded border border-blue-500/30">
+                                    recommended
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-400 leading-relaxed">{model.description}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
 
-      {/* Performance Tips */}
-      <Card className="p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Clock className="w-5 h-5 text-green-400" />
-          <h3 className="font-semibold text-white">Performance</h3>
-        </div>
-        
-        <div className="space-y-3 text-xs text-gray-400">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full" />
-            <span>Sonnet 3.5: Best for complex analysis</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full" />
-            <span>Haiku 3.5: Fastest responses</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-purple-500 rounded-full" />
-            <span>Opus 3: Most creative solutions</span>
-          </div>
-        </div>
-      </Card>
-    </div>
+              {/* Suggested Questions - Accordion */}
+              <Card className="p-4">
+                <button
+                  onClick={() => setShowSuggestions(!showSuggestions)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <Lightbulb className="w-5 h-5 text-yellow-400" />
+                    <h3 className="font-semibold text-white">Suggested Questions</h3>
+                  </div>
+                  {showSuggestions ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+                
+                <AnimatePresence>
+                  {showSuggestions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2">
+                        {suggestedQuestions.map((question, index) => (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              handleSuggestedQuestion(question);
+                              setRightSidebarOpen(false);
+                            }}
+                            className="w-full text-left p-3 bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-sm text-gray-300 hover:text-white transition-all duration-200 border border-gray-700/50 hover:border-gray-600"
+                          >
+                            {question}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
+
+              {/* AI Actions - Accordion */}
+              <Card className="p-4">
+                <button
+                  onClick={() => setShowActions(!showActions)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-blue-400" />
+                    <h3 className="font-semibold text-white">AI Actions</h3>
+                  </div>
+                  {showActions ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+                
+                <AnimatePresence>
+                  {showActions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2">
+                        {actionablePrompts.map((prompt, index) => (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              handleSuggestedQuestion(prompt);
+                              setRightSidebarOpen(false);
+                            }}
+                            className="w-full text-left p-3 bg-gradient-to-r from-blue-900/20 to-purple-900/20 hover:from-blue-800/30 hover:to-purple-800/30 rounded-lg text-sm text-blue-200 hover:text-blue-100 transition-all duration-200 border border-blue-500/20 hover:border-blue-400/40"
+                          >
+                            <div className="flex items-start gap-2">
+                              <Zap className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
+                              <span>{prompt}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      
+                      <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <Brain className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                          <div className="text-xs text-blue-300">
+                            <p className="font-medium mb-1">💡 Pro Tip:</p>
+                            <p>These prompts can help the AI understand your intent to create specific strategies. The AI will guide you through the parameters and can suggest opening the strategy creation modal with pre-filled settings.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
