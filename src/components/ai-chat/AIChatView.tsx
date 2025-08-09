@@ -99,7 +99,7 @@ const TypingText: React.FC<{ text: string; onComplete?: () => void; isMarkdown?:
       const timer = setTimeout(() => {
         setDisplayedText(prev => prev + text[currentIndex]);
         setCurrentIndex(prev => prev + 1);
-      }, 4); // Adjust speed here (lower = faster)
+      }, 1); // Adjust speed here (lower = faster)
 
       return () => clearTimeout(timer);
     } else if (onComplete) {
