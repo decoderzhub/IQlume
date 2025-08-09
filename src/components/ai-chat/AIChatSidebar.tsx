@@ -107,7 +107,7 @@ export function AIChatSidebar({
         {rightSidebarOpen && (
           <motion.div
             variants={overlayVariants}
-            initial="closed"
+            initial="open"
             animate="open"
             exit="closed"
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
