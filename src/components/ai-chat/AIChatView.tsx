@@ -989,7 +989,7 @@ export function AIChatView() {
                         src="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
                         loop
                         autoplay
-                        className="w-20 h-20"
+                        className="w-60 h-60"
                       />
                     </div>
                   </div>
