@@ -189,7 +189,6 @@ export function AIChatView() {
   const [lastResponseModel, setLastResponseModel] = useState<string | null>(null);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [pendingStrategy, setPendingStrategy] = useState<any>(null);
-  const [strategyCreationMessages, setStrategyCreationMessages] = useState<Set<string>>(new Set());
 
   // Load chat history from database on component mount
   useEffect(() => {
@@ -439,9 +438,6 @@ export function AIChatView() {
         isTyping: false,
       };
       
-      // Mark this as a strategy creation message for animation
-      setStrategyCreationMessages(prev => new Set([...prev, confirmationMessage.id]));
-      
       setMessages(prev => [...prev, confirmationMessage]);
       
       // Show success message
@@ -682,9 +678,6 @@ export function AIChatView() {
 
       // If strategy creation is detected, show the modal after typing completes
       if (shouldCreateStrategy) {
-        // Mark this message as a strategy creation message
-        setStrategyCreationMessages(prev => new Set([...prev, aiMessage.id]));
-        
         setTimeout(() => {
           setPendingStrategy(shouldCreateStrategy);
           setShowStrategyModal(true);
@@ -932,83 +925,39 @@ export function AIChatView() {
                   )}
                   
                   <div className={`max-w-[70%] ${message.role === 'user' ? 'order-first' : ''}`}>
-                    {message.role === 'assistant' && strategyCreationMessages.has(message.id) ? (
-                      // Special layout for strategy creation messages
-                      <div className="flex gap-4 items-start">
-                        <div
-                          className="flex-1 p-4 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                        >
-                          <p className="whitespace-pre-wrap leading-relaxed">
-                            {message.isTyping ? (
-                              <TypingText 
-                                text={message.content}
-                                isMarkdown={true}
-                                onComplete={() => {
-                                  setMessages(prev => prev.map(msg => 
-                                    msg.id === message.id ? { ...msg, isTyping: false } : msg
-                                  ));
-                                }}
-                              />
-                            ) : (
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[rehypeHighlight]}
-                                components={MarkdownComponents}
-                              >
-                                {message.content}
-                              </ReactMarkdown>
-                            )}
-                          </p>
-                        </div>
-                        
-                        {/* Lottie Animation for Strategy Creation */}
-                        <div className="w-50 h-50 flex-shrink-0 rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-1 self-end">
-                          <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
-                            <DotLottieReact
-                              src="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
-                              loop
-                              autoplay
-                              className="w-50 h-50"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      // Regular message layout
-                      <div
-                        className={`p-4 rounded-2xl ${
-                          message.role === 'user'
-                            ? 'bg-gray-800/50 text-gray-100 ml-auto'
-                            : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap leading-relaxed">
-                          {message.role === 'assistant' && message.isTyping ? (
-                            <TypingText 
-                              text={message.content}
-                              isMarkdown={true}
-                              onComplete={() => {
-                                setMessages(prev => prev.map(msg => 
-                                  msg.id === message.id ? { ...msg, isTyping: false } : msg
-                                ));
-                              }}
-                            />
+                    <div
+                      className={`p-4 rounded-2xl ${
+                        message.role === 'user'
+                          ? 'bg-gray-800/50 text-gray-100 ml-auto'
+                          : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap leading-relaxed">
+                        {message.role === 'assistant' && message.isTyping ? (
+                          <TypingText 
+                            text={message.content}
+                            isMarkdown={true}
+                            onComplete={() => {
+                              setMessages(prev => prev.map(msg => 
+                                msg.id === message.id ? { ...msg, isTyping: false } : msg
+                              ));
+                            }}
+                          />
+                        ) : (
+                          message.role === 'assistant' ? (
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              rehypePlugins={[rehypeHighlight]}
+                              components={MarkdownComponents}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
                           ) : (
-                            message.role === 'assistant' ? (
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[rehypeHighlight]}
-                                components={MarkdownComponents}
-                              >
-                                {message.content}
-                              </ReactMarkdown>
-                            ) : (
-                              message.content
-                            )
-                          )}
-                        </p>
-                      </div>
-                    )}
+                            message.content
+                          )
+                        )}
+                      </p>
+                    </div>
                     <p className={`text-sm text-gray-300 mt-2 font-medium ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
                       {formatTime(message.timestamp)}
                     </p>
@@ -1033,10 +982,16 @@ export function AIChatView() {
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
                   <Bot className="w-4 h-4 text-white" />
                 </div>
-                <div className="bg-gray-800/50 p-4 rounded-2xl">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Thinking...</span>
+                <div className="bg-gray-800/50 p-4 rounded-2xl flex items-center justify-center">
+                  <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-1 flex items-center justify-center">
+                    <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
+                      <DotLottieReact
+                        src="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
+                        loop
+                        autoplay
+                        className="w-20 h-20"
+                      />
+                    </div>
                   </div>
                 </div>
               </motion.div>
