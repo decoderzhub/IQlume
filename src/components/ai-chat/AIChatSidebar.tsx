@@ -816,3 +816,5 @@ export function AIChatSidebar({
     </>
   );
 }
+
+export { AIChatSidebar };
