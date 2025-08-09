@@ -25,6 +25,21 @@ export function ChatInput(props: ChatInputProps) {
     showSuggestions, setShowSuggestions, showActions, setShowActions
   } = props;
 
+  // Local state for typing - decouple from parent
+  const [localValue, setLocalValue] = useState(inputMessage);
+  const [isTyping, setIsTyping] = useState(false);
+  
+  // Keep local value in sync when parent changes
+  useEffect(() => {
+    setLocalValue(inputMessage);
+  }, [inputMessage]);
+  
+  // Flush local value to parent when needed
+  const flushToParent = () => {
+    if (localValue !== inputMessage) {
+      setInputMessage(localValue);
+    }
+  };
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Imperative auto-resize: no state, no timers, no rAF
@@ -42,12 +57,13 @@ export function ChatInput(props: ChatInputProps) {
   };
 
   useEffect(() => { autoResize(); }, []);     // initial
-  useEffect(() => { autoResize(); }, [inputMessage]); // on input message change
+  useEffect(() => { autoResize(); }, [localValue]); // on local value change
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (!isLoading && inputMessage.trim()) {
+      if (!isLoading && localValue.trim()) {
+        flushToParent();
         onSubmit(e as any);
       }
     }
@@ -55,7 +71,10 @@ export function ChatInput(props: ChatInputProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoading && inputMessage.trim()) onSubmit(e);
+    if (!isLoading && localValue.trim()) {
+      flushToParent();
+      onSubmit(e);
+    }
   };
 
   // Memoize slices to avoid work
@@ -79,7 +98,7 @@ export function ChatInput(props: ChatInputProps) {
         </button>
 
         <AnimatePresence>
-          {showSuggestions && (
+          {showSuggestions && !isTyping && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
               <div className="flex flex-wrap gap-2 mb-4">
                 {topQuestions.map((q, i) => (
@@ -109,7 +128,7 @@ export function ChatInput(props: ChatInputProps) {
         </button>
 
         <AnimatePresence>
-          {showActions && (
+          {showActions && !isTyping && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
               <div className="flex flex-wrap gap-2 mb-4">
                 {topActions.map((p, i) => (
@@ -130,10 +149,17 @@ export function ChatInput(props: ChatInputProps) {
           <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
+              value={localValue}
+              onChange={(e) => {
+                setLocalValue(e.target.value);
+                autoResize();
+              }}
+              onFocus={() => setIsTyping(true)}
+              onBlur={() => {
+                setIsTyping(false);
+                flushToParent();
+              }}
               onKeyDown={handleKeyDown}
-              onInput={autoResize}
               placeholder="Ask me about trading strategies... (Shift+Enter for new line)"
               disabled={isLoading}
               rows={1}
@@ -144,7 +170,7 @@ export function ChatInput(props: ChatInputProps) {
 
           <Button
             type="submit"
-            disabled={!inputMessage.trim() || isLoading}
+            disabled={!localValue.trim() || isLoading}
             variant="primary"
             onClick={isLoading ? (e) => { e.preventDefault(); onStopResponse(); } : undefined}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center flex-shrink-0 min-w-[48px] sm:min-w-[64px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
