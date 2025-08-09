@@ -12,6 +12,10 @@ interface ChatInputProps {
   suggestedQuestions: string[];
   actionablePrompts: string[];
   onSuggestedQuestion: (question: string) => void;
+  showSuggestions: boolean;
+  setShowSuggestions: (show: boolean) => void;
+  showActions: boolean;
+  setShowActions: (show: boolean) => void;
 }
 
 export function ChatInput({ 
@@ -22,12 +26,14 @@ export function ChatInput({
   onStopResponse,
   suggestedQuestions,
   actionablePrompts,
-  onSuggestedQuestion
+  onSuggestedQuestion,
+  showSuggestions,
+  setShowSuggestions,
+  showActions,
+  setShowActions
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [showActions, setShowActions] = useState(true);
-  const [hasInput, setHasInput] = useState(false);
   const [needsResize, setNeedsResize] = useState(false);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 

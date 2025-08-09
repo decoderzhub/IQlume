@@ -287,6 +287,7 @@ export function AIChatView() {
             isLoading={isLoading}
             onTypingComplete={handleTypingComplete}
             messagesEndRef={messagesEndRef}
+            onChatAreaClick={handleChatAreaClick}
           />
 
           {/* Input Form */}
@@ -299,6 +300,10 @@ export function AIChatView() {
             suggestedQuestions={suggestedQuestions}
             actionablePrompts={actionablePrompts}
             onSuggestedQuestion={handleSuggestedQuestion}
+            showSuggestions={showSuggestions}
+            setShowSuggestions={setShowSuggestions}
+            showActions={showActions}
+            setShowActions={setShowActions}
           />
         </Card>
       </div>
