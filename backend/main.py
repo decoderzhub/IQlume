@@ -19,6 +19,12 @@ import httpx
 from datetime import datetime, timedelta
 import json
 from dotenv import load_dotenv
+from alpaca.trading.client import TradingClient
+from alpaca.data.historical import StockHistoricalDataClient, OptionHistoricalDataClient, CryptoHistoricalDataClient
+from alpaca.data.live import StockDataStream, OptionDataStream, CryptoDataStream
+from alpaca.data.requests import StockLatestQuoteRequest, StockBarsRequest, OptionChainRequest, CryptoLatestQuoteRequest
+from alpaca.data.timeframe import TimeFrame
+from alpaca.common.exceptions import APIError as AlpacaAPIError
 
 load_dotenv()  # will look for .env in the current working directory
 
@@ -31,11 +37,35 @@ PLAID_ENV = os.getenv('PLAID_ENV', 'sandbox')
 
 # Anthropic configuration
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+
+# Alpaca configuration
+ALPACA_API_KEY = os.getenv('ALPACA_API_KEY')
+ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY')
+ALPACA_BASE_URL = os.getenv('ALPACA_BASE_URL', 'https://paper-api.alpaca.markets')
+
 if ANTHROPIC_API_KEY:
     anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 else:
     print("Warning: Anthropic API key not found. AI chat will not work.")
     anthropic_client = None
+
+# Initialize Alpaca clients
+if ALPACA_API_KEY and ALPACA_SECRET_KEY:
+    # Trading client for account info and orders
+    trading_client = TradingClient(ALPACA_API_KEY, ALPACA_SECRET_KEY, paper=True)
+    
+    # Data clients for market data
+    stock_data_client = StockHistoricalDataClient(ALPACA_API_KEY, ALPACA_SECRET_KEY)
+    option_data_client = OptionHistoricalDataClient(ALPACA_API_KEY, ALPACA_SECRET_KEY)
+    crypto_data_client = CryptoHistoricalDataClient(ALPACA_API_KEY, ALPACA_SECRET_KEY)
+    
+    print("Alpaca API clients initialized successfully")
+else:
+    print("Warning: Alpaca API credentials not found. Market data will use mock data.")
+    trading_client = None
+    stock_data_client = None
+    option_data_client = None
+    crypto_data_client = None
 
 if not PLAID_CLIENT_ID or not PLAID_SECRET:
     print("Warning: Plaid credentials not found. Bank account linking will not work.")
@@ -142,15 +172,77 @@ async def get_market_data(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """Get real-time market data for a symbol"""
-    # In production, integrate with Alpaca, Polygon, or other market data providers
-    return {
-        "symbol": symbol,
-        "price": 175.50,
-        "change": 2.25,
-        "change_percent": 1.30,
-        "volume": 45123000,
-        "timestamp": datetime.now().isoformat()
-    }
+    if not stock_data_client and not crypto_data_client:
+        # Fallback to mock data if Alpaca not configured
+        return {
+            "symbol": symbol,
+            "price": 175.50,
+            "change": 2.25,
+            "change_percent": 1.30,
+            "volume": 45123000,
+            "timestamp": datetime.now().isoformat(),
+            "source": "mock"
+        }
+    
+    try:
+        symbol_upper = symbol.upper()
+        
+        # Determine if it's a crypto symbol
+        crypto_symbols = ['BTC/USD', 'ETH/USD', 'BTCUSD', 'ETHUSD', 'BTC', 'ETH']
+        is_crypto = any(crypto_sym in symbol_upper for crypto_sym in crypto_symbols)
+        
+        if is_crypto and crypto_data_client:
+            # Handle crypto symbols
+            if symbol_upper in ['BTC', 'BITCOIN']:
+                symbol_upper = 'BTC/USD'
+            elif symbol_upper in ['ETH', 'ETHEREUM']:
+                symbol_upper = 'ETH/USD'
+            elif symbol_upper == 'BTCUSD':
+                symbol_upper = 'BTC/USD'
+            elif symbol_upper == 'ETHUSD':
+                symbol_upper = 'ETH/USD'
+            
+            request_params = CryptoLatestQuoteRequest(symbol_or_symbols=[symbol_upper])
+            latest_quote = crypto_data_client.get_crypto_latest_quote(request_params)
+            
+            if symbol_upper in latest_quote:
+                quote = latest_quote[symbol_upper]
+                return {
+                    "symbol": symbol_upper,
+                    "price": float(quote.bid_price) if quote.bid_price else 0.0,
+                    "bid": float(quote.bid_price) if quote.bid_price else 0.0,
+                    "ask": float(quote.ask_price) if quote.ask_price else 0.0,
+                    "timestamp": quote.timestamp.isoformat(),
+                    "source": "alpaca_crypto"
+                }
+        
+        elif stock_data_client:
+            # Handle stock symbols
+            request_params = StockLatestQuoteRequest(symbol_or_symbols=[symbol_upper])
+            latest_quote = stock_data_client.get_stock_latest_quote(request_params)
+            
+            if symbol_upper in latest_quote:
+                quote = latest_quote[symbol_upper]
+                return {
+                    "symbol": symbol_upper,
+                    "price": float(quote.bid_price) if quote.bid_price else 0.0,
+                    "bid": float(quote.bid_price) if quote.bid_price else 0.0,
+                    "ask": float(quote.ask_price) if quote.ask_price else 0.0,
+                    "bid_size": quote.bid_size if quote.bid_size else 0,
+                    "ask_size": quote.ask_size if quote.ask_size else 0,
+                    "timestamp": quote.timestamp.isoformat(),
+                    "source": "alpaca_stock"
+                }
+        
+        # If no data found, return error
+        raise HTTPException(status_code=404, detail=f"No market data found for symbol: {symbol}")
+        
+    except AlpacaAPIError as e:
+        print(f"Alpaca API error for symbol {symbol}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
+    except Exception as e:
+        print(f"Error fetching market data for {symbol}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch market data: {str(e)}")
 
 @app.get("/api/options-chain/{symbol}")
 async def get_options_chain(
@@ -159,19 +251,82 @@ async def get_options_chain(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     """Get options chain data for a symbol"""
-    # Mock options data - integrate with real provider
-    return {
-        "symbol": symbol,
-        "expiry": expiry or "2024-02-16",
-        "chains": [
-            {
-                "strike": 170.0,
-                "call": {"bid": 8.50, "ask": 8.60, "iv": 0.25, "delta": 0.65},
-                "put": {"bid": 7.50, "ask": 7.60, "iv": 0.30, "delta": -0.35}
+    if not option_data_client:
+        # Fallback to mock data if Alpaca not configured
+        return {
+            "symbol": symbol,
+            "expiry": expiry or "2024-02-16",
+            "chains": [
+                {
+                    "strike": 170.0,
+                    "call": {"bid": 8.50, "ask": 8.60, "iv": 0.25, "delta": 0.65},
+                    "put": {"bid": 7.50, "ask": 7.60, "iv": 0.30, "delta": -0.35}
+                }
+            ],
+            "source": "mock"
+        }
+    
+    try:
+        symbol_upper = symbol.upper()
+        
+        # Set default expiry if not provided (next Friday)
+        if not expiry:
+            from datetime import datetime, timedelta
+            today = datetime.now()
+            days_ahead = 4 - today.weekday()  # Friday is 4
+            if days_ahead <= 0:  # Target next Friday
+                days_ahead += 7
+            next_friday = today + timedelta(days_ahead)
+            expiry = next_friday.strftime('%Y-%m-%d')
+        
+        # Create options chain request
+        request_params = OptionChainRequest(
+            underlying_symbol=symbol_upper,
+            expiration_date=expiry
+        )
+        
+        options_chain = option_data_client.get_option_chain(request_params)
+        
+        # Process the options chain data
+        chains = []
+        strikes = {}
+        
+        for option in options_chain:
+            strike = float(option.strike_price)
+            if strike not in strikes:
+                strikes[strike] = {"strike": strike, "call": None, "put": None}
+            
+            option_data = {
+                "bid": float(option.bid_price) if option.bid_price else 0.0,
+                "ask": float(option.ask_price) if option.ask_price else 0.0,
+                "last": float(option.last_price) if option.last_price else 0.0,
+                "volume": option.volume if option.volume else 0,
+                "open_interest": option.open_interest if option.open_interest else 0,
+                "iv": option.implied_volatility if option.implied_volatility else 0.0
             }
-        ],
-        "messages": []
-    }
+            
+            if option.option_type == "call":
+                strikes[strike]["call"] = option_data
+            else:
+                strikes[strike]["put"] = option_data
+        
+        # Convert to list and sort by strike
+        chains = list(strikes.values())
+        chains.sort(key=lambda x: x["strike"])
+        
+        return {
+            "symbol": symbol_upper,
+            "expiry": expiry,
+            "chains": chains,
+            "source": "alpaca"
+        }
+        
+    except AlpacaAPIError as e:
+        print(f"Alpaca API error for options chain {symbol}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
+    except Exception as e:
+        print(f"Error fetching options chain for {symbol}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch options chain: {str(e)}")
 
 @app.post("/api/backtest")
 async def run_backtest(
@@ -433,6 +588,138 @@ Provide clear, actionable advice. When users want to create a strategy, guide th
     except Exception as e:
         print(f"Anthropic API error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get AI response: {str(e)}")
+
+@app.get("/api/historical-data/{symbol}")
+async def get_historical_data(
+    symbol: str,
+    timeframe: str = "1Day",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get historical market data for backtesting and charting"""
+    if not stock_data_client and not crypto_data_client:
+        raise HTTPException(status_code=500, detail="Alpaca API not configured")
+    
+    try:
+        symbol_upper = symbol.upper()
+        
+        # Set default date range if not provided
+        if not start_date:
+            start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+        if not end_date:
+            end_date = datetime.now().strftime('%Y-%m-%d')
+        
+        # Convert timeframe string to Alpaca TimeFrame
+        timeframe_map = {
+            "1Min": TimeFrame.Minute,
+            "5Min": TimeFrame(5, "Min"),
+            "15Min": TimeFrame(15, "Min"),
+            "1Hour": TimeFrame.Hour,
+            "1Day": TimeFrame.Day,
+            "1Week": TimeFrame.Week,
+            "1Month": TimeFrame.Month
+        }
+        
+        tf = timeframe_map.get(timeframe, TimeFrame.Day)
+        
+        # Determine if it's a crypto symbol
+        crypto_symbols = ['BTC/USD', 'ETH/USD', 'BTCUSD', 'ETHUSD', 'BTC', 'ETH']
+        is_crypto = any(crypto_sym in symbol_upper for crypto_sym in crypto_symbols)
+        
+        if is_crypto and crypto_data_client:
+            # Handle crypto symbols
+            if symbol_upper in ['BTC', 'BITCOIN']:
+                symbol_upper = 'BTC/USD'
+            elif symbol_upper in ['ETH', 'ETHEREUM']:
+                symbol_upper = 'ETH/USD'
+            elif symbol_upper == 'BTCUSD':
+                symbol_upper = 'BTC/USD'
+            elif symbol_upper == 'ETHUSD':
+                symbol_upper = 'ETH/USD'
+            
+            request_params = StockBarsRequest(
+                symbol_or_symbols=[symbol_upper],
+                timeframe=tf,
+                start=start_date,
+                end=end_date
+            )
+            
+            bars = crypto_data_client.get_crypto_bars(request_params)
+        
+        elif stock_data_client:
+            # Handle stock symbols
+            request_params = StockBarsRequest(
+                symbol_or_symbols=[symbol_upper],
+                timeframe=tf,
+                start=start_date,
+                end=end_date
+            )
+            
+            bars = stock_data_client.get_stock_bars(request_params)
+        
+        # Process the bars data
+        historical_data = []
+        if symbol_upper in bars:
+            for bar in bars[symbol_upper]:
+                historical_data.append({
+                    "timestamp": bar.timestamp.isoformat(),
+                    "open": float(bar.open),
+                    "high": float(bar.high),
+                    "low": float(bar.low),
+                    "close": float(bar.close),
+                    "volume": bar.volume if bar.volume else 0
+                })
+        
+        return {
+            "symbol": symbol_upper,
+            "timeframe": timeframe,
+            "start_date": start_date,
+            "end_date": end_date,
+            "data": historical_data,
+            "source": "alpaca"
+        }
+        
+    except AlpacaAPIError as e:
+        print(f"Alpaca API error for historical data {symbol}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
+    except Exception as e:
+        print(f"Error fetching historical data for {symbol}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch historical data: {str(e)}")
+
+@app.get("/api/account/info")
+async def get_account_info(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get Alpaca account information"""
+    if not trading_client:
+        raise HTTPException(status_code=500, detail="Alpaca trading client not configured")
+    
+    try:
+        account = trading_client.get_account()
+        
+        return {
+            "account_id": account.id,
+            "status": account.status,
+            "currency": account.currency,
+            "buying_power": float(account.buying_power),
+            "cash": float(account.cash),
+            "portfolio_value": float(account.portfolio_value),
+            "equity": float(account.equity),
+            "last_equity": float(account.last_equity),
+            "multiplier": account.multiplier,
+            "day_trade_count": account.day_trade_count,
+            "daytrade_buying_power": float(account.daytrade_buying_power),
+            "regt_buying_power": float(account.regt_buying_power),
+            "source": "alpaca"
+        }
+        
+    except AlpacaAPIError as e:
+        print(f"Alpaca API error getting account info: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
+    except Exception as e:
+        print(f"Error getting account info: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get account info: {str(e)}")
 
 @app.post("/api/custodial-wallets")
 async def create_custodial_wallet(
