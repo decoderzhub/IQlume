@@ -1000,7 +1000,7 @@ export function AIChatView() {
                   <Bot className="w-4 h-4 text-white" />
                 </div>
                 <StatusDisplay
-                  title="BrokerNomics AI is thinking..."
+                  title="BroNomics AI is thinking..."
                   subtitle="Analyzing your request and generating response"
                   showLottie={true}
                   className="max-w-md"
