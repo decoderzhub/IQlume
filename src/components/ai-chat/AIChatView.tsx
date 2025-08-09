@@ -12,6 +12,7 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  isTyping?: boolean;
 }
 
 interface TokenUsage {
@@ -26,6 +27,38 @@ interface ChatSession {
   timestamp: Date;
   messages: ChatMessage[];
 }
+
+// Typing animation component
+const TypingText: React.FC<{ text: string; onComplete?: () => void }> = ({ text, onComplete }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (currentIndex < text.length) {
+      const timer = setTimeout(() => {
+        setDisplayedText(prev => prev + text[currentIndex]);
+        setCurrentIndex(prev => prev + 1);
+      }, 20); // Adjust speed here (lower = faster)
+
+      return () => clearTimeout(timer);
+    } else if (onComplete) {
+      onComplete();
+    }
+  }, [currentIndex, text, onComplete]);
+
+  return (
+    <span>
+      {displayedText}
+      {currentIndex < text.length && (
+        <motion.span
+          animate={{ opacity: [1, 0] }}
+          transition={{ duration: 0.8, repeat: Infinity }}
+          className="inline-block w-0.5 h-4 bg-current ml-0.5"
+        />
+      )}
+    </span>
+  );
+};
 
 const suggestedQuestions = [
   "What's the best strategy for a beginner with $10,000?",
@@ -59,6 +92,7 @@ export function AIChatView() {
           role: 'assistant',
           content: "Hello! I'm Brokernomex AI, your trading strategy assistant. I can help you understand different trading strategies, analyze market conditions, and guide you through creating automated trading bots. What would you like to know about trading strategies?",
           timestamp: new Date(),
+          isTyping: false,
         },
       ],
     },
@@ -187,9 +221,17 @@ export function AIChatView() {
         role: 'assistant',
         content: result.message,
         timestamp: new Date(),
+        isTyping: true,
       };
 
       setMessages(prev => [...prev, aiMessage]);
+
+      // After a short delay, mark the message as no longer typing
+      setTimeout(() => {
+        setMessages(prev => prev.map(msg => 
+          msg.id === aiMessage.id ? { ...msg, isTyping: false } : msg
+        ));
+      }, result.message.length * 20 + 500); // Match typing speed + buffer
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -198,6 +240,7 @@ export function AIChatView() {
         role: 'assistant',
         content: "I'm sorry, I'm having trouble connecting right now. Please check your internet connection and try again. If the problem persists, the Anthropic API might be temporarily unavailable.",
         timestamp: new Date(),
+        isTyping: false,
       };
 
       setMessages(prev => [...prev, errorMessage]);
@@ -318,7 +361,20 @@ export function AIChatView() {
                           : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
                       }`}
                     >
-                      <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                      <p className="whitespace-pre-wrap leading-relaxed">
+                        {message.role === 'assistant' && message.isTyping ? (
+                          <TypingText 
+                            text={message.content}
+                            onComplete={() => {
+                              setMessages(prev => prev.map(msg => 
+                                msg.id === message.id ? { ...msg, isTyping: false } : msg
+                              ));
+                            }}
+                          />
+                        ) : (
+                          message.content
+                        )}
+                      </p>
                     </div>
                     <p className={`text-xs text-gray-500 mt-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
                       {formatTime(message.timestamp)}
