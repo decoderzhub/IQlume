@@ -203,6 +203,48 @@ export function AIChatView() {
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [pendingStrategy, setPendingStrategy] = useState<any>(null);
 
+  const handleCreateStrategy = async (strategy: Omit<TradingStrategy, 'id'>) => {
+    if (!user) {
+      console.error('No user found');
+      alert('You must be logged in to create strategies');
+      return;
+    }
+
+    try {
+      console.log('Creating AI-generated strategy:', strategy);
+      
+      // Add strategy to the store (this will sync with the strategies page)
+      const newStrategy: TradingStrategy = {
+        ...strategy,
+        id: Date.now().toString(), // Generate a temporary ID
+      };
+      
+      setStrategies([...strategies, newStrategy]);
+      
+      // Close modal
+      setShowStrategyModal(false);
+      setPendingStrategy(null);
+      
+      // Add confirmation message to chat
+      const confirmationMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `✅ **Strategy Created Successfully!**\n\nYour "${strategy.name}" strategy has been added to your Strategies page. You can now configure and activate it from the Strategies section.`,
+        timestamp: new Date(),
+        isTyping: false,
+      };
+      
+      setMessages(prev => [...prev, confirmationMessage]);
+      
+      // Show success message
+      alert('Strategy created successfully! Check your Strategies page.');
+      
+    } catch (error) {
+      console.error('Error creating strategy:', error);
+      alert('Failed to create strategy. Please try again.');
+    }
+  };
+
   const createNewChat = () => {
     const newSessionId = Date.now().toString();
     const newSession: ChatSession = {
@@ -299,6 +341,9 @@ export function AIChatView() {
         setLastResponseModel(result.model);
       }
       
+      // Check if the AI response suggests creating a strategy
+      const shouldCreateStrategy = checkForStrategyCreation(message.trim(), result.message);
+      
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -308,6 +353,14 @@ export function AIChatView() {
       };
 
       setMessages(prev => [...prev, aiMessage]);
+
+      // If strategy creation is detected, show the modal after typing completes
+      if (shouldCreateStrategy) {
+        setTimeout(() => {
+          setPendingStrategy(shouldCreateStrategy);
+          setShowStrategyModal(true);
+        }, result.message.length * 4 + 1000); // Wait for typing to complete + 1 second
+      }
 
       // After a short delay, mark the message as no longer typing
       setTimeout(() => {
@@ -330,6 +383,104 @@ export function AIChatView() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const checkForStrategyCreation = (userMessage: string, aiResponse: string) => {
+    const userLower = userMessage.toLowerCase();
+    const aiLower = aiResponse.toLowerCase();
+    
+    // Strategy creation keywords
+    const creationKeywords = [
+      'create', 'build', 'set up', 'design', 'make', 'generate', 'develop'
+    ];
+    
+    // Strategy type keywords
+    const strategyKeywords = [
+      'strategy', 'bot', 'covered call', 'iron condor', 'straddle', 'wheel',
+      'grid', 'dca', 'rebalance', 'momentum', 'pairs trading'
+    ];
+    
+    // Check if user message contains creation intent
+    const hasCreationIntent = creationKeywords.some(keyword => userLower.includes(keyword));
+    const hasStrategyKeyword = strategyKeywords.some(keyword => userLower.includes(keyword));
+    
+    if (!hasCreationIntent || !hasStrategyKeyword) {
+      return null;
+    }
+    
+    console.log('Strategy creation detected in user message:', userMessage);
+    
+    // Extract strategy details from user message and AI response
+    let strategyType: TradingStrategy['type'] = 'covered_calls'; // default
+    let riskLevel: TradingStrategy['risk_level'] = 'medium'; // default
+    let minCapital = 10000; // default
+    let symbol = 'AAPL'; // default
+    
+    // Detect strategy type
+    if (userLower.includes('covered call')) strategyType = 'covered_calls';
+    else if (userLower.includes('iron condor')) strategyType = 'iron_condor';
+    else if (userLower.includes('straddle')) strategyType = 'straddle';
+    else if (userLower.includes('wheel')) strategyType = 'wheel';
+    else if (userLower.includes('grid')) strategyType = 'spot_grid';
+    else if (userLower.includes('dca')) strategyType = 'dca';
+    else if (userLower.includes('rebalance')) strategyType = 'smart_rebalance';
+    
+    // Detect risk level
+    if (userLower.includes('conservative') || userLower.includes('low risk')) riskLevel = 'low';
+    else if (userLower.includes('aggressive') || userLower.includes('high risk')) riskLevel = 'high';
+    
+    // Extract capital amount
+    const capitalMatch = userMessage.match(/\$?(\d+(?:,\d{3})*(?:\.\d{2})?)[kK]?/);
+    if (capitalMatch) {
+      let amount = parseFloat(capitalMatch[1].replace(/,/g, ''));
+      if (userMessage.toLowerCase().includes('k')) {
+        amount *= 1000;
+      }
+      minCapital = amount;
+    }
+    
+    // Extract symbol
+    const symbolMatch = userMessage.match(/\b([A-Z]{2,5})\b/);
+    if (symbolMatch) {
+      symbol = symbolMatch[1];
+    }
+    
+    // Generate strategy name
+    const strategyName = `AI ${strategyType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} - ${symbol}`;
+    
+    return {
+      name: strategyName,
+      type: strategyType,
+      description: `AI-generated ${strategyType.replace('_', ' ')} strategy for ${symbol} based on your requirements.`,
+      risk_level: riskLevel,
+      min_capital: minCapital,
+      configuration: {
+        symbol: symbol,
+        // Add default configuration based on strategy type
+        ...(strategyType === 'covered_calls' && {
+          strike_delta: 0.30,
+          dte_target: 30,
+          profit_target: 0.5,
+        }),
+        ...(strategyType === 'iron_condor' && {
+          wing_width: 10,
+          dte_target: 45,
+          profit_target: 0.25,
+        }),
+        ...(strategyType === 'spot_grid' && {
+          price_range_lower: 0,
+          price_range_upper: 0,
+          number_of_grids: 25,
+          grid_spacing_percent: 1.0,
+        }),
+        ...(strategyType === 'dca' && {
+          investment_amount_per_interval: 100,
+          frequency: 'daily',
+          investment_target_percent: 20,
+        }),
+      },
+      reasoning: `This strategy was created based on your request: "${userMessage}". The AI analyzed your requirements and configured the strategy with appropriate parameters for your risk level and capital amount.`,
+    };
   };
 
   const handleSubmit = (e: React.FormEvent) => {
