@@ -33,7 +33,6 @@ export function ChatInput({
   setShowActions
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [showSuggestions, setShowSuggestions] = useState(true);
   const [needsResize, setNeedsResize] = useState(false);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
