@@ -188,6 +188,7 @@ export function AIChatView() {
   const [lastResponseModel, setLastResponseModel] = useState<string | null>(null);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [pendingStrategy, setPendingStrategy] = useState<any>(null);
+  const [strategyCreationMessages, setStrategyCreationMessages] = useState<Set<string>>(new Set());
 
   // Load chat history from database on component mount
   useEffect(() => {
