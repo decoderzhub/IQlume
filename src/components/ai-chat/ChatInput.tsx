@@ -34,6 +34,7 @@ export function ChatInput({
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [needsResize, setNeedsResize] = useState(false);
+  const [hasInput, setHasInput] = useState(false);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Only resize when actually needed
