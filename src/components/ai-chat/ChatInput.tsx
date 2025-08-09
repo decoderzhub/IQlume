@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 interface ChatInputProps {
@@ -56,7 +56,7 @@ export function ChatInput({
 
   return (
     <div className="border-t border-gray-800 p-4 sm:p-6">
-      <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-end">
+      <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-stretch">
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
@@ -70,20 +70,25 @@ export function ChatInput({
             style={{ minHeight: '40px', maxHeight: '120px' }}
           />
         </div>
-        <Button
+        <button
           type="submit"
           disabled={!inputMessage.trim() && !isLoading}
-          className="px-4 sm:px-6 py-2 sm:py-3 flex-shrink-0"
+          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center flex-shrink-0 min-w-[48px] sm:min-w-[56px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
           onClick={isLoading ? (e) => { e.preventDefault(); onStopResponse(); } : undefined}
+          style={{ 
+            height: textareaRef.current?.style.height || '40px',
+            minHeight: '40px',
+            maxHeight: '120px'
+          }}
         >
           {isLoading ? (
-            <div className="w-4 h-4 bg-red-500 rounded flex items-center justify-center">
-              <div className="w-2 h-2 bg-white rounded"></div>
+            <div className="w-4 h-4 sm:w-5 sm:h-5 bg-red-500 rounded flex items-center justify-center">
+              <div className="w-2 h-2 bg-white rounded-sm"></div>
             </div>
           ) : (
-            <Send className="w-4 h-4" />
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
           )}
-        </Button>
+        </button>
       </form>
       <p className="text-xs text-gray-300 mt-2 sm:mt-3 text-center font-medium">
         Claude responses are generated and may not always be accurate. Always do your own research.
