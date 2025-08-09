@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.websockets import WebSocket
 import plaid
 from plaid.api import plaid_api
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
@@ -13,7 +14,7 @@ from plaid.api_client import ApiClient
 import uvicorn
 import os
 import anthropic
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 import asyncio
 import httpx
 from datetime import datetime, timedelta
@@ -44,6 +45,7 @@ ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 ALPACA_API_KEY = os.getenv('ALPACA_API_KEY')
 ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY')
 ALPACA_BASE_URL = os.getenv('ALPACA_BASE_URL', 'https://paper-api.alpaca.markets')
+ALPACA_DATA_URL = "https://data.sandbox.alpaca.markets"  # Use https://data.alpaca.markets for live
 
 if ANTHROPIC_API_KEY:
     anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -63,7 +65,8 @@ if ALPACA_API_KEY and ALPACA_SECRET_KEY:
     
     print("Alpaca API clients initialized successfully")
 else:
-    print("Warning: Alpaca API credentials not found. Market data will use mock data.")
+    print("Warning: Alpaca API credentials not found in environment variables. Market data will use mock data.")
+    print("Please set ALPACA_API_KEY and ALPACA_SECRET_KEY in your .env file")
     trading_client = None
     stock_data_client = None
     option_data_client = None
@@ -367,6 +370,383 @@ async def get_market_data(
     except Exception as e:
         print(f"Error fetching market data for {symbol}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch market data: {str(e)}")
+
+@app.get("/api/market-data/quotes")
+async def get_real_time_quotes(
+    symbols: str,  # Comma-separated symbols like "AAPL,MSFT,GOOGL"
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get real-time quotes for multiple symbols using Alpaca SDK"""
+    if not stock_data_client and not crypto_data_client:
+        # Fallback to mock data if Alpaca not configured
+        symbol_list = [s.strip().upper() for s in symbols.split(',')]
+        mock_quotes = {}
+        for symbol in symbol_list:
+            mock_quotes[symbol] = {
+                "bid_price": 175.50,
+                "ask_price": 175.52,
+                "bid_size": 100,
+                "ask_size": 200,
+                "timestamp": datetime.now().isoformat(),
+            }
+        return {
+            "quotes": mock_quotes,
+            "source": "mock"
+        }
+    
+    try:
+        symbol_list = [s.strip().upper() for s in symbols.split(',')]
+        quotes_data = {}
+        
+        # Separate crypto and stock symbols
+        crypto_symbols = []
+        stock_symbols = []
+        
+        for symbol in symbol_list:
+            if any(crypto_sym in symbol for crypto_sym in ['BTC', 'ETH', 'USD']):
+                # Convert to Alpaca crypto format
+                if symbol in ['BTC', 'BITCOIN']:
+                    crypto_symbols.append('BTC/USD')
+                elif symbol in ['ETH', 'ETHEREUM']:
+                    crypto_symbols.append('ETH/USD')
+                elif symbol == 'BTCUSD':
+                    crypto_symbols.append('BTC/USD')
+                elif symbol == 'ETHUSD':
+                    crypto_symbols.append('ETH/USD')
+                else:
+                    crypto_symbols.append(symbol)
+            else:
+                stock_symbols.append(symbol)
+        
+        # Fetch stock quotes
+        if stock_symbols and stock_data_client:
+            stock_request = StockLatestQuoteRequest(symbol_or_symbols=stock_symbols)
+            stock_quotes = stock_data_client.get_stock_latest_quote(stock_request)
+            
+            for symbol, quote in stock_quotes.items():
+                quotes_data[symbol] = {
+                    "bid_price": float(quote.bid_price) if quote.bid_price else 0.0,
+                    "ask_price": float(quote.ask_price) if quote.ask_price else 0.0,
+                    "bid_size": quote.bid_size if quote.bid_size else 0,
+                    "ask_size": quote.ask_size if quote.ask_size else 0,
+                    "timestamp": quote.timestamp.isoformat(),
+                }
+        
+        # Fetch crypto quotes
+        if crypto_symbols and crypto_data_client:
+            crypto_request = CryptoLatestQuoteRequest(symbol_or_symbols=crypto_symbols)
+            crypto_quotes = crypto_data_client.get_crypto_latest_quote(crypto_request)
+            
+            for symbol, quote in crypto_quotes.items():
+                quotes_data[symbol] = {
+                    "bid_price": float(quote.bid_price) if quote.bid_price else 0.0,
+                    "ask_price": float(quote.ask_price) if quote.ask_price else 0.0,
+                    "timestamp": quote.timestamp.isoformat(),
+                }
+        
+        return {
+            "quotes": quotes_data,
+            "source": "alpaca"
+        }
+        
+    except AlpacaAPIError as e:
+        print(f"Alpaca API error fetching quotes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
+    except Exception as e:
+        print(f"Error fetching quotes: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch quotes: {str(e)}")
+
+@app.get("/api/market-data/bars")
+async def get_real_time_bars(
+    symbols: str,
+    timeframe: str = "1Min",  # 1Min, 5Min, 15Min, 1Hour, 1Day
+    limit: int = 100,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get real-time bar data (OHLCV) for multiple symbols using Alpaca SDK"""
+    if not stock_data_client and not crypto_data_client:
+        # Fallback to mock data
+        symbol_list = [s.strip().upper() for s in symbols.split(',')]
+        mock_bars = {}
+        for symbol in symbol_list:
+            mock_bars[symbol] = [{
+                "timestamp": datetime.now().isoformat(),
+                "open": 175.00,
+                "high": 176.50,
+                "low": 174.50,
+                "close": 175.50,
+                "volume": 1000000
+            }]
+        return {
+            "bars": mock_bars,
+            "source": "mock"
+        }
+    
+    try:
+        symbol_list = [s.strip().upper() for s in symbols.split(',')]
+        
+        # Convert timeframe string to Alpaca TimeFrame
+        timeframe_map = {
+            "1Min": TimeFrame.Minute,
+            "5Min": TimeFrame(5, "Min"),
+            "15Min": TimeFrame(15, "Min"),
+            "1Hour": TimeFrame.Hour,
+            "1Day": TimeFrame.Day,
+        }
+        
+        tf = timeframe_map.get(timeframe, TimeFrame.Minute)
+        bars_data = {}
+        
+        # Separate crypto and stock symbols
+        crypto_symbols = []
+        stock_symbols = []
+        
+        for symbol in symbol_list:
+            if any(crypto_sym in symbol for crypto_sym in ['BTC', 'ETH', 'USD']):
+                if symbol in ['BTC', 'BITCOIN']:
+                    crypto_symbols.append('BTC/USD')
+                elif symbol in ['ETH', 'ETHEREUM']:
+                    crypto_symbols.append('ETH/USD')
+                elif symbol == 'BTCUSD':
+                    crypto_symbols.append('BTC/USD')
+                elif symbol == 'ETHUSD':
+                    crypto_symbols.append('ETH/USD')
+                else:
+                    crypto_symbols.append(symbol)
+            else:
+                stock_symbols.append(symbol)
+        
+        # Get current time and calculate start time based on limit
+        end_time = datetime.now()
+        if timeframe == "1Min":
+            start_time = end_time - timedelta(minutes=limit)
+        elif timeframe == "5Min":
+            start_time = end_time - timedelta(minutes=limit * 5)
+        elif timeframe == "15Min":
+            start_time = end_time - timedelta(minutes=limit * 15)
+        elif timeframe == "1Hour":
+            start_time = end_time - timedelta(hours=limit)
+        else:  # 1Day
+            start_time = end_time - timedelta(days=limit)
+        
+        # Fetch stock bars
+        if stock_symbols and stock_data_client:
+            stock_request = StockBarsRequest(
+                symbol_or_symbols=stock_symbols,
+                timeframe=tf,
+                start=start_time,
+                end=end_time,
+                limit=limit
+            )
+            stock_bars = stock_data_client.get_stock_bars(stock_request)
+            
+            for symbol, bars in stock_bars.items():
+                bars_data[symbol] = [
+                    {
+                        "timestamp": bar.timestamp.isoformat(),
+                        "open": float(bar.open),
+                        "high": float(bar.high),
+                        "low": float(bar.low),
+                        "close": float(bar.close),
+                        "volume": bar.volume if bar.volume else 0
+                    }
+                    for bar in bars[-limit:]  # Get last 'limit' bars
+                ]
+        
+        # Fetch crypto bars (if available)
+        if crypto_symbols and crypto_data_client:
+            try:
+                crypto_request = StockBarsRequest(  # Note: Using StockBarsRequest for crypto too
+                    symbol_or_symbols=crypto_symbols,
+                    timeframe=tf,
+                    start=start_time,
+                    end=end_time,
+                    limit=limit
+                )
+                crypto_bars = crypto_data_client.get_crypto_bars(crypto_request)
+                
+                for symbol, bars in crypto_bars.items():
+                    bars_data[symbol] = [
+                        {
+                            "timestamp": bar.timestamp.isoformat(),
+                            "open": float(bar.open),
+                            "high": float(bar.high),
+                            "low": float(bar.low),
+                            "close": float(bar.close),
+                            "volume": bar.volume if bar.volume else 0
+                        }
+                        for bar in bars[-limit:]
+                    ]
+            except Exception as crypto_error:
+                print(f"Crypto bars error: {str(crypto_error)}")
+                # Continue without crypto data
+        
+        return {
+            "bars": bars_data,
+            "timeframe": timeframe,
+            "limit": limit,
+            "source": "alpaca"
+        }
+        
+    except AlpacaAPIError as e:
+        print(f"Alpaca API error fetching bars: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
+    except Exception as e:
+        print(f"Error fetching bars: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch bars: {str(e)}")
+
+@app.get("/api/market-data/snapshot")
+async def get_market_snapshot(
+    symbols: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get comprehensive market snapshot including quotes and latest bars"""
+    if not stock_data_client and not crypto_data_client:
+        # Fallback to mock data
+        symbol_list = [s.strip().upper() for s in symbols.split(',')]
+        mock_snapshot = {}
+        for symbol in symbol_list:
+            mock_snapshot[symbol] = {
+                "quote": {
+                    "bid_price": 175.50,
+                    "ask_price": 175.52,
+                    "timestamp": datetime.now().isoformat()
+                },
+                "latest_bar": {
+                    "timestamp": datetime.now().isoformat(),
+                    "open": 175.00,
+                    "high": 176.50,
+                    "low": 174.50,
+                    "close": 175.50,
+                    "volume": 1000000
+                }
+            }
+        return {
+            "snapshots": mock_snapshot,
+            "source": "mock"
+        }
+    
+    try:
+        # Get quotes and bars separately, then combine
+        quotes_response = await get_real_time_quotes(symbols, credentials)
+        bars_response = await get_real_time_bars(symbols, "1Min", 1, credentials)
+        
+        snapshots = {}
+        symbol_list = [s.strip().upper() for s in symbols.split(',')]
+        
+        for symbol in symbol_list:
+            snapshot = {}
+            
+            # Add quote data
+            if symbol in quotes_response.get("quotes", {}):
+                snapshot["quote"] = quotes_response["quotes"][symbol]
+            
+            # Add latest bar data
+            if symbol in bars_response.get("bars", {}) and bars_response["bars"][symbol]:
+                snapshot["latest_bar"] = bars_response["bars"][symbol][-1]  # Most recent bar
+            
+            if snapshot:  # Only add if we have data
+                snapshots[symbol] = snapshot
+        
+        return {
+            "snapshots": snapshots,
+            "timestamp": datetime.now().isoformat(),
+            "source": "alpaca"
+        }
+        
+    except Exception as e:
+        print(f"Error creating market snapshot: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create market snapshot: {str(e)}")
+
+@app.get("/api/market-data/live-prices")
+async def get_live_prices(
+    symbols: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """Get live prices - combines latest quotes with additional market data"""
+    try:
+        # Get comprehensive snapshot
+        snapshot_response = await get_market_snapshot(symbols, credentials)
+        
+        # Transform to live prices format
+        live_prices = {}
+        for symbol, snapshot in snapshot_response.get("snapshots", {}).items():
+            price_data = {
+                "symbol": symbol,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Add quote data if available
+            if "quote" in snapshot:
+                quote = snapshot["quote"]
+                price_data.update({
+                    "bid_price": quote.get("bid_price", 0),
+                    "ask_price": quote.get("ask_price", 0),
+                    "mid_price": (quote.get("bid_price", 0) + quote.get("ask_price", 0)) / 2,
+                    "spread": quote.get("ask_price", 0) - quote.get("bid_price", 0)
+                })
+            
+            # Add bar data if available
+            if "latest_bar" in snapshot:
+                bar = snapshot["latest_bar"]
+                price_data.update({
+                    "last_price": bar.get("close", 0),
+                    "open": bar.get("open", 0),
+                    "high": bar.get("high", 0),
+                    "low": bar.get("low", 0),
+                    "volume": bar.get("volume", 0)
+                })
+            
+            live_prices[symbol] = price_data
+        
+        return {
+            "prices": live_prices,
+            "timestamp": datetime.now().isoformat(),
+            "source": snapshot_response.get("source", "alpaca")
+        }
+        
+    except Exception as e:
+        print(f"Error fetching live prices: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch live prices: {str(e)}")
+
+# WebSocket endpoint for real-time streaming (placeholder for future implementation)
+@app.websocket("/ws/market-data")
+async def websocket_market_data(websocket: WebSocket, symbols: str):
+    """WebSocket endpoint for streaming real-time market data"""
+    await websocket.accept()
+    
+    try:
+        # This is a placeholder implementation
+        # Real implementation would use Alpaca's WebSocket streaming clients
+        symbol_list = [s.strip().upper() for s in symbols.split(',')]
+        
+        while True:
+            # Simulate real-time updates by fetching live prices periodically
+            try:
+                # Note: In production, you'd use Alpaca's WebSocket streaming
+                # For now, we'll poll the live prices endpoint
+                mock_data = {
+                    "type": "quote",
+                    "symbols": symbol_list,
+                    "timestamp": datetime.now().isoformat(),
+                    "message": "WebSocket streaming requires Alpaca WebSocket client implementation",
+                    "note": "This is a polling simulation. For true real-time streaming, implement Alpaca's StockDataStream or CryptoDataStream"
+                }
+                
+                await websocket.send_json(mock_data)
+                await asyncio.sleep(5)  # Update every 5 seconds
+                
+            except Exception as e:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"Error in WebSocket stream: {str(e)}"
+                })
+                break
+                
+    except Exception as e:
+        print(f"WebSocket error: {str(e)}")
+    finally:
+        await websocket.close()
 
 @app.get("/api/options-chain/{symbol}")
 async def get_options_chain(
