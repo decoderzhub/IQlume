@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Wallet, CreditCard, Building, Shield, TrendingUp, RefreshCw } from 'lucide-react';
+import { Plus, Wallet, CreditCard, Building, Shield, TrendingUp, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { ConnectBrokerageModal } from './ConnectBrokerageModal';
 import { ConnectBankModal } from './ConnectBankModal';
 import { CustodialWalletModal } from './CustodialWalletModal';
+import { TransferAssetsModal } from './TransferAssetsModal';
 import { BrokerageAccount, BankAccount, CustodialWallet } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 
@@ -66,6 +67,7 @@ export function AccountsView() {
   const [showBrokerageModal, setShowBrokerageModal] = useState(false);
   const [showBankModal, setShowBankModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [brokerageAccounts, setBrokerageAccounts] = useState(mockBrokerageAccounts);
   const [bankAccounts, setBankAccounts] = useState(mockBankAccounts);
   const [custodialWallets, setCustodialWallets] = useState(mockCustodialWallets);
@@ -139,6 +141,10 @@ export function AccountsView() {
         <Button variant="outline" onClick={() => setShowWalletModal(true)}>
           <Shield className="w-4 h-4 mr-2" />
           Create Custodial Wallet
+        </Button>
+        <Button variant="outline" onClick={() => setShowTransferModal(true)}>
+          <ArrowRightLeft className="w-4 h-4 mr-2" />
+          Transfer Assets
         </Button>
       </div>
 
@@ -278,6 +284,13 @@ export function AccountsView() {
             setCustodialWallets(prev => [...prev, { ...wallet, id: Date.now().toString() }]);
             setShowWalletModal(false);
           }}
+        />
+      )}
+
+      {showTransferModal && (
+        <TransferAssetsModal
+          onClose={() => setShowTransferModal(false)}
+          brokerageAccounts={brokerageAccounts}
         />
       )}
     </motion.div>
