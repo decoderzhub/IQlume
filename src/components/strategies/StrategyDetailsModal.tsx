@@ -23,7 +23,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
 
   const handleDelete = () => {
     if (window.confirm(`Are you sure you want to delete the strategy "${strategy.name}"? This action cannot be undone.`)) {
-      onDelete?.(strategy.id);
+      if (onDelete) {
+        onDelete(strategy.id);
+      }
     }
   };
 

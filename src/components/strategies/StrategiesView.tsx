@@ -480,7 +480,10 @@ export function StrategiesView() {
             ));
             setShowDetailsModal(false);
           }}
-          onDelete={handleDeleteStrategy}
+          onDelete={(strategyId) => {
+            handleDeleteStrategy(strategyId);
+            setShowDetailsModal(false);
+          }}
         />
       )}
 
