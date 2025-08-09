@@ -138,11 +138,11 @@ export function AccountsView() {
           <Building className="w-4 h-4 mr-2" />
           Link Bank Account
         </Button>
-        <Button variant="outline" onClick={() => setShowWalletModal(true)}>
+        <Button variant="secondary" onClick={() => setShowWalletModal(true)}>
           <Shield className="w-4 h-4 mr-2" />
           Create Custodial Wallet
         </Button>
-        <Button variant="outline" onClick={() => setShowTransferModal(true)}>
+        <Button variant="secondary" onClick={() => setShowTransferModal(true)}>
           <ArrowRightLeft className="w-4 h-4 mr-2" />
           Transfer Assets
         </Button>
