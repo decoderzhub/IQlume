@@ -355,14 +355,14 @@ export function PortfolioOverview() {
                           dataKey="timeLabel" 
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                          tick={{ fontSize: 12, fill: '#d1d5db' }}
                           interval="preserveStartEnd"
                         />
                         <YAxis 
                           domain={['dataMin - 1', 'dataMax + 1']}
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                          tick={{ fontSize: 12, fill: '#d1d5db' }}
                           tickFormatter={(value) => `${value.toFixed(0)}`}
                         />
                         <Area
