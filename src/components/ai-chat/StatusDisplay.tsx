@@ -32,13 +32,13 @@ export function StatusDisplay({
           {showLottie && (
             <div className="w-12 h-12 sm:w-32 sm:h-32 overflow-hidden rounded-lg sm:rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-0.5 sm:p-1 flex items-center justify-center flex-shrink-0">
               <div className="w-full h-full overflow-hidden bg-gray-900 rounded-md sm:rounded-lg flex items-center justify-center">
-    <DotLottieReact
-      src="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
-      loop
+                <DotLottieReact
+                  src="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
+                  loop
                   className="w-12 h-12 sm:w-32 sm:h-32 scale-110"
-      className="w-32 h-32 scale-110" // This will make it fill the container
+                />
               </div>
-    />
+            </div>
           )}
           
           <div>
