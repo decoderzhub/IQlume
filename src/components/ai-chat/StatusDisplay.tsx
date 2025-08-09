@@ -30,16 +30,16 @@ export function StatusDisplay({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {showLottie && (
-            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-2 flex items-center justify-center">
-              <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
-                <DotLottieReact
-                  src={lottieUrl}
-                  loop
-                  autoplay
-                  className="w-12 h-12"
-                />
-              </div>
-            </div>
+            <div className="w-32 h-32 rounded-xl bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-600 p-1 flex items-center justify-center">
+  <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
+    <DotLottieReact
+      src="https://lottie.host/c7b4a9cf-d010-486b-994d-3871d0d5f1a6/BhyLNPUHaQ.lottie"
+      loop
+      autoplay
+      className="w-full h-full" // This will make it fill the container
+    />
+  </div>
+</div>
           )}
           
           <div>
