@@ -232,7 +232,6 @@ export function TradesView() {
             <Activity className="w-12 h-12 mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">Failed to Load Trades</h3>
             <p className="text-sm text-gray-400 mb-4">{error}</p>
-            <Button onClick={fetchTrades}>
             <Button onClick={() => loadTradesForAccount(selectedAccountId)}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Retry
@@ -421,7 +420,6 @@ export function TradesView() {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" onClick={fetchTrades}>
             <Button variant="outline" onClick={() => loadTradesForAccount(selectedAccountId)}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
@@ -437,7 +435,6 @@ export function TradesView() {
       {/* Trades Table */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-white">Trade History</h3>
           <h3 className="text-lg font-semibold text-white">
             Trade History - {selectedAccount?.account_name}
           </h3>
