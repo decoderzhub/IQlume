@@ -121,6 +121,7 @@ export function PortfolioOverview() {
   // Update historical data with new prices
   React.useEffect(() => {
     if (marketData) {
+      const now = new Date();
       const updatedHistoricalData = { ...historicalData };
       
       Object.entries(marketData).forEach(([symbol, quote]: [string, any]) => {
