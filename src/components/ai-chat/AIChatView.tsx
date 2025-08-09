@@ -555,6 +555,18 @@ export function AIChatView() {
         onNewChat={createNewChat}
         onSwitchSession={switchToSession}
       />
+
+      {/* Strategy Creation Modal */}
+      {showStrategyModal && pendingStrategy && (
+        <StrategyCreationModal
+          onClose={() => {
+            setShowStrategyModal(false);
+            setPendingStrategy(null);
+          }}
+          onCreateStrategy={handleCreateStrategy}
+          strategyData={pendingStrategy}
+        />
+      )}
     </motion.div>
   );
 }
