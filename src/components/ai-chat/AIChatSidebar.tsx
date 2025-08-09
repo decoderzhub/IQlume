@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, ChevronDown, ChevronUp, X, Lightbulb, Coins, MessageSquare, Plus, Clock, Trash2 } from 'lucide-react';
+import { Brain, ChevronDown, ChevronUp, X, Lightbulb, Coins, MessageSquare, Plus, Clock, Trash2, Sparkles, Zap, TrendingUp, Shield, DollarSign } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { TradingStrategy } from '../../types';
+import { formatCurrency } from '../../lib/utils';
 
 interface ChatMessage {
   id: string;
@@ -33,6 +35,8 @@ interface AIChatSidebarProps {
   onNewChat: () => void;
   onSwitchSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
+  actionablePrompts: string[];
+  aiGeneratedStrategies: TradingStrategy[];
 }
 
 const anthropicModels = [
@@ -117,9 +121,13 @@ export function AIChatSidebar({
   onNewChat,
   onSwitchSession,
   onDeleteSession,
+  actionablePrompts,
+  aiGeneratedStrategies,
 }: AIChatSidebarProps) {
   const [showModels, setShowModels] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showActions, setShowActions] = useState(true);
+  const [showAIStrategies, setShowAIStrategies] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
 
   const sidebarVariants = {
@@ -178,6 +186,15 @@ export function AIChatSidebar({
       return 'Yesterday';
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
+  const getRiskColor = (level: TradingStrategy['risk_level']) => {
+    switch (level) {
+      case 'low': return 'text-green-400 bg-green-400/10 border-green-400/20';
+      case 'medium': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';
+      case 'high': return 'text-red-400 bg-red-400/10 border-red-400/20';
+      default: return 'text-gray-400 bg-gray-400/10 border-gray-400/20';
     }
   };
 
