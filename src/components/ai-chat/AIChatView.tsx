@@ -56,6 +56,8 @@ export function AIChatView() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const { user, strategies, setStrategies } = useStore();
   const [selectedModel, setSelectedModel] = useState('claude-opus-4-1-20250805');
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showActions, setShowActions] = useState(true);
 
   // Use custom hooks
   const {
@@ -89,6 +91,11 @@ export function AIChatView() {
     checkForStrategyCreation,
     handleCreateStrategy,
   } = useStrategyCreation(user, strategies, setStrategies);
+
+  const handleChatAreaClick = () => {
+    setShowSuggestions(false);
+    setShowActions(false);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
