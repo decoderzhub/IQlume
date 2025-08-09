@@ -221,12 +221,48 @@ export function AIChatView() {
     try {
       console.log('Creating AI-generated strategy:', strategy);
       
-      // Add strategy to the store (this will sync with the strategies page)
-      const newStrategy: TradingStrategy = {
-        ...strategy,
-        id: Date.now().toString(), // Generate a temporary ID
-      };
+      // Insert strategy into Supabase database
+      const { data, error } = await supabase
+        .from('trading_strategies')
+        .insert([
+          {
+            user_id: user.id,
+            name: strategy.name,
+            type: strategy.type,
+            description: strategy.description,
+            risk_level: strategy.risk_level,
+            min_capital: strategy.min_capital,
+            is_active: strategy.is_active,
+            configuration: strategy.configuration,
+            performance: strategy.performance || null,
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving strategy:', error);
+        alert(`Failed to save strategy: ${error.message}`);
+        return;
+      }
+
+      console.log('Strategy saved successfully:', data);
       
+      // Add the new strategy to local state with the returned ID
+      const newStrategy: TradingStrategy = {
+        id: data.id,
+        name: data.name,
+        type: data.type,
+        description: data.description,
+        risk_level: data.risk_level,
+        min_capital: data.min_capital,
+        is_active: data.is_active,
+        configuration: data.configuration,
+        performance: data.performance,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
       setStrategies([...strategies, newStrategy]);
       
       // Close modal
@@ -237,7 +273,7 @@ export function AIChatView() {
       const confirmationMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: `✅ **Strategy Created Successfully!**\n\nYour "${strategy.name}" strategy has been added to your Strategies page. You can now configure and activate it from the Strategies section.`,
+        content: `✅ **Strategy Created Successfully!**\n\nYour "${strategy.name}" strategy has been saved to your database and added to your Strategies page. You can now configure and activate it from the Strategies section.`,
         timestamp: new Date(),
         isTyping: false,
       };
@@ -245,11 +281,11 @@ export function AIChatView() {
       setMessages(prev => [...prev, confirmationMessage]);
       
       // Show success message
-      alert('Strategy created successfully! Check your Strategies page.');
+      alert('Strategy created and saved successfully! Check your Strategies page.');
       
     } catch (error) {
       console.error('Error creating strategy:', error);
-      alert('Failed to create strategy. Please try again.');
+      alert('An unexpected error occurred while saving the strategy. Please try again.');
     }
   };
 
