@@ -3,7 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from typing import List, Dict, Any
 import logging
 import anthropic
-from ..dependencies import (
+from dependencies import (
     get_current_user,
     get_anthropic_client,
     security

@@ -28,7 +28,7 @@ from alpaca.data.timeframe import TimeFrame
 from alpaca.common.exceptions import APIError as AlpacaAPIError
 from alpaca.trading.requests import GetOrdersRequest
 from alpaca.trading.enums import OrderSide, OrderStatus, ActivityType
-from routers import market_data, trades, plaid, chat
+from routers import market_data, trades, plaid_routes, chat
 
 load_dotenv()  # will look for .env in the current working directory
 
@@ -99,7 +99,7 @@ app.add_middleware(
 # Include routers
 app.include_router(market_data.router)
 app.include_router(trades.router)
-app.include_router(plaid.router)
+app.include_router(plaid_routes.router)
 app.include_router(chat.router)
 
 security = HTTPBearer()

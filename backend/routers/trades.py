@@ -1,89 +1,102 @@
+# routers/trades.py
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 import logging
+
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import GetOrdersRequest, MarketOrderRequest, LimitOrderRequest
-from alpaca.trading.enums import OrderSide, QueryOrderStatus, TimeInForce
-from alpaca.common.exceptions import AlpacaAPIError
+from alpaca.trading.enums import (
+    OrderSide,
+    QueryOrderStatus,
+    TimeInForce,
+    OrderStatus,
+)
+from alpaca.common.exceptions import APIError as AlpacaAPIError
+
 from supabase import Client
-from ..dependencies import (
+from dependencies import (
     get_current_user,
     get_supabase_client,
     get_alpaca_trading_client,
-    security
+    security,
 )
 
 router = APIRouter(prefix="/api", tags=["trading"])
 logger = logging.getLogger(__name__)
 
+
 @router.get("/portfolio")
 async def get_portfolio(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-    trading_client: TradingClient = Depends(get_alpaca_trading_client)
+    current_user=Depends(get_current_user),
+    trading_client: TradingClient = Depends(get_alpaca_trading_client),
 ):
     """Get portfolio information"""
     try:
-        # Get account info
         account = trading_client.get_account()
-        
-        # Get positions
         positions = trading_client.get_all_positions()
-        
-        # Calculate portfolio metrics
-        total_value = float(account.portfolio_value)
-        day_change = float(account.unrealized_pl)
+
+        total_value = float(account.portfolio_value or 0)
+        day_change = float(account.unrealized_pl or 0)
         day_change_percent = (day_change / total_value * 100) if total_value > 0 else 0
-        
-        # Format positions
+
         formatted_positions = []
-        for position in positions:
-            formatted_positions.append({
-                "symbol": position.symbol,
-                "quantity": float(position.qty),
-                "market_value": float(position.market_value),
-                "cost_basis": float(position.cost_basis),
-                "unrealized_pl": float(position.unrealized_pl),
-                "unrealized_plpc": float(position.unrealized_plpc),
-                "side": position.side
-            })
-        
+        for p in positions or []:
+            formatted_positions.append(
+                {
+                    "symbol": p.symbol,
+                    "quantity": float(p.qty or 0),
+                    "market_value": float(p.market_value or 0),
+                    "cost_basis": float(p.cost_basis or 0),
+                    "unrealized_pl": float(p.unrealized_pl or 0),
+                    "unrealized_plpc": float(p.unrealized_plpc or 0),
+                    "side": str(p.side),
+                }
+            )
+
         return {
             "total_value": total_value,
             "day_change": day_change,
             "day_change_percent": day_change_percent,
-            "buying_power": float(account.buying_power),
-            "cash": float(account.cash),
+            "buying_power": float(account.buying_power or 0),
+            "cash": float(account.cash or 0),
             "positions": formatted_positions,
-            "account_status": account.status
+            "account_status": str(account.status),
         }
-        
+
     except AlpacaAPIError as e:
         if "403" in str(e):
             raise HTTPException(
                 status_code=403,
-                detail="Alpaca Trading API denied. Check your API key permissions."
+                detail="Alpaca Trading API denied. Check your API key permissions.",
             )
         raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
     except Exception as e:
-        logger.error(f"Error fetching portfolio: {e}")
+        logger.error("Error fetching portfolio", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch portfolio: {str(e)}")
+
 
 @router.get("/strategies")
 async def get_strategies(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     """Get user's trading strategies"""
     try:
-        response = supabase.table("trading_strategies").select("*").eq("user_id", current_user.id).execute()
-        return {"strategies": response.data}
+        resp = (
+            supabase.table("trading_strategies")
+            .select("*")
+            .eq("user_id", current_user.id)
+            .execute()
+        )
+        return {"strategies": resp.data}
     except Exception as e:
-        logger.error(f"Error fetching strategies: {e}")
+        logger.error("Error fetching strategies", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch strategies: {str(e)}")
+
 
 @router.get("/trades")
 async def get_trades(
@@ -91,149 +104,157 @@ async def get_trades(
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-    trading_client: TradingClient = Depends(get_alpaca_trading_client)
+    current_user=Depends(get_current_user),
+    trading_client: TradingClient = Depends(get_alpaca_trading_client),
 ):
     """Get user's trade history"""
     try:
-        # Parse dates
+        # Convert YYYY-MM-DD to UTC-aware datetimes (RFC3339)
         start_dt = None
         end_dt = None
-        
+
         if start_date:
-            start_dt = datetime.fromisoformat(start_date)
+            # start of day UTC
+            start_dt = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
         if end_date:
-            end_dt = datetime.fromisoformat(end_date)
-        
-        # Get orders from Alpaca
-        orders_request = GetOrdersRequest(
-            status=QueryOrderStatus.ALL,
-            limit=limit,
-            after=start_dt,
-            until=end_dt
-        )
-        
+            # end of day UTC (23:59:59.999999)
+            end_dt = (
+                datetime.fromisoformat(end_date)
+                .replace(tzinfo=timezone.utc, hour=23, minute=59, second=59, microsecond=999999)
+            )
+
+        req_kwargs: Dict[str, Any] = {"status": QueryOrderStatus.ALL, "limit": limit}
+        if start_dt:
+            req_kwargs["after"] = start_dt
+        if end_dt:
+            req_kwargs["until"] = end_dt
+
+        orders_request = GetOrdersRequest(**req_kwargs)
         orders = trading_client.get_orders(orders_request)
-        
-        # Format trades
-        trades = []
-        total_profit_loss = 0
+
+        trades: List[Dict[str, Any]] = []
+        total_profit_loss = 0.0
         executed_trades = 0
         winning_trades = 0
-        
-        for order in orders:
-            # Calculate P&L for filled orders
-            profit_loss = 0
-            if order.filled_qty and order.filled_avg_price:
-                # This is a simplified P&L calculation
-                # In reality, you'd need to match buy/sell orders
+
+        for order in orders or []:
+            # toy P&L: +2% of notional on SELL fills
+            profit_loss = 0.0
+            if getattr(order, "filled_qty", None) and getattr(order, "filled_avg_price", None):
                 if order.side == OrderSide.SELL:
-                    # Assume profit for sells (simplified)
-                    profit_loss = float(order.filled_qty) * float(order.filled_avg_price) * 0.02  # 2% profit assumption
-                
-            if order.status == "filled":
+                    profit_loss = float(order.filled_qty) * float(order.filled_avg_price) * 0.02
+
+            if order.status == OrderStatus.FILLED:
                 executed_trades += 1
                 total_profit_loss += profit_loss
                 if profit_loss > 0:
                     winning_trades += 1
-            
-            trades.append({
-                "id": order.id,
-                "strategy_id": "manual",  # Default for manual trades
-                "symbol": order.symbol,
-                "type": order.side.value.lower(),
-                "quantity": float(order.qty),
-                "price": float(order.filled_avg_price) if order.filled_avg_price else float(order.limit_price or 0),
-                "timestamp": order.created_at.isoformat(),
-                "profit_loss": profit_loss,
-                "status": "executed" if order.status == "filled" else "pending" if order.status in ["new", "partially_filled"] else "failed"
-            })
-        
-        # Calculate stats
-        win_rate = (winning_trades / executed_trades) if executed_trades > 0 else 0
-        avg_trade_duration = 1.0  # Simplified - would need more complex calculation
-        
+
+            trades.append(
+                {
+                    "id": str(order.id),
+                    "strategy_id": "manual",
+                    "symbol": order.symbol,
+                    "type": (order.side.value.lower() if hasattr(order.side, "value") else str(order.side).lower()),
+                    "quantity": float(getattr(order, "qty", 0) or 0),
+                    "price": float(getattr(order, "filled_avg_price", 0) or getattr(order, "limit_price", 0) or 0),
+                    "timestamp": (
+                        order.created_at.isoformat()
+                        if getattr(order, "created_at", None)
+                        else datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
+                    ),
+                    "profit_loss": profit_loss,
+                    "status": (
+                        "executed"
+                        if order.status == OrderStatus.FILLED
+                        else "pending"
+                        if order.status in {OrderStatus.NEW, OrderStatus.PARTIALLY_FILLED, OrderStatus.ACCEPTED}
+                        else "failed"
+                    ),
+                }
+            )
+
+        win_rate = (winning_trades / executed_trades) if executed_trades > 0 else 0.0
         stats = {
             "total_trades": len(trades),
             "total_profit_loss": total_profit_loss,
             "win_rate": win_rate,
-            "avg_trade_duration": avg_trade_duration
+            "avg_trade_duration": 1.0,  # placeholder
         }
-        
-        return {
-            "trades": trades,
-            "stats": stats
-        }
-        
+
+        return {"trades": trades, "stats": stats}
+
     except AlpacaAPIError as e:
         if "403" in str(e):
             raise HTTPException(
                 status_code=403,
-                detail="Alpaca Trading API denied. Check your API key permissions."
+                detail="Alpaca Trading API denied. Check your API key permissions.",
             )
-        logger.error(f"Alpaca API error for trades: {str(e)}")
+        logger.error("Alpaca API error for trades", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch trades: {str(e)}")
     except Exception as e:
-        logger.error(f"Error fetching trades: {e}")
+        logger.error("Error fetching trades", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch trades: {str(e)}")
+
 
 @router.post("/execute-trade")
 async def execute_trade(
     trade_data: Dict[str, Any],
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-    trading_client: TradingClient = Depends(get_alpaca_trading_client)
+    current_user=Depends(get_current_user),
+    trading_client: TradingClient = Depends(get_alpaca_trading_client),
 ):
     """Execute a trade"""
     try:
         symbol = trade_data.get("symbol")
-        side = trade_data.get("side")  # "buy" or "sell"
+        side = trade_data.get("side")  # "buy" | "sell"
         quantity = trade_data.get("quantity")
-        order_type = trade_data.get("type", "market")  # "market" or "limit"
+        order_type = (trade_data.get("type") or "market").lower()  # "market" | "limit"
         limit_price = trade_data.get("limit_price")
-        
+
         if not all([symbol, side, quantity]):
             raise HTTPException(status_code=400, detail="Missing required fields: symbol, side, quantity")
-        
-        # Convert side to OrderSide enum
-        order_side = OrderSide.BUY if side.lower() == "buy" else OrderSide.SELL
-        
-        # Create order request
-        if order_type.lower() == "limit" and limit_price:
+
+        order_side = OrderSide.BUY if str(side).lower() == "buy" else OrderSide.SELL
+
+        if order_type == "limit" and limit_price is not None:
             order_request = LimitOrderRequest(
                 symbol=symbol.upper(),
                 qty=float(quantity),
                 side=order_side,
-                time_in_force=TimeInForce.DAY,
-                limit_price=float(limit_price)
+                time_in_force=TimeInForce.Day,
+                limit_price=float(limit_price),
             )
         else:
             order_request = MarketOrderRequest(
                 symbol=symbol.upper(),
                 qty=float(quantity),
                 side=order_side,
-                time_in_force=TimeInForce.DAY
+                time_in_force=TimeInForce.Day,
             )
-        
-        # Submit order
+
         order = trading_client.submit_order(order_request)
-        
+
         return {
-            "order_id": order.id,
+            "order_id": str(order.id),
             "symbol": order.symbol,
-            "side": order.side.value,
-            "quantity": float(order.qty),
-            "status": order.status,
-            "created_at": order.created_at.isoformat()
+            "side": (order.side.value if hasattr(order.side, "value") else str(order.side)).lower(),
+            "quantity": float(getattr(order, "qty", 0) or 0),
+            "status": str(order.status),
+            "created_at": (
+                order.created_at.isoformat()
+                if getattr(order, "created_at", None)
+                else datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
+            ),
         }
-        
+
     except AlpacaAPIError as e:
         if "403" in str(e):
             raise HTTPException(
                 status_code=403,
-                detail="Alpaca Trading API denied. Check your API key permissions."
+                detail="Alpaca Trading API denied. Check your API key permissions.",
             )
         raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
     except Exception as e:
-        logger.error(f"Error executing trade: {e}")
+        logger.error("Error executing trade", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to execute trade: {str(e)}")
