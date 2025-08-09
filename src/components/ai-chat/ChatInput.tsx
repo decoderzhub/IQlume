@@ -12,9 +12,6 @@ interface ChatInputProps {
   suggestedQuestions: string[];
   actionablePrompts: string[];
   onSuggestedQuestion: (question: string) => void;
-  suggestedQuestions: string[];
-  actionablePrompts: string[];
-  onSuggestedQuestion: (question: string) => void;
 }
 
 export function ChatInput({ 
@@ -28,8 +25,8 @@ export function ChatInput({
   onSuggestedQuestion
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showActions, setShowActions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showActions, setShowActions] = useState(true);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -47,6 +44,17 @@ export function ChatInput({
       // Set height based on content, but cap at max lines
       const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
       textarea.style.height = `${newHeight}px`;
+    }
+  }, [inputMessage]);
+
+  // Close suggestions when user starts typing
+  useEffect(() => {
+    if (inputMessage.trim()) {
+      setShowSuggestions(false);
+      setShowActions(false);
+    } else {
+      setShowSuggestions(true);
+      setShowActions(true);
     }
   }, [inputMessage]);
 
@@ -68,50 +76,8 @@ export function ChatInput({
 
   return (
     <div className="border-t border-gray-800">
-      {/* Input Form */}
-      <div className="p-4 sm:p-6">
-        <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-end">
-          <div className="flex-1 relative">
-            <textarea
-              ref={textareaRef}
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask me about trading strategies... (Shift+Enter for new line)"
-              disabled={isLoading}
-              rows={1}
-              className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 resize-none overflow-y-auto text-sm sm:text-base leading-6 custom-scrollbar"
-              style={{ minHeight: '40px', maxHeight: '120px' }}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={!inputMessage.trim() && !isLoading}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center flex-shrink-0 min-w-[48px] sm:min-w-[56px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
-            onClick={isLoading ? (e) => { e.preventDefault(); onStopResponse(); } : undefined}
-            style={{ 
-              height: textareaRef.current?.style.height || '40px',
-              minHeight: '40px',
-              maxHeight: '120px'
-            }}
-          >
-            {isLoading ? (
-              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-red-500 rounded flex items-center justify-center">
-                <div className="w-2 h-2 bg-white rounded-sm"></div>
-              </div>
-            ) : (
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-            )}
-          </button>
-        </form>
-        
-        <p className="text-xs text-gray-300 mt-2 sm:mt-3 text-center font-medium">
-          Claude responses are generated and may not always be accurate. Always do your own research.
-        </p>
-      </div>
-
-      {/* Suggested Questions - Below Input */}
-      <div className="px-4 sm:px-6 pb-4">
+      {/* Suggested Questions - Above Input */}
+      <div className="px-4 sm:px-6 pt-4">
         <button
           onClick={() => setShowSuggestions(!showSuggestions)}
           className="flex items-center justify-between w-full mb-2"
@@ -152,8 +118,8 @@ export function ChatInput({
         </AnimatePresence>
       </div>
       
-      {/* AI Actions - Below Suggestions */}
-      <div className="px-4 sm:px-6 pb-4">
+      {/* AI Actions - Above Input */}
+      <div className="px-4 sm:px-6">
         <button
           onClick={() => setShowActions(!showActions)}
           className="flex items-center justify-between w-full mb-2"
@@ -175,7 +141,7 @@ export function ChatInput({
               transition={{ duration: 0.3 }}
               className="overflow-hidden"
             >
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mb-4">
                 {actionablePrompts.slice(0, 2).map((prompt, index) => (
                   <button
                     key={index}
@@ -192,6 +158,48 @@ export function ChatInput({
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+
+      {/* Input Form */}
+      <div className="p-4 sm:p-6">
+        <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-stretch">
+          <div className="flex-1 relative">
+            <textarea
+              ref={textareaRef}
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask me about trading strategies... (Shift+Enter for new line)"
+              disabled={isLoading}
+              rows={1}
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 resize-none overflow-y-auto text-sm sm:text-base leading-6 custom-scrollbar"
+              style={{ minHeight: '40px', maxHeight: '120px' }}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!inputMessage.trim() && !isLoading}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center flex-shrink-0 min-w-[48px] sm:min-w-[56px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+            onClick={isLoading ? (e) => { e.preventDefault(); onStopResponse(); } : undefined}
+            style={{ 
+              height: textareaRef.current?.style.height || '40px',
+              minHeight: '40px',
+              maxHeight: '120px'
+            }}
+          >
+            {isLoading ? (
+              <div className="w-4 h-4 sm:w-5 sm:h-5 bg-red-500 rounded flex items-center justify-center">
+                <div className="w-2 h-2 bg-white rounded-sm"></div>
+              </div>
+            ) : (
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+            )}
+          </button>
+        </form>
+        
+        <p className="text-xs text-gray-300 mt-2 sm:mt-3 text-center font-medium">
+          Claude responses are generated and may not always be accurate. Always do your own research.
+        </p>
       </div>
     </div>
   );
