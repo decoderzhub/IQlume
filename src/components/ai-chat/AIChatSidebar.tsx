@@ -1,7 +1,22 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, ChevronDown, ChevronUp, X, Lightbulb } from 'lucide-react';
+import { Brain, ChevronDown, ChevronUp, X, Lightbulb, Coins, MessageSquare, Plus, Clock } from 'lucide-react';
 import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+interface ChatSession {
+  id: string;
+  title: string;
+  timestamp: Date;
+  messages: ChatMessage[];
+}
 
 interface AIChatSidebarProps {
   rightSidebarOpen: boolean;
@@ -10,6 +25,13 @@ interface AIChatSidebarProps {
   setSelectedModel: (model: string) => void;
   suggestedQuestions: string[];
   handleSuggestedQuestion: (question: string) => void;
+  totalTokensUsed: number;
+  sessionTokensUsed: number;
+  lastResponseModel: string | null;
+  chatSessions: ChatSession[];
+  currentSessionId: string;
+  onNewChat: () => void;
+  onSwitchSession: (sessionId: string) => void;
 }
 
 const anthropicModels = [
@@ -86,9 +108,17 @@ export function AIChatSidebar({
   setSelectedModel,
   suggestedQuestions,
   handleSuggestedQuestion,
+  totalTokensUsed,
+  sessionTokensUsed,
+  lastResponseModel,
+  chatSessions,
+  currentSessionId,
+  onNewChat,
+  onSwitchSession,
 }: AIChatSidebarProps) {
   const [showModels, setShowModels] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const sidebarVariants = {
     open: {
@@ -125,6 +155,27 @@ export function AIChatSidebar({
         duration: 0.2,
         ease: "easeIn"
       }
+    }
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatDate = (date: Date) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
   };
 
@@ -165,6 +216,43 @@ export function AIChatSidebar({
               transition={{ duration: 0.2 }}
               className="flex-1 overflow-y-auto p-6 space-y-6"
             >
+              {/* New Chat Button */}
+              <Button
+                onClick={onNewChat}
+                className="w-full flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                New Chat
+              </Button>
+
+              {/* Token Usage */}
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Coins className="w-5 h-5 text-yellow-400" />
+                  <h3 className="font-semibold text-white">Token Usage</h3>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Session Total:</span>
+                    <span className="font-medium text-white">
+                      {sessionTokensUsed.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">All Time:</span>
+                    <span className="font-bold text-yellow-400">
+                      {totalTokensUsed.toLocaleString()}
+                    </span>
+                  </div>
+                  {lastResponseModel && (
+                    <div className="pt-2 border-t border-gray-700">
+                      <span className="text-xs text-gray-500">Model: {lastResponseModel}</span>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
               {/* AI Model Selection - Accordion */}
               <Card className="p-4">
                 <button
@@ -225,6 +313,70 @@ export function AIChatSidebar({
                               </div>
                             </div>
                             <p className="text-xs text-gray-400 leading-relaxed">{model.description}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
+
+              {/* Chat History - Accordion */}
+              <Card className="p-4">
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="flex items-center justify-between w-full mb-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-purple-400" />
+                    <h3 className="font-semibold text-white">Chat History</h3>
+                  </div>
+                  {showHistory ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+                
+                <AnimatePresence>
+                  {showHistory && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {chatSessions.map((session) => (
+                          <motion.div
+                            key={session.id}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
+                            onClick={() => onSwitchSession(session.id)}
+                            className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                              currentSessionId === session.id
+                                ? 'border-purple-500 bg-purple-500/10'
+                                : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-1">
+                              <span className="font-medium text-white text-sm truncate flex-1">
+                                {session.title}
+                              </span>
+                              <div className="flex items-center gap-1 text-xs text-gray-400 ml-2">
+                                <Clock className="w-3 h-3" />
+                                {formatTime(session.timestamp)}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-400">
+                                {session.messages.length} messages
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {formatDate(session.timestamp)}
+                              </span>
+                            </div>
                           </motion.div>
                         ))}
                       </div>
@@ -266,6 +418,46 @@ export function AIChatSidebar({
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Same content as desktop but in mobile layout */}
+              {/* New Chat Button */}
+              <Button
+                onClick={() => {
+                  onNewChat();
+                  setRightSidebarOpen(false);
+                }}
+                className="w-full flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                New Chat
+              </Button>
+
+              {/* Token Usage */}
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Coins className="w-5 h-5 text-yellow-400" />
+                  <h3 className="font-semibold text-white">Token Usage</h3>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">Session Total:</span>
+                    <span className="font-medium text-white">
+                      {sessionTokensUsed.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">All Time:</span>
+                    <span className="font-bold text-yellow-400">
+                      {totalTokensUsed.toLocaleString()}
+                    </span>
+                  </div>
+                  {lastResponseModel && (
+                    <div className="pt-2 border-t border-gray-700">
+                      <span className="text-xs text-gray-500">Model: {lastResponseModel}</span>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
               {/* AI Model Selection - Accordion */}
               <Card className="p-4">
                 <button
@@ -334,17 +526,17 @@ export function AIChatSidebar({
                 </AnimatePresence>
               </Card>
 
-              {/* Suggested Questions - Accordion */}
+              {/* Chat History - Accordion */}
               <Card className="p-4">
                 <button
-                  onClick={() => setShowSuggestions(!showSuggestions)}
+                  onClick={() => setShowHistory(!showHistory)}
                   className="flex items-center justify-between w-full mb-4"
                 >
                   <div className="flex items-center gap-2">
-                    <Lightbulb className="w-5 h-5 text-yellow-400" />
-                    <h3 className="font-semibold text-white">Suggested Questions</h3>
+                    <MessageSquare className="w-5 h-5 text-purple-400" />
+                    <h3 className="font-semibold text-white">Chat History</h3>
                   </div>
-                  {showSuggestions ? (
+                  {showHistory ? (
                     <ChevronUp className="w-4 h-4 text-gray-400" />
                   ) : (
                     <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -352,7 +544,7 @@ export function AIChatSidebar({
                 </button>
                 
                 <AnimatePresence>
-                  {showSuggestions && (
+                  {showHistory && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -360,18 +552,40 @@ export function AIChatSidebar({
                       transition={{ duration: 0.3 }}
                       className="overflow-hidden"
                     >
-                      <div className="space-y-2">
-                        {suggestedQuestions.map((question, index) => (
-                          <button
-                            key={index}
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {chatSessions.map((session) => (
+                          <motion.div
+                            key={session.id}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
                             onClick={() => {
-                              handleSuggestedQuestion(question);
+                              onSwitchSession(session.id);
                               setRightSidebarOpen(false);
                             }}
-                            className="w-full text-left p-3 bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-sm text-gray-300 hover:text-white transition-all duration-200 border border-gray-700/50 hover:border-gray-600"
+                            className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                              currentSessionId === session.id
+                                ? 'border-purple-500 bg-purple-500/10'
+                                : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+                            }`}
                           >
-                            {question}
-                          </button>
+                            <div className="flex items-start justify-between mb-1">
+                              <span className="font-medium text-white text-sm truncate flex-1">
+                                {session.title}
+                              </span>
+                              <div className="flex items-center gap-1 text-xs text-gray-400 ml-2">
+                                <Clock className="w-3 h-3" />
+                                {formatTime(session.timestamp)}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-400">
+                                {session.messages.length} messages
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {formatDate(session.timestamp)}
+                              </span>
+                            </div>
+                          </motion.div>
                         ))}
                       </div>
                     </motion.div>

@@ -20,6 +20,13 @@ interface TokenUsage {
   total_tokens: number;
 }
 
+interface ChatSession {
+  id: string;
+  title: string;
+  timestamp: Date;
+  messages: ChatMessage[];
+}
+
 const suggestedQuestions = [
   "What's the best strategy for a beginner with $10,000?",
   "How do covered calls work and what are the risks?",
@@ -40,14 +47,36 @@ const actionablePrompts = [
   "Create a pairs trading strategy for correlated assets",
 ];
 export function AIChatView() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [currentSessionId, setCurrentSessionId] = useState('1');
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([
     {
       id: '1',
-      role: 'assistant',
-      content: "Hello! I'm Brokernomex AI, your trading strategy assistant. I can help you understand different trading strategies, analyze market conditions, and guide you through creating automated trading bots. What would you like to know about trading strategies?",
+      title: 'Trading Strategy Help',
       timestamp: new Date(),
+      messages: [
+        {
+          id: '1',
+          role: 'assistant',
+          content: "Hello! I'm Brokernomex AI, your trading strategy assistant. I can help you understand different trading strategies, analyze market conditions, and guide you through creating automated trading bots. What would you like to know about trading strategies?",
+          timestamp: new Date(),
+        },
+      ],
     },
   ]);
+  
+  const currentSession = chatSessions.find(session => session.id === currentSessionId);
+  const messages = currentSession?.messages || [];
+  
+  const setMessages = (updater: React.SetStateAction<ChatMessage[]>) => {
+    setChatSessions(prev => prev.map(session => 
+      session.id === currentSessionId 
+        ? { ...session, messages: typeof updater === 'function' ? updater(session.messages) : updater }
+        : session
+    ));
+  };
+  
+  const [totalTokensUsed, setTotalTokensUsed] = useState(0);
+  const [sessionTokensUsed, setSessionTokensUsed] = useState(0);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -56,6 +85,37 @@ export function AIChatView() {
   const [selectedModel, setSelectedModel] = useState('claude-opus-4-1-20250805');
   const [lastResponseTokens, setLastResponseTokens] = useState<TokenUsage | null>(null);
   const [lastResponseModel, setLastResponseModel] = useState<string | null>(null);
+
+  const createNewChat = () => {
+    const newSessionId = Date.now().toString();
+    const newSession: ChatSession = {
+      id: newSessionId,
+      title: 'New Chat',
+      timestamp: new Date(),
+      messages: [
+        {
+          id: '1',
+          role: 'assistant',
+          content: "Hello! I'm Brokernomex AI, your trading strategy assistant. I can help you understand different trading strategies, analyze market conditions, and guide you through creating automated trading bots. What would you like to know about trading strategies?",
+          timestamp: new Date(),
+        },
+      ],
+    };
+    
+    setChatSessions(prev => [newSession, ...prev]);
+    setCurrentSessionId(newSessionId);
+    setSessionTokensUsed(0);
+  };
+
+  const switchToSession = (sessionId: string) => {
+    setCurrentSessionId(sessionId);
+    // Calculate session tokens
+    const session = chatSessions.find(s => s.id === sessionId);
+    if (session) {
+      // This would be calculated from stored token usage per session
+      setSessionTokensUsed(0); // Reset for now
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -115,6 +175,8 @@ export function AIChatView() {
       // Update token usage and model info
       if (result.usage) {
         setLastResponseTokens(result.usage);
+        setTotalTokensUsed(prev => prev + result.usage.total_tokens);
+        setSessionTokensUsed(prev => prev + result.usage.total_tokens);
       }
       if (result.model) {
         setLastResponseModel(result.model);
@@ -295,44 +357,6 @@ export function AIChatView() {
           </div>
 
           {/* Token Usage Display */}
-          {lastResponseTokens && (
-            <div className="px-6 pb-4">
-              <div className="bg-gray-800/30 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Coins className="w-4 h-4 text-yellow-400" />
-                  <h4 className="text-sm font-medium text-white">Token Usage</h4>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div className="text-center">
-                    <p className="text-gray-400">Input</p>
-                    <p className="font-medium text-white">
-                      {lastResponseTokens.input_tokens.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-gray-400">Output</p>
-                    <p className="font-medium text-white">
-                      {lastResponseTokens.output_tokens.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-gray-400">Total</p>
-                    <p className="font-bold text-yellow-400">
-                      {lastResponseTokens.total_tokens.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                
-                {lastResponseModel && (
-                  <div className="mt-3 pt-3 border-t border-gray-700">
-                    <p className="text-xs text-gray-500">Model: {lastResponseModel}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Input Form */}
           <div className="border-t border-gray-800 p-6">
             <form onSubmit={handleSubmit} className="flex gap-4">
@@ -373,6 +397,13 @@ export function AIChatView() {
         setSelectedModel={setSelectedModel}
         suggestedQuestions={suggestedQuestions}
         handleSuggestedQuestion={handleSuggestedQuestion}
+        totalTokensUsed={totalTokensUsed}
+        sessionTokensUsed={sessionTokensUsed}
+        lastResponseModel={lastResponseModel}
+        chatSessions={chatSessions}
+        currentSessionId={currentSessionId}
+        onNewChat={createNewChat}
+        onSwitchSession={switchToSession}
       />
     </motion.div>
   );
