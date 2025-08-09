@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, Loader2, Brain, Menu, Coins } from 'lucide-react';
+import { Send, Bot, User, Loader2, Brain, Menu, Coins, ChevronDown, ChevronUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -166,6 +166,8 @@ export function AIChatView() {
   const [currentSessionId, setCurrentSessionId] = useState<string>('');
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   
   const currentSession = chatSessions.find(session => session.id === currentSessionId);
   const messages = currentSession?.messages || [];
@@ -890,36 +892,92 @@ export function AIChatView() {
             </Button>
           </div>
           
-          {/* Suggested Questions */}
+          {/* Suggested Questions - Collapsible on Mobile */}
           <div className="mt-6">
-            <h3 className="text-sm font-medium text-gray-400 mb-3">Suggested Questions</h3>
-            <div className="flex flex-wrap gap-2">
-              {suggestedQuestions.slice(0, 3).map((question, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSuggestedQuestion(question)}
-                  className="px-3 py-2 bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-sm text-gray-300 hover:text-white transition-all duration-200 border border-gray-700/50 hover:border-gray-600"
+            <button
+              onClick={() => setShowSuggestions(!showSuggestions)}
+              className="flex items-center justify-between w-full mb-3 lg:cursor-default"
+            >
+              <h3 className="text-sm font-medium text-gray-400">Suggested Questions</h3>
+              <div className="lg:hidden">
+                {showSuggestions ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+            </button>
+            
+            <AnimatePresence>
+              {(showSuggestions || window.innerWidth >= 1024) && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
                 >
-                  {question}
-                </button>
-              ))}
-            </div>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedQuestions.slice(0, 3).map((question, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          handleSuggestedQuestion(question);
+                          setShowSuggestions(false); // Close on mobile after selection
+                        }}
+                        className="px-3 py-2 bg-gray-800/30 hover:bg-gray-800/50 rounded-lg text-sm text-gray-300 hover:text-white transition-all duration-200 border border-gray-700/50 hover:border-gray-600"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           
-          {/* AI Actions */}
+          {/* AI Actions - Collapsible on Mobile */}
           <div className="mt-4">
-            <h3 className="text-sm font-medium text-gray-400 mb-3">AI Actions</h3>
-            <div className="flex flex-wrap gap-2">
-              {actionablePrompts.slice(0, 2).map((prompt, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSuggestedQuestion(prompt)}
-                  className="px-3 py-2 bg-gradient-to-r from-blue-900/20 to-purple-900/20 hover:from-blue-800/30 hover:to-purple-800/30 rounded-lg text-sm text-blue-200 hover:text-blue-100 transition-all duration-200 border border-blue-500/20 hover:border-blue-400/40"
+            <button
+              onClick={() => setShowActions(!showActions)}
+              className="flex items-center justify-between w-full mb-3 lg:cursor-default"
+            >
+              <h3 className="text-sm font-medium text-gray-400">AI Actions</h3>
+              <div className="lg:hidden">
+                {showActions ? (
+                  <ChevronUp className="w-4 h-4 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+            </button>
+            
+            <AnimatePresence>
+              {(showActions || window.innerWidth >= 1024) && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
                 >
-                  {prompt.length > 50 ? `${prompt.substring(0, 50)}...` : prompt}
-                </button>
-              ))}
-            </div>
+                  <div className="flex flex-wrap gap-2">
+                    {actionablePrompts.slice(0, 2).map((prompt, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          handleSuggestedQuestion(prompt);
+                          setShowActions(false); // Close on mobile after selection
+                        }}
+                        className="px-3 py-2 bg-gradient-to-r from-blue-900/20 to-purple-900/20 hover:from-blue-800/30 hover:to-purple-800/30 rounded-lg text-sm text-blue-200 hover:text-blue-100 transition-all duration-200 border border-blue-500/20 hover:border-blue-400/40"
+                      >
+                        {prompt.length > 50 ? `${prompt.substring(0, 50)}...` : prompt}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </Card>
 
