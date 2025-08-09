@@ -221,7 +221,7 @@ export function ChatInput({
           </div>
           <Button
             type="submit"
-            disabled={!inputMessage.trim() && !isLoading}
+            disabled={isLoading || !inputMessage.trim()}
             variant="primary"
             onClick={isLoading ? (e) => { e.preventDefault(); onStopResponse(); } : undefined}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center flex-shrink-0 min-w-[48px] sm:min-w-[64px] shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
