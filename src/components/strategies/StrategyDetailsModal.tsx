@@ -814,7 +814,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                     rows={3}
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
                   />
-                    <option value="auto">Auto</option>
+                </div>
 
                 <div>
                   <h4 className="font-medium text-white mb-4">Strategy Parameters</h4>
