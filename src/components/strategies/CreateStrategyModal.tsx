@@ -314,7 +314,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         ...(selectedType === 'infinity_grid' && {
           lowest_price: 0,
           profit_per_grid_percent: 1.0,
-          mode: 'auto', // 'auto' or 'customize'
+          mode: 'auto',
         }),
         ...(selectedType === 'dca' && {
           investment_amount_per_interval: 100,
@@ -443,7 +443,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   {selectedType !== 'smart_rebalance' && (
                     <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
-                      <p className="text-sm text-gray-400">Configure your portfolio allocation with stocks and crypto (must sum to 100%)</p>
+                      Symbol *
                     </label>
                     <input
                       type="text"
