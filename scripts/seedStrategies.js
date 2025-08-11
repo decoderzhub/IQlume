@@ -18,278 +18,361 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Define all strategies with their configurations based on the chart
 const strategiesToSeed = [
   {
-    name: 'AAPL Long Call Strategy',
+    name: 'AAPL Long Call - Bullish Momentum',
     type: 'long_call',
-    description: 'Buy a call option to profit from significant upward movement in Apple stock.',
+    description: 'Bullish momentum play on Apple stock using long call options for leveraged upside exposure.',
     risk_level: 'medium',
     min_capital: 5000,
     is_active: false,
     configuration: {
       underlying_symbol: 'AAPL',
-      strike_price_above_current: 5, // $5 above current
+      allocated_capital: 5000,
+      strike_delta: 0.30,
       expiration_days: 30,
-      entry_signal: 'momentum_breakout',
-      max_premium_to_pay: 500,
-      stop_loss_percent: 50,
-      take_profit_percent: 200
+      max_premium_percent: 10,
+      stop_loss: { value: 50, type: 'percentage' },
+      take_profit: { value: 200, type: 'percentage' },
+      entry_signal: 'momentum_breakout'
     }
   },
   {
-    name: 'SPY Long Straddle Strategy',
+    name: 'SPY Long Straddle - Volatility Play',
     type: 'long_straddle',
-    description: 'Buy a call and a put at the same strike and expiry to profit from large moves in either direction.',
+    description: 'Volatility play around earnings using long straddle on SPY for directional movement profits.',
     risk_level: 'medium',
     min_capital: 8000,
     is_active: false,
     configuration: {
       underlying_symbol: 'SPY',
-      strike_price_atm: true,
-      expiration_days: 21,
-      volatility_threshold: 25,
-      max_combined_premium: 1000,
-      entry_trigger: 'earnings_release',
-      exit_rules: 'Close at 50% profit or 21 DTE'
+      allocated_capital: 8000,
+      strike_selection: 'atm',
+      expiration_days: 30,
+      volatility_threshold: 20,
+      max_premium_percent: 12,
+      stop_loss: { value: 50, type: 'percentage' },
+      take_profit: { value: 100, type: 'percentage' },
+      entry_trigger: 'high_volatility'
     }
   },
   {
-    name: 'QQQ Long Condor Strategy',
+    name: 'QQQ Long Condor - Range Bound',
     type: 'long_condor',
-    description: 'Buy a lower strike call, sell a mid-low strike call, sell a mid-high strike call, and buy a higher strike call.',
+    description: 'Range-bound profit strategy using long condor spreads on QQQ for sideways market conditions.',
     risk_level: 'low',
     min_capital: 3000,
     is_active: false,
     configuration: {
       underlying_symbol: 'QQQ',
-      strike_1: 350, // Lower strike
-      strike_2: 360, // Mid-low strike
-      strike_3: 370, // Mid-high strike
-      strike_4: 380, // Higher strike
+      allocated_capital: 3000,
+      wing_width: 10,
+      body_width: 10,
       expiration_days: 45,
-      target_price_range_lower: 360,
-      target_price_range_upper: 370,
-      volatility_filter: 20,
-      credit_received: 200,
-      exit_target_percent: 50
+      max_debit_percent: 8,
+      profit_target: 50,
+      stop_loss: { value: 100, type: 'percentage' }
     }
   },
   {
-    name: 'TSLA Iron Butterfly Strategy',
+    name: 'TSLA Iron Butterfly - Low Volatility',
     type: 'iron_butterfly',
-    description: 'Sell ATM call and put, buy OTM call and put to limit risk. Profits from low volatility near strike price.',
+    description: 'Low volatility income strategy using iron butterfly on TSLA for range-bound markets.',
     risk_level: 'medium',
     min_capital: 4000,
     is_active: false,
     configuration: {
       underlying_symbol: 'TSLA',
-      short_strike_atm: true,
-      long_strikes_otm: 20, // $20 OTM
+      allocated_capital: 4000,
+      wing_width: 20,
       expiration_days: 30,
-      premium_collected: 300,
-      volatility_filter: 30,
-      exit_percent_profit_loss: 50
+      net_credit_target: 300,
+      volatility_threshold: 25,
+      profit_target: 50,
+      stop_loss: { value: 200, type: 'percentage' }
     }
   },
   {
-    name: 'NVDA Short Call Strategy',
+    name: 'NVDA Short Call - Premium Collection',
     type: 'short_call',
-    description: 'Sell a call option, expecting the price will stay below the strike. High risk if underlying rises.',
+    description: 'High-risk premium collection strategy selling naked calls on NVDA with defined risk management.',
     risk_level: 'high',
     min_capital: 15000,
     is_active: false,
     configuration: {
       underlying_symbol: 'NVDA',
-      strike_price_above_current: 10, // $10 above current
-      expiration_days: 21,
-      minimum_premium: 200,
-      margin_requirements: 5000,
-      exit_stop_loss_percent: 200
+      allocated_capital: 15000,
+      strike_delta: 0.20,
+      expiration_days: 30,
+      minimum_premium: 300,
+      stop_loss: { value: 200, type: 'percentage' },
+      margin_requirement: 10000
     }
   },
   {
-    name: 'META Short Straddle Strategy',
+    name: 'META Short Straddle - Ultra High Risk',
     type: 'short_straddle',
-    description: 'Sell call and put at the same strike and expiry, betting on low volatility.',
+    description: 'Ultra-high risk volatility selling strategy using short straddles on META for premium income.',
     risk_level: 'high',
     min_capital: 20000,
     is_active: false,
     configuration: {
       underlying_symbol: 'META',
-      strike_atm: true,
-      expiration_days: 14,
-      premium_threshold: 500,
+      allocated_capital: 20000,
+      strike_selection: 'atm',
+      expiration_days: 21,
+      minimum_premium: 600,
       volatility_filter: 25,
-      stop_loss_per_leg: 300,
-      max_loss_allowed: 2000
+      stop_loss: { value: 200, type: 'percentage' },
+      max_loss_per_trade: 3000
     }
   },
   {
-    name: 'SPY Iron Condor Strategy',
+    name: 'SPY Iron Condor - Defined Risk Range',
     type: 'iron_condor',
-    description: 'Sell OTM call spread and OTM put spread; profit from underlying staying in a range.',
+    description: 'Defined risk range trading strategy using iron condors on SPY for consistent income generation.',
     risk_level: 'medium',
     min_capital: 5000,
     is_active: false,
     configuration: {
       underlying_symbol: 'SPY',
-      short_strikes_both_sides: 10, // $10 OTM both sides
-      long_strikes_both_sides: 20, // $20 OTM both sides
+      allocated_capital: 5000,
+      wing_width: 10,
+      short_strike_delta: 0.20,
       expiration_days: 45,
-      net_credit: 150,
-      volatility_filter: 20,
-      exit_targets: 'Close at 25% profit or 21 DTE'
+      net_credit_target: 200,
+      profit_target: 25,
+      stop_loss: { value: 200, type: 'percentage' }
     }
   },
   {
-    name: 'IWM Long Butterfly Strategy',
+    name: 'IWM Long Butterfly - Precision Targeting',
     type: 'long_butterfly',
-    description: 'Buy lower strike call, sell two ATM calls, buy higher strike call. Profits from price staying near middle strike.',
+    description: 'Precision targeting strategy using long butterfly spreads on IWM for specific price level profits.',
     risk_level: 'low',
     min_capital: 2500,
     is_active: false,
     configuration: {
       underlying_symbol: 'IWM',
-      lower_strike: 180,
-      middle_strike: 190,
-      higher_strike: 200,
+      allocated_capital: 2500,
+      wing_width: 10,
       expiration_days: 30,
-      debit_paid: 100,
-      range_expectation: '185-195',
-      exit_percent_gain: 100
+      max_debit: 150,
+      profit_target: 100,
+      stop_loss: { value: 50, type: 'percentage' }
     }
   },
   {
-    name: 'AAPL Covered Calls Enhanced',
+    name: 'AAPL Enhanced Covered Calls',
     type: 'covered_calls',
-    description: 'Own Apple stock and sell call against it to generate income with enhanced exit rules.',
+    description: 'Enhanced income generation strategy using covered calls on AAPL with sophisticated exit rules.',
     risk_level: 'low',
     min_capital: 20000,
     is_active: false,
     configuration: {
       underlying_symbol: 'AAPL',
-      position_size: 100, // shares
-      strike_above_cost_basis: 5, // %
+      allocated_capital: 20000,
+      position_size: 100,
+      strike_delta: 0.30,
       expiration_days: 30,
-      minimum_premium: 150,
-      exit_rules: 'Roll when ITM, close at 50% profit'
+      minimum_premium: 200,
+      profit_target: 50,
+      roll_when_itm: true
     }
   },
   {
-    name: 'QQQ Long Strangle Strategy',
+    name: 'QQQ Long Strangle - Directional Volatility',
     type: 'long_strangle',
-    description: 'Buy OTM call and OTM put to profit from large moves in either direction.',
+    description: 'Directional volatility strategy using long strangles on QQQ for large directional moves.',
     risk_level: 'medium',
     min_capital: 6000,
     is_active: false,
     configuration: {
       underlying_symbol: 'QQQ',
-      call_strike_above: 10, // $10 above current
-      put_strike_below: 10, // $10 below current
+      allocated_capital: 6000,
+      call_delta: 0.25,
+      put_delta: -0.25,
       expiration_days: 30,
-      volatility_filter: 20,
-      entry_trigger: 'earnings_announcement',
-      exit_rules: 'Close at 100% profit or 7 DTE'
+      volatility_threshold: 25,
+      profit_target: 100,
+      stop_loss: { value: 50, type: 'percentage' }
     }
   },
   {
-    name: 'MSFT Short Call Vertical',
+    name: 'MSFT Short Call Vertical - Bearish Spread',
     type: 'short_call_vertical',
-    description: 'Sell call at one strike, buy higher strike call to cap risk. Bearish to neutral view.',
+    description: 'Bearish spread strategy using short call verticals on MSFT with defined maximum risk.',
     risk_level: 'medium',
     min_capital: 3000,
     is_active: false,
     configuration: {
       underlying_symbol: 'MSFT',
-      short_strike: 380, // Sell strike
-      long_strike: 390, // Buy strike (higher)
+      allocated_capital: 3000,
+      wing_width: 10,
+      short_strike_delta: 0.30,
       expiration_days: 30,
-      net_credit: 200,
-      max_risk_percent: 80,
-      stop_loss_exit_percent: 200
+      net_credit_target: 250,
+      profit_target: 50,
+      stop_loss: { value: 200, type: 'percentage' }
     }
   },
   {
-    name: 'AMZN Short Put Strategy',
+    name: 'AMZN Short Put - Cash Secured',
     type: 'short_put',
-    description: 'Sell a put option expecting price to stay above strike. Cash-secured strategy.',
+    description: 'Cash-secured put strategy on Amazon for income generation with potential stock acquisition.',
     risk_level: 'medium',
     min_capital: 15000,
     is_active: false,
     configuration: {
       underlying_symbol: 'AMZN',
-      strike_below_current: 5, // $5 below current
+      allocated_capital: 15000,
+      strike_delta: -0.30,
       expiration_days: 30,
-      minimum_premium: 100,
-      margin_requirements: 15000,
-      stop_loss_rules: 'Close at 200% of premium received'
+      minimum_premium: 150,
+      profit_target: 50,
+      stop_loss: { value: 200, type: 'percentage' }
     }
   },
   {
-    name: 'GOOGL Short Strangle Strategy',
+    name: 'GOOGL Short Strangle - Premium Collection',
     type: 'short_strangle',
-    description: 'Sell OTM call and OTM put to profit from low volatility.',
+    description: 'Premium collection strategy using short strangles on Google for low volatility environments.',
     risk_level: 'high',
     min_capital: 25000,
     is_active: false,
     configuration: {
       underlying_symbol: 'GOOGL',
-      call_strike_above: 15, // $15 above current
-      put_strike_below: 15, // $15 below current
+      allocated_capital: 25000,
+      call_delta: 0.20,
+      put_delta: -0.20,
       expiration_days: 21,
-      premium_target: 400,
+      minimum_premium: 500,
       volatility_filter: 25,
-      stop_loss_rules: 'Close individual legs at 200% premium'
+      profit_target: 50,
+      stop_loss: { value: 200, type: 'percentage' }
     }
   },
   {
-    name: 'SPY Short Put Vertical',
+    name: 'SPY Short Put Vertical - Bullish Spread',
     type: 'short_put_vertical',
-    description: 'Sell put at one strike, buy lower strike put to limit risk. Bullish to neutral view.',
+    description: 'Bullish spread strategy using short put verticals on SPY with limited risk profile.',
     risk_level: 'medium',
     min_capital: 2500,
     is_active: false,
     configuration: {
       underlying_symbol: 'SPY',
-      short_strike: 470, // Sell strike
-      long_strike: 460, // Buy strike (lower)
+      allocated_capital: 2500,
+      wing_width: 10,
+      short_strike_delta: -0.30,
       expiration_days: 30,
-      net_credit: 150,
-      risk_percent: 75,
-      exit_percent_profit_loss: 50
+      net_credit_target: 200,
+      profit_target: 50,
+      stop_loss: { value: 200, type: 'percentage' }
     }
   },
   {
-    name: 'AAPL Broken-Wing Butterfly',
+    name: 'AAPL Broken-Wing Butterfly - Asymmetric',
     type: 'broken_wing_butterfly',
-    description: 'Like a butterfly spread but one wing is further OTM, reducing cost or adding a directional bias.',
+    description: 'Asymmetric spread strategy using broken-wing butterfly on AAPL with directional bias.',
     risk_level: 'medium',
     min_capital: 3500,
     is_active: false,
     configuration: {
       underlying_symbol: 'AAPL',
-      lower_strike: 185,
-      middle_strike: 195, // ATM
-      higher_strike: 210, // Asymmetric - further OTM
+      allocated_capital: 3500,
+      short_wing_width: 10,
+      long_wing_width: 15,
       expiration_days: 45,
-      debit_credit: -50, // Small debit
-      target_price_range: '190-200',
-      exit_rules: 'Close at 100% profit or 14 DTE'
+      max_debit: 100,
+      profit_target: 100,
+      stop_loss: { value: 150, type: 'percentage' }
     }
   },
   {
-    name: 'TSLA Option Collar Strategy',
+    name: 'TSLA Option Collar - Protective Strategy',
     type: 'option_collar',
-    description: 'Own stock, buy a protective put, sell a covered call to offset cost.',
+    description: 'Protective strategy using option collars on TSLA to limit downside while capping upside.',
     risk_level: 'low',
     min_capital: 25000,
     is_active: false,
     configuration: {
       underlying_symbol: 'TSLA',
-      position_size: 100, // shares
-      put_strike_below: 10, // $10 below current
-      call_strike_above: 15, // $15 above current
-      expiration_days: 60,
-      net_debit_credit: 25, // Small net debit
-      exit_triggers: 'Roll collar monthly or close at assignment'
+      allocated_capital: 25000,
+      position_size: 100,
+      put_delta: -0.25,
+      call_delta: 0.25,
+      expiration_days: 45,
+      net_cost_target: 50,
+      roll_frequency: 'monthly'
+    }
+  },
+  {
+    name: 'BTC Spot Grid - Range Trading',
+    type: 'spot_grid',
+    description: 'Automated range trading bot for Bitcoin using spot grid strategy with defined price boundaries.',
+    risk_level: 'medium',
+    min_capital: 5000,
+    is_active: false,
+    configuration: {
+      underlying_symbol: 'BTC/USD',
+      allocated_capital: 5000,
+      price_range_lower: 40000,
+      price_range_upper: 50000,
+      number_of_grids: 25,
+      grid_mode: 'arithmetic',
+      take_profit: { value: 10, type: 'percentage' },
+      stop_loss: { value: 15, type: 'percentage' }
+    }
+  },
+  {
+    name: 'ETH DCA - Dollar Cost Averaging',
+    type: 'dca',
+    description: 'Systematic dollar-cost averaging strategy for Ethereum to reduce volatility impact over time.',
+    risk_level: 'low',
+    min_capital: 2000,
+    is_active: false,
+    configuration: {
+      underlying_symbol: 'ETH/USD',
+      allocated_capital: 2000,
+      investment_amount_per_interval: 50,
+      frequency: 'daily',
+      investment_target_percent: 25,
+      stop_loss: { value: 20, type: 'percentage' }
+    }
+  },
+  {
+    name: 'Multi-Asset Smart Rebalance',
+    type: 'smart_rebalance',
+    description: 'Intelligent portfolio rebalancing across multiple assets maintaining target allocations automatically.',
+    risk_level: 'low',
+    min_capital: 10000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 10000,
+      assets: [
+        { symbol: 'BTC', allocation: 40 },
+        { symbol: 'ETH', allocation: 30 },
+        { symbol: 'SPY', allocation: 20 },
+        { symbol: 'USDC', allocation: 10 }
+      ],
+      trigger_type: 'threshold',
+      threshold_deviation_percent: 5,
+      rebalance_frequency: 'weekly'
+    }
+  },
+  {
+    name: 'SPY ORB - Opening Range Breakout',
+    type: 'orb',
+    description: 'Opening range breakout strategy on SPY capturing momentum from first 30 minutes of trading.',
+    risk_level: 'medium',
+    min_capital: 8000,
+    is_active: false,
+    configuration: {
+      underlying_symbol: 'SPY',
+      allocated_capital: 8000,
+      orb_period: 30,
+      breakout_threshold: 0.002,
+      stop_loss: { value: 1, type: 'percentage' },
+      take_profit: { value: 2, type: 'percentage' },
+      max_position_size: 100
     }
   }
 ];
