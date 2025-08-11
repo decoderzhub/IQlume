@@ -84,15 +84,6 @@ const strategyTypes = [
   },
 ];
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
   const [selectedType, setSelectedType] = useState<TradingStrategy['type'] | null>(null);
   const [name, setName] = useState('');
@@ -122,6 +113,15 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     { symbol: 'USDT', allocation: 20 },
   ]);
   const [isAllocatingByMarketCap, setIsAllocatingByMarketCap] = useState(false);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAllocatedCapitalPercentage(Number(e.target.value));
@@ -1011,12 +1011,11 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       !name || 
                       (selectedType !== 'smart_rebalance' && !symbol.trim()) ||
                       (['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
-                        currentAllocatedCapital <= 0 || 
+                        totalInvestment <= 0 || 
                         numberOfGrids < 2 || 
-                        numberOfGrids > 1000
+                        currentAllocatedCapital <= 0
                       )) ||
-                      (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2)) ||
-                      currentAllocatedCapital < minCapital
+                      (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2))
                     }
                     className="flex-1"
                   >
