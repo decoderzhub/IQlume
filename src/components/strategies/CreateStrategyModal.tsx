@@ -87,9 +87,19 @@ const strategyTypes = [
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
   const [selectedType, setSelectedType] = useState<TradingStrategy['type'] | null>(null);
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [symbol, setSymbol] = useState('');
   const [minCapital, setMinCapital] = useState(10000);
+  
+  // Grid bot specific states
+  const [priceRangeLower, setPriceRangeLower] = useState<number>(0);
+  const [priceRangeUpper, setPriceRangeUpper] = useState<number>(0);
+  const [numberOfGrids, setNumberOfGrids] = useState<number>(20);
+  const [totalInvestment, setTotalInvestment] = useState<number>(1000);
+  const [triggerPrice, setTriggerPrice] = useState<number | undefined>(undefined);
+  const [takeProfit, setTakeProfit] = useState<number | undefined>(undefined);
+  const [stopLoss, setStopLoss] = useState<number | undefined>(undefined);
+  const [gridMode, setGridMode] = useState<'arithmetic' | 'geometric'>('arithmetic');
+  
   const [assets, setAssets] = useState<AssetAllocation[]>([
     { symbol: 'BTC', allocation: 50 },
     { symbol: 'ETH', allocation: 30 },
@@ -267,6 +277,22 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       return;
     }
 
+    // Validate grid bot specific requirements
+    const isGridBot = ['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType);
+    if (isGridBot) {
+      if (selectedType !== 'infinity_grid' && (priceRangeLower <= 0 || priceRangeUpper <= 0 || priceRangeLower >= priceRangeUpper)) {
+        alert('Please set a valid price range (lower price must be less than upper price and both must be greater than 0).');
+        return;
+      }
+      if (numberOfGrids < 2 || numberOfGrids > 1000) {
+        alert('Number of grids must be between 2 and 1000.');
+        return;
+      }
+      if (totalInvestment <= 0) {
+        alert('Total investment must be greater than 0.');
+        return;
+      }
+    }
     // Validate smart_rebalance specific requirements
     if (selectedType === 'smart_rebalance') {
       const validAssets = assets.filter(asset => asset.symbol.trim() !== '' && asset.allocation > 0);
@@ -286,9 +312,9 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     const strategy: Omit<TradingStrategy, 'id'> = {
       name,
       type: selectedType,
-      description: description || (selectedType === 'smart_rebalance' 
+      description: selectedType === 'smart_rebalance' 
         ? `${selectedType} strategy with ${assets.filter(a => a.symbol.trim()).length} assets`
-        : `${selectedType} strategy for ${symbol}`),
+        : `${selectedType} strategy for ${symbol}`,
       risk_level: 'medium', // Will be calculated by backend based on backtesting metrics
       min_capital: minCapital,
       is_active: false,
@@ -296,24 +322,35 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         ...(selectedType !== 'smart_rebalance' && { symbol: symbol.toUpperCase() }),
         // Add default configuration based on strategy type
         ...(selectedType === 'spot_grid' && {
-          price_range_lower: 0,
-          price_range_upper: 0,
-          number_of_grids: 25,
-          grid_spacing_percent: 1.0,
-          mode: 'auto', // 'auto' or 'customize'
+          price_range_lower: priceRangeLower,
+          price_range_upper: priceRangeUpper,
+          number_of_grids: numberOfGrids,
+          total_investment: totalInvestment,
+          trigger_price: triggerPrice,
+          take_profit: takeProfit,
+          stop_loss: stopLoss,
+          grid_mode: gridMode,
         }),
         ...(selectedType === 'futures_grid' && {
-          direction: 'long', // 'long' or 'short'
+          price_range_lower: priceRangeLower,
+          price_range_upper: priceRangeUpper,
+          number_of_grids: numberOfGrids,
+          total_investment: totalInvestment,
+          trigger_price: triggerPrice,
+          take_profit: takeProfit,
+          stop_loss: stopLoss,
+          grid_mode: gridMode,
+          direction: 'long',
           leverage: 3,
-          price_range_lower: 0,
-          price_range_upper: 0,
-          number_of_grids: 20,
-          margin_amount: 1000,
         }),
         ...(selectedType === 'infinity_grid' && {
-          lowest_price: 0,
-          profit_per_grid_percent: 1.0,
-          mode: 'auto',
+          price_range_lower: priceRangeLower,
+          number_of_grids: numberOfGrids,
+          total_investment: totalInvestment,
+          trigger_price: triggerPrice,
+          take_profit: takeProfit,
+          stop_loss: stopLoss,
+          grid_mode: gridMode,
         }),
         ...(selectedType === 'dca' && {
           investment_amount_per_interval: 100,

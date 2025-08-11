@@ -64,7 +64,23 @@ export interface TradingStrategy {
   risk_level: 'low' | 'medium' | 'high';
   min_capital: number;
   is_active: boolean;
-  configuration: Record<string, any>;
+  configuration: {
+    // Common fields
+    symbol?: string;
+    
+    // Grid bot specific fields
+    price_range_lower?: number;
+    price_range_upper?: number;
+    number_of_grids?: number;
+    total_investment?: number;
+    trigger_price?: number;
+    take_profit?: number;
+    stop_loss?: number;
+    grid_mode?: 'arithmetic' | 'geometric';
+    
+    // Other strategy specific fields
+    [key: string]: any;
+  };
   performance?: {
     total_return: number;
     win_rate: number;
