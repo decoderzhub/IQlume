@@ -689,20 +689,19 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 )}
 
                 {/* Warning for high-risk strategies */}
-                {riskLevel === 'high' && (
-            {/* Risk Assessment Notice */}
-            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                {/* Risk Assessment Notice */}
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="w-5 h-5 text-blue-400" />
-                <h4 className="font-medium text-blue-400">Risk Assessment</h4>
-              </div>
-              <p className="text-sm text-blue-300">
-                The risk level for this strategy will be automatically calculated based on backtesting metrics including 
-                Sharpe ratio, Beta, standard deviation, R-squared, Alpha, and Value at Risk (VaR).
-              </p>
-            </div>
+                    <TrendingUp className="w-5 h-5 text-blue-400" />
+                    <h4 className="font-medium text-blue-400">Risk Assessment</h4>
+                  </div>
+                  <p className="text-sm text-blue-300">
+                    The risk level for this strategy will be automatically calculated based on backtesting metrics including 
+                    Sharpe ratio, Beta, standard deviation, R-squared, Alpha, and Value at Risk (VaR).
+                  </p>
+                </div>
 
-            {/* Action Buttons */}
+                {/* Action Buttons */}
             <div className="flex gap-4 pt-6 border-t border-gray-800">
               <Button
                 type="button"
