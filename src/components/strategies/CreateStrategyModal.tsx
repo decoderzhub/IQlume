@@ -733,10 +733,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                         </>
                       )}
                       {selectedType === 'martingale' && (
-                        <div>
-                          <span className="text-gray-400">Martingale:</span>
-                          <span className="text-white ml-2">Configuration</span>
-                        </div>
+                        <>
+                        </>
                       )}
                     </div>
                   </div>
