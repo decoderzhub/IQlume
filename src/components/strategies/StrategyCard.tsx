@@ -35,14 +35,25 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: 
 
   const getStrategyTypeLabel = (type: TradingStrategy['type']) => {
     switch (type) {
+      case 'long_call': return 'Long Call';
+      case 'long_straddle': return 'Long Straddle';
+      case 'long_condor': return 'Long Condor';
+      case 'iron_butterfly': return 'Iron Butterfly';
+      case 'short_call': return 'Short Call';
+      case 'short_straddle': return 'Short Straddle';
+      case 'long_butterfly': return 'Long Butterfly';
+      case 'short_put': return 'Short Put';
+      case 'short_strangle': return 'Short Strangle';
+      case 'short_put_vertical': return 'Short Put Vertical';
+      case 'short_call_vertical': return 'Short Call Vertical';
+      case 'broken_wing_butterfly': return 'Broken-Wing Butterfly';
+      case 'option_collar': return 'Option Collar';
+      case 'covered_calls': return 'Covered Calls';
       case 'spot_grid': return 'Spot Grid Bot';
       case 'futures_grid': return 'Futures Grid Bot';
       case 'infinity_grid': return 'Infinity Grid Bot';
       case 'dca': return 'DCA Bot';
       case 'smart_rebalance': return 'Smart Rebalance';
-      case 'covered_calls': return 'Covered Calls';
-      case 'straddle': return 'Straddle';
-      case 'iron_condor': return 'Iron Condor';
       case 'wheel': return 'The Wheel';
       case 'orb': return 'ORB Strategy';
       default: return type;
