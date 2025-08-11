@@ -84,14 +84,14 @@ const strategyTypes = [
   },
 ];
 
-const formatCurrency = (amount: number) => {
+function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
-};
+}
 
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
   const [selectedType, setSelectedType] = useState<TradingStrategy['type'] | null>(null);
@@ -1011,11 +1011,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       !name || 
                       (selectedType !== 'smart_rebalance' && !symbol.trim()) ||
                       (['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
-                        totalInvestment <= 0 || 
+                        currentAllocatedCapital <= 0 || 
                         numberOfGrids < 2 || 
-                        currentAllocatedCapital <= 0
+                        numberOfGrids > 1000
                       )) ||
-                      (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2))
+                      (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2)) ||
+                      currentAllocatedCapital < minCapital
                     }
                     className="flex-1"
                   >
