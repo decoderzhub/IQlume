@@ -18,9 +18,168 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Define all strategies with their configurations based on the chart
 const strategiesToSeed = [
   {
+    name: 'Spot Grid Bot',
+    type: 'spot_grid',
+    description: 'Automates buy-low/sell-high trades within a defined price range for cryptocurrency trading.',
+    risk_level: 'low',
+    min_capital: 1000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 1000,
+      price_range_lower: 0,
+      price_range_upper: 0,
+      number_of_grids: 20,
+      grid_mode: 'arithmetic'
+    }
+  },
+  {
+    name: 'Futures Grid Bot',
+    type: 'futures_grid',
+    description: 'Grid trading on futures market with leverage support for advanced traders.',
+    risk_level: 'medium',
+    min_capital: 2000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 2000,
+      price_range_lower: 0,
+      price_range_upper: 0,
+      number_of_grids: 25,
+      grid_mode: 'arithmetic',
+      direction: 'long',
+      leverage: 3
+    }
+  },
+  {
+    name: 'Infinity Grid Bot',
+    type: 'infinity_grid',
+    description: 'Grid trading without upper price limit for trending markets and bull runs.',
+    risk_level: 'medium',
+    min_capital: 1500,
+    is_active: false,
+    configuration: {
+      allocated_capital: 1500,
+      price_range_lower: 0,
+      number_of_grids: 30,
+      grid_mode: 'geometric'
+    }
+  },
+  {
+    name: 'DCA Bot (Dollar-Cost Averaging)',
+    type: 'dca',
+    description: 'Automatically invests at fixed intervals to minimize volatility risk through systematic purchasing.',
+    risk_level: 'low',
+    min_capital: 500,
+    is_active: false,
+    configuration: {
+      allocated_capital: 500,
+      investment_amount_per_interval: 50,
+      frequency: 'daily',
+      investment_target_percent: 25
+    }
+  },
+  {
+    name: 'Smart Rebalance Bot',
+    type: 'smart_rebalance',
+    description: 'Maintains target allocations in a portfolio of selected assets through automatic rebalancing.',
+    risk_level: 'low',
+    min_capital: 5000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 5000,
+      assets: [],
+      trigger_type: 'threshold',
+      threshold_deviation_percent: 5,
+      rebalance_frequency: 'weekly'
+    }
+  },
+  {
+    name: 'Covered Calls',
+    type: 'covered_calls',
+    description: 'Generate income by selling call options on owned stocks while maintaining the underlying position.',
+    risk_level: 'low',
+    min_capital: 15000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 15000,
+      position_size: 100,
+      strike_delta: 0.30,
+      expiration_days: 30,
+      minimum_premium: 200,
+      profit_target: 50,
+      roll_when_itm: true
+    }
+  },
+  {
+    name: 'Iron Condor',
+    type: 'iron_condor',
+    description: 'Profit from low volatility with defined risk spreads on an underlying asset.',
+    risk_level: 'medium',
+    min_capital: 5000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 5000,
+      wing_width: 10,
+      short_strike_delta: 0.20,
+      expiration_days: 45,
+      net_credit_target: 200,
+      profit_target: 25,
+      stop_loss: { value: 200, type: 'percentage' }
+    }
+  },
+  {
+    name: 'Long Straddle',
+    type: 'straddle',
+    description: 'Profit from high volatility in either direction using long straddle options strategy.',
+    risk_level: 'medium',
+    min_capital: 8000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 8000,
+      strike_selection: 'atm',
+      expiration_days: 30,
+      volatility_threshold: 20,
+      max_premium_percent: 12,
+      stop_loss: { value: 50, type: 'percentage' },
+      take_profit: { value: 100, type: 'percentage' }
+    }
+  },
+  {
+    name: 'The Wheel',
+    type: 'wheel',
+    description: 'Systematic approach combining cash-secured puts and covered calls for consistent income generation.',
+    risk_level: 'low',
+    min_capital: 20000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 20000,
+      position_size: 100,
+      put_strike_delta: -0.30,
+      call_strike_delta: 0.30,
+      expiration_days: 30,
+      minimum_premium: 150,
+      assignment_handling: 'automatic'
+    }
+  },
+  {
+    name: 'Opening Range Breakout (ORB)',
+    type: 'orb',
+    description: 'Trade breakouts from the first 15-30 minutes of market open for momentum capture.',
+    risk_level: 'medium',
+    min_capital: 5000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 5000,
+      orb_period: 30,
+      breakout_threshold: 0.002,
+      stop_loss: { value: 1, type: 'percentage' },
+      take_profit: { value: 2, type: 'percentage' },
+      max_position_size: 100
+    }
+  },
+  {
     name: 'Long Call - Bullish Momentum',
-    type: 'long_call',
-    description: 'Bullish momentum play on an underlying stock using long call options for leveraged upside exposure.',
+    type: 'covered_calls',
+    description: 'Bullish momentum play using long call options for leveraged upside exposure on an underlying asset.',
     risk_level: 'medium',
     min_capital: 5000,
     is_active: false,
@@ -29,14 +188,12 @@ const strategiesToSeed = [
       strike_delta: 0.30,
       expiration_days: 30,
       max_premium_percent: 10,
-      stop_loss: { value: 50, type: 'percentage' },
-      take_profit: { value: 200, type: 'percentage' },
-      entry_signal: 'momentum_breakout'
+      stop_loss: { value: 50, type: 'percentage' }
     }
   },
   {
     name: 'Long Straddle - Volatility Play',
-    type: 'long_straddle',
+    type: 'straddle',
     description: 'Volatility play around earnings using long straddle on an underlying asset for directional movement profits.',
     risk_level: 'medium',
     min_capital: 8000,
@@ -48,13 +205,12 @@ const strategiesToSeed = [
       volatility_threshold: 20,
       max_premium_percent: 12,
       stop_loss: { value: 50, type: 'percentage' },
-      take_profit: { value: 100, type: 'percentage' },
-      entry_trigger: 'high_volatility'
+      take_profit: { value: 100, type: 'percentage' }
     }
   },
   {
     name: 'Long Condor - Range Bound',
-    type: 'long_condor',
+    type: 'covered_calls',
     description: 'Range-bound profit strategy using long condor spreads on an underlying asset for sideways market conditions.',
     risk_level: 'low',
     min_capital: 3000,
@@ -71,7 +227,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Iron Butterfly - Low Volatility',
-    type: 'iron_butterfly',
+    type: 'iron_condor',
     description: 'Low volatility income strategy using iron butterfly on an underlying stock for range-bound markets.',
     risk_level: 'medium',
     min_capital: 4000,
@@ -81,14 +237,14 @@ const strategiesToSeed = [
       wing_width: 20,
       expiration_days: 30,
       net_credit_target: 300,
-      volatility_threshold: 25,
+      volatility_filter: 25,
       profit_target: 50,
       stop_loss: { value: 200, type: 'percentage' }
     }
   },
   {
     name: 'Short Call - Premium Collection',
-    type: 'short_call',
+    type: 'covered_calls',
     description: 'High-risk premium collection strategy selling naked calls on an underlying stock with defined risk management.',
     risk_level: 'high',
     min_capital: 15000,
@@ -104,7 +260,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Straddle - Ultra High Risk',
-    type: 'short_straddle',
+    type: 'straddle',
     description: 'Ultra-high risk volatility selling strategy using short straddles on an underlying stock for premium income.',
     risk_level: 'high',
     min_capital: 20000,
@@ -120,25 +276,8 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'Iron Condor - Defined Risk Range',
-    type: 'iron_condor',
-    description: 'Defined risk range trading strategy using iron condors on an underlying asset for consistent income generation.',
-    risk_level: 'medium',
-    min_capital: 5000,
-    is_active: false,
-    configuration: {
-      allocated_capital: 5000,
-      wing_width: 10,
-      short_strike_delta: 0.20,
-      expiration_days: 45,
-      net_credit_target: 200,
-      profit_target: 25,
-      stop_loss: { value: 200, type: 'percentage' }
-    }
-  },
-  {
     name: 'Long Butterfly - Precision Targeting',
-    type: 'long_butterfly',
+    type: 'covered_calls',
     description: 'Precision targeting strategy using long butterfly spreads on an underlying asset for specific price level profits.',
     risk_level: 'low',
     min_capital: 2500,
@@ -153,25 +292,8 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'Enhanced Covered Calls',
-    type: 'covered_calls',
-    description: 'Enhanced income generation strategy using covered calls on an underlying stock with sophisticated exit rules.',
-    risk_level: 'low',
-    min_capital: 20000,
-    is_active: false,
-    configuration: {
-      allocated_capital: 20000,
-      position_size: 100,
-      strike_delta: 0.30,
-      expiration_days: 30,
-      minimum_premium: 200,
-      profit_target: 50,
-      roll_when_itm: true
-    }
-  },
-  {
     name: 'Long Strangle - Directional Volatility',
-    type: 'long_strangle',
+    type: 'straddle',
     description: 'Directional volatility strategy using long strangles on an underlying asset for large directional moves.',
     risk_level: 'medium',
     min_capital: 6000,
@@ -188,7 +310,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Call Vertical - Bearish Spread',
-    type: 'short_call_vertical',
+    type: 'covered_calls',
     description: 'Bearish spread strategy using short call verticals on an underlying stock with defined maximum risk.',
     risk_level: 'medium',
     min_capital: 3000,
@@ -205,7 +327,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Put - Cash Secured',
-    type: 'short_put',
+    type: 'covered_calls',
     description: 'Cash-secured put strategy on an underlying stock for income generation with potential stock acquisition.',
     risk_level: 'medium',
     min_capital: 15000,
@@ -221,7 +343,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Strangle - Premium Collection',
-    type: 'short_strangle',
+    type: 'straddle',
     description: 'Premium collection strategy using short strangles on an underlying stock for low volatility environments.',
     risk_level: 'high',
     min_capital: 25000,
@@ -239,7 +361,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Put Vertical - Bullish Spread',
-    type: 'short_put_vertical',
+    type: 'covered_calls',
     description: 'Bullish spread strategy using short put verticals on an underlying asset with limited risk profile.',
     risk_level: 'medium',
     min_capital: 2500,
@@ -256,7 +378,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Broken-Wing Butterfly - Asymmetric',
-    type: 'broken_wing_butterfly',
+    type: 'covered_calls',
     description: 'Asymmetric spread strategy using broken-wing butterfly on an underlying stock with directional bias.',
     risk_level: 'medium',
     min_capital: 3500,
@@ -273,7 +395,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Option Collar - Protective Strategy',
-    type: 'option_collar',
+    type: 'covered_calls',
     description: 'Protective strategy using option collars on an underlying stock to limit downside while capping upside.',
     risk_level: 'low',
     min_capital: 25000,
@@ -289,66 +411,117 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'Spot Grid - Range Trading',
-    type: 'spot_grid',
-    description: 'Automated range trading bot for cryptocurrency using spot grid strategy with defined price boundaries.',
+    name: 'Mean Reversion - Contrarian',
+    type: 'covered_calls',
+    description: 'Contrarian strategy that profits from price reversions to the mean using statistical analysis.',
     risk_level: 'medium',
-    min_capital: 5000,
+    min_capital: 7500,
     is_active: false,
     configuration: {
-      allocated_capital: 5000,
-      price_range_lower: 40000,
-      price_range_upper: 50000,
-      number_of_grids: 25,
-      grid_mode: 'arithmetic',
-      take_profit: { value: 10, type: 'percentage' },
-      stop_loss: { value: 15, type: 'percentage' }
+      allocated_capital: 7500,
+      lookback_period: 20,
+      deviation_threshold: 2.0,
+      position_size: 100,
+      stop_loss: { value: 1, type: 'percentage' },
+      take_profit: { value: 1.5, type: 'percentage' }
     }
   },
   {
-    name: 'DCA - Dollar Cost Averaging',
-    type: 'dca',
-    description: 'Systematic dollar-cost averaging strategy for cryptocurrency to reduce volatility impact over time.',
-    risk_level: 'low',
-    min_capital: 2000,
+    name: 'Momentum Breakout - Trend Following',
+    type: 'covered_calls',
+    description: 'Trend following strategy that captures momentum breakouts using technical indicators.',
+    risk_level: 'medium',
+    min_capital: 6000,
     is_active: false,
     configuration: {
-      allocated_capital: 2000,
-      investment_amount_per_interval: 50,
-      frequency: 'daily',
-      investment_target_percent: 25,
-      stop_loss: { value: 20, type: 'percentage' }
+      allocated_capital: 6000,
+      breakout_threshold: 0.03,
+      volume_confirmation: true,
+      position_size: 100,
+      stop_loss: { value: 2, type: 'percentage' },
+      take_profit: { value: 5, type: 'percentage' }
     }
   },
   {
-    name: 'Multi-Asset Smart Rebalance',
-    type: 'smart_rebalance',
-    description: 'Intelligent portfolio rebalancing across multiple assets maintaining target allocations automatically.',
+    name: 'Pairs Trading - Market Neutral',
+    type: 'covered_calls',
+    description: 'Market neutral strategy trading correlated pairs to profit from relative price movements.',
     risk_level: 'low',
     min_capital: 10000,
     is_active: false,
     configuration: {
       allocated_capital: 10000,
-      assets: [],
-      trigger_type: 'threshold',
-      threshold_deviation_percent: 5,
-      rebalance_frequency: 'weekly'
+      correlation_threshold: 0.8,
+      z_score_entry: 2.0,
+      z_score_exit: 0.5,
+      lookback_period: 60,
+      position_ratio: 1.0
     }
   },
   {
-    name: 'ORB - Opening Range Breakout',
+    name: 'Scalping - High Frequency',
     type: 'orb',
-    description: 'Opening range breakout strategy capturing momentum from first 30 minutes of trading.',
+    description: 'High frequency scalping strategy for quick profits on small price movements.',
+    risk_level: 'high',
+    min_capital: 15000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 15000,
+      time_frame: '1m',
+      profit_target: 0.1,
+      stop_loss: { value: 0.05, type: 'percentage' },
+      max_trades_per_day: 50,
+      position_size: 100
+    }
+  },
+  {
+    name: 'Swing Trading - Multi-Day Holds',
+    type: 'covered_calls',
+    description: 'Multi-day swing trading strategy capturing intermediate price movements using technical analysis.',
     risk_level: 'medium',
     min_capital: 8000,
     is_active: false,
     configuration: {
       allocated_capital: 8000,
-      orb_period: 30,
-      breakout_threshold: 0.002,
-      stop_loss: { value: 1, type: 'percentage' },
-      take_profit: { value: 2, type: 'percentage' },
-      max_position_size: 100
+      holding_period_min: 2,
+      holding_period_max: 10,
+      rsi_oversold: 30,
+      rsi_overbought: 70,
+      position_size: 100,
+      stop_loss: { value: 3, type: 'percentage' },
+      take_profit: { value: 6, type: 'percentage' }
+    }
+  },
+  {
+    name: 'Arbitrage - Cross-Exchange',
+    type: 'covered_calls',
+    description: 'Cross-exchange arbitrage strategy exploiting price differences between trading venues.',
+    risk_level: 'low',
+    min_capital: 12000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 12000,
+      min_spread_threshold: 0.5,
+      execution_speed: 'fast',
+      max_position_size: 1000,
+      exchanges: ['primary', 'secondary']
+    }
+  },
+  {
+    name: 'News-Based Trading - Event Driven',
+    type: 'orb',
+    description: 'Event-driven strategy that trades based on news sentiment and market reactions.',
+    risk_level: 'high',
+    min_capital: 10000,
+    is_active: false,
+    configuration: {
+      allocated_capital: 10000,
+      sentiment_threshold: 0.7,
+      news_sources: ['reuters', 'bloomberg', 'cnbc'],
+      reaction_window: 30,
+      position_size: 100,
+      stop_loss: { value: 2, type: 'percentage' },
+      take_profit: { value: 4, type: 'percentage' }
     }
   }
 ];
