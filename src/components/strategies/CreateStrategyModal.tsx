@@ -640,10 +640,50 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       <TrendingUp className="w-5 h-5 text-blue-400" />
                       <h4 className="font-medium text-white">Strategy Configuration</h4>
                     </div>
-                    <p className="text-sm text-gray-400 mb-3">
-                      Default settings will be applied. You can customize these after creation.
-                    </p>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      {['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
+                        <>
+                          <div>
+                            <span className="text-gray-400">Price Range:</span>
+                            <span className="text-white ml-2">
+                              {selectedType === 'infinity_grid' 
+                                ? `${priceRangeLower || 0}+ USDT`
+                                : `${priceRangeLower || 0} - ${priceRangeUpper || 0} USDT`
+                              }
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Grids:</span>
+                            <span className="text-white ml-2">{numberOfGrids}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Investment:</span>
+                            <span className="text-white ml-2">{totalInvestment} USDT</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Grid Mode:</span>
+                            <span className="text-white ml-2 capitalize">{gridMode}</span>
+                          </div>
+                          {triggerPrice && (
+                            <div>
+                              <span className="text-gray-400">Trigger:</span>
+                              <span className="text-white ml-2">{triggerPrice} USDT</span>
+                            </div>
+                          )}
+                          {takeProfit && (
+                            <div>
+                              <span className="text-gray-400">Take Profit:</span>
+                              <span className="text-green-400 ml-2">{takeProfit} USDT</span>
+                            </div>
+                          )}
+                          {stopLoss && (
+                            <div>
+                              <span className="text-gray-400">Stop Loss:</span>
+                              <span className="text-red-400 ml-2">{stopLoss} USDT</span>
+                            </div>
+                          )}
+                        </>
+                      )}
                       {selectedType === 'smart_rebalance' && (
                         <>
                           <div>
@@ -693,37 +733,25 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                         </>
                       )}
                       {selectedType === 'martingale' && (
-                        <>
-                          <div>
-                            <span className="text-gray-400">Base Size:</span>
-                            <span className="text-white ml-2">0.01</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Max Levels:</span>
-                            <span className="text-white ml-2">5</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Grid Spacing:</span>
-                            <span className="text-white ml-2">2%</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
                   </div>
                 )}
 
                 {/* Warning for high-risk strategies */}
-                {/* Risk Assessment Notice */}
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-5 h-5 text-blue-400" />
-                    <h4 className="font-medium text-blue-400">Risk Assessment</h4>
+                {/* Grid Mode Explanation */}
+                {selectedType && ['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-blue-400 mb-2">Grid Mode Selection</h4>
+                        <div className="space-y-2 text-sm text-blue-300">
+                          <p><strong>Arithmetic Mode:</strong> Equal price differences between grids (e.g., $100, $200, $300, $400). More effective in bullish markets where prices trend upward steadily.</p>
+                          <p><strong>Geometric Mode:</strong> Equal percentage changes between grids (e.g., $100, $200, $400, $800). More effective in bearish markets or high volatility scenarios.</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-blue-300">
-                    The risk level for this strategy will be automatically calculated based on backtesting metrics including 
-                    Sharpe ratio, Beta, standard deviation, R-squared, Alpha, and Value at Risk (VaR).
-                  </p>
-                </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex gap-4 pt-6 border-t border-gray-800">
@@ -741,6 +769,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       !selectedType || 
                       !name || 
                       (selectedType !== 'smart_rebalance' && !symbol.trim()) ||
+                      (['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
+                        totalInvestment <= 0 || 
+                        numberOfGrids < 2 || 
+                        numberOfGrids > 1000 ||
+                        (selectedType !== 'infinity_grid' && (priceRangeLower <= 0 || priceRangeUpper <= 0 || priceRangeLower >= priceRangeUpper))
+                      )) ||
                       (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2))
                     }
                     className="flex-1"
