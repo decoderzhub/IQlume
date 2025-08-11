@@ -631,11 +631,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                     </div>
                     <div>
                       <span className="text-gray-400">Investment:</span>
-                     <span className="text-white ml-2">{formatCurrency(currentAllocatedCapital)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Grid Mode:</span>
-                      <span className="text-white ml-2 capitalize">{gridMode}</span>
+                      <span className="text-white ml-2">{formatCurrency(currentAllocatedCapital)}</span>
                     </div>
                     {triggerPrice && (
                       <div>
@@ -661,9 +657,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-4 pt-6 border-t border-gray-800">
+            <div className="flex items-center gap-4">
               <Button
-                variant="outline"
+                variant="secondary"
                 onClick={() => onDelete(editedStrategy.id)}
                 className="text-red-400 border-red-500/20 hover:bg-red-500/10"
               >
