@@ -511,6 +511,205 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   </div>
                 </div>
 
+                {/* Grid Bot Specific Configuration Fields */}
+                {selectedType && ['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-6"
+                  >
+                    <h3 className="text-lg font-semibold text-white">Grid Bot Configuration</h3>
+
+                    {/* Price Range */}
+                    {selectedType !== 'infinity_grid' ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Lowest Price (USDT)
+                          </label>
+                          <input
+                            type="number"
+                            value={priceRangeLower}
+                            onChange={(e) => setPriceRangeLower(Number(e.target.value))}
+                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Lowest price USDT"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Highest Price (USDT)
+                          </label>
+                          <input
+                            type="number"
+                            value={priceRangeUpper}
+                            onChange={(e) => setPriceRangeUpper(Number(e.target.value))}
+                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Highest price USDT"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          Lowest Price (USDT)
+                        </label>
+                        <input
+                          type="number"
+                          value={priceRangeLower}
+                          onChange={(e) => setPriceRangeLower(Number(e.target.value))}
+                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Lowest price USDT"
+                          min="0"
+                          step="0.01"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          Infinity grid has no upper price limit
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Grids and Investment */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          Quantity of Grids (2-1000)
+                        </label>
+                        <input
+                          type="number"
+                          value={numberOfGrids}
+                          onChange={(e) => setNumberOfGrids(Number(e.target.value))}
+                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Number of grids"
+                          min="2"
+                          max="1000"
+                        />
+                        {numberOfGrids > 0 && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Profit/grid: ~{(totalInvestment / numberOfGrids).toFixed(2)} USDT (fee deducted)
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          Total Investment (USDT)
+                        </label>
+                        <input
+                          type="number"
+                          value={totalInvestment}
+                          onChange={(e) => setTotalInvestment(Number(e.target.value))}
+                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Total investment (USDT)"
+                          min="0"
+                          step="10"
+                        />
+                        <div className="mt-2">
+                          <div className="flex justify-between text-xs text-gray-400 mb-1">
+                            <span>0%</span>
+                            <span>{((totalInvestment / minCapital) * 100).toFixed(1)}% of min capital</span>
+                            <span>100%</span>
+                          </div>
+                          <div className="w-full bg-gray-700 rounded-full h-2">
+                            <div
+                              className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min((totalInvestment / minCapital) * 100, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Advanced Settings */}
+                    <div className="bg-gray-800/30 rounded-lg p-6">
+                      <h4 className="font-semibold text-white mb-4">Advanced Settings</h4>
+
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Trigger Price (USDT, Optional)
+                          </label>
+                          <input
+                            type="number"
+                            value={triggerPrice || ''}
+                            onChange={(e) => setTriggerPrice(e.target.value ? Number(e.target.value) : undefined)}
+                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Trigger price"
+                            step="0.01"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                              Take Profit (USDT, Optional)
+                            </label>
+                            <input
+                              type="number"
+                              value={takeProfit || ''}
+                              onChange={(e) => setTakeProfit(e.target.value ? Number(e.target.value) : undefined)}
+                              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Take Profit"
+                              step="0.01"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                              Stop Loss (USDT, Optional)
+                            </label>
+                            <input
+                              type="number"
+                              value={stopLoss || ''}
+                              onChange={(e) => setStopLoss(e.target.value ? Number(e.target.value) : undefined)}
+                              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Stop Loss"
+                              step="0.01"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Grid Mode Toggle */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-3">Grid Mode</label>
+                          <div className="flex rounded-lg bg-gray-800 border border-gray-700 overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => setGridMode('geometric')}
+                              className={`flex-1 px-4 py-3 text-center text-sm font-medium transition-colors ${
+                                gridMode === 'geometric'
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-gray-300 hover:bg-gray-700'
+                              }`}
+                            >
+                              Geometric
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setGridMode('arithmetic')}
+                              className={`flex-1 px-4 py-3 text-center text-sm font-medium transition-colors ${
+                                gridMode === 'arithmetic'
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-gray-300 hover:bg-gray-700'
+                              }`}
+                            >
+                              Arithmetic
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-2">
+                            {gridMode === 'arithmetic'
+                              ? 'Equal price differences between grids (e.g., $100, $200, $300). More effective in bullish markets.'
+                              : 'Equal percentage changes between grids (e.g., $100, $200, $400). More effective in bearish markets or high volatility.'
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Smart Rebalance Asset Configuration */}
                 {selectedType === 'smart_rebalance' && (
                   <div className="space-y-4">
@@ -627,130 +826,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                             <li>• Supports stocks (AAPL, MSFT) and crypto (BTC, ETH) symbols</li>
                             <li>• Perfect for diversified market-weighted portfolio strategies</li>
                           </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Strategy-specific configuration preview */}
-                {selectedStrategyType && (
-                  <div className="bg-gray-800/30 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <TrendingUp className="w-5 h-5 text-blue-400" />
-                      <h4 className="font-medium text-white">Strategy Configuration</h4>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                      {['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
-                        <>
-                          <div>
-                            <span className="text-gray-400">Price Range:</span>
-                            <span className="text-white ml-2">
-                              {selectedType === 'infinity_grid' 
-                                ? `${priceRangeLower || 0}+ USDT`
-                                : `${priceRangeLower || 0} - ${priceRangeUpper || 0} USDT`
-                              }
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Grids:</span>
-                            <span className="text-white ml-2">{numberOfGrids}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Investment:</span>
-                            <span className="text-white ml-2">{totalInvestment} USDT</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Grid Mode:</span>
-                            <span className="text-white ml-2 capitalize">{gridMode}</span>
-                          </div>
-                          {triggerPrice && (
-                            <div>
-                              <span className="text-gray-400">Trigger:</span>
-                              <span className="text-white ml-2">{triggerPrice} USDT</span>
-                            </div>
-                          )}
-                          {takeProfit && (
-                            <div>
-                              <span className="text-gray-400">Take Profit:</span>
-                              <span className="text-green-400 ml-2">{takeProfit} USDT</span>
-                            </div>
-                          )}
-                          {stopLoss && (
-                            <div>
-                              <span className="text-gray-400">Stop Loss:</span>
-                              <span className="text-red-400 ml-2">{stopLoss} USDT</span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {selectedType === 'smart_rebalance' && (
-                        <>
-                          <div>
-                            <span className="text-gray-400">Trigger Type:</span>
-                            <span className="text-white ml-2">Threshold</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Threshold:</span>
-                            <span className="text-white ml-2">5% deviation</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Assets:</span>
-                            <span className="text-white ml-2">{assets.filter(a => a.symbol.trim()).length} configured</span>
-                          </div>
-                        </>
-                      )}
-                      {selectedType === 'covered_calls' && (
-                        <>
-                          <div>
-                            <span className="text-gray-400">Strike Delta:</span>
-                            <span className="text-white ml-2">0.30</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">DTE Target:</span>
-                            <span className="text-white ml-2">30 days</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Profit Target:</span>
-                            <span className="text-white ml-2">50%</span>
-                          </div>
-                        </>
-                      )}
-                      {selectedType === 'iron_condor' && (
-                        <>
-                          <div>
-                            <span className="text-gray-400">Wing Width:</span>
-                            <span className="text-white ml-2">$10</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">DTE Target:</span>
-                            <span className="text-white ml-2">45 days</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Profit Target:</span>
-                            <span className="text-white ml-2">25%</span>
-                          </div>
-                        </>
-                      )}
-                      {selectedType === 'martingale' && (
-                        <>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Warning for high-risk strategies */}
-                {/* Grid Mode Explanation */}
-                {selectedType && ['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="font-medium text-blue-400 mb-2">Grid Mode Selection</h4>
-                        <div className="space-y-2 text-sm text-blue-300">
-                          <p><strong>Arithmetic Mode:</strong> Equal price differences between grids (e.g., $100, $200, $300, $400). More effective in bullish markets where prices trend upward steadily.</p>
-                          <p><strong>Geometric Mode:</strong> Equal percentage changes between grids (e.g., $100, $200, $400, $800). More effective in bearish markets or high volatility scenarios.</p>
                         </div>
                       </div>
                     </div>
