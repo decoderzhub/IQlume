@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, TrendingUp, AlertTriangle, DollarSign, Plus, Minus, Brain, Loader2 } from 'lucide-react';
+import { X, TrendingUp, AlertTriangle, DollarSign, Plus, Minus, Brain, Loader2, BarChart3 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy, AssetAllocation, MarketCapData } from '../../types';
@@ -689,10 +689,23 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 )}
 
                 {/* Warning for high-risk strategies */}
+                {selectedStrategyType?.risk === 'high' && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
+                      <h4 className="font-medium text-red-400">High Risk Strategy</h4>
+                    </div>
+                    <p className="text-sm text-red-300">
+                      This strategy involves significant risk and may result in substantial losses. 
+                      Please ensure you understand the risks before proceeding.
+                    </p>
+                  </div>
+                )}
+
                 {/* Risk Assessment Notice */}
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-5 h-5 text-blue-400" />
+                  <div className="flex items-center gap-2 mb-2">
+                    <BarChart3 className="w-5 h-5 text-blue-400" />
                     <h4 className="font-medium text-blue-400">Risk Assessment</h4>
                   </div>
                   <p className="text-sm text-blue-300">
@@ -702,28 +715,30 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 </div>
 
                 {/* Action Buttons */}
-            <div className="flex gap-4 pt-6 border-t border-gray-800">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={onClose}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  !selectedType || 
-                  !name || 
-                  (selectedType !== 'smart_rebalance' && !symbol.trim()) ||
-                  (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2))
-                }
-                className="flex-1"
-              >
-                Create Strategy
-              </Button>
-            </div>
+                <div className="flex gap-4 pt-6 border-t border-gray-800">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={onClose}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      !selectedType || 
+                      !name || 
+                      (selectedType !== 'smart_rebalance' && !symbol.trim()) ||
+                      (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2))
+                    }
+                    className="flex-1"
+                  >
+                    Create Strategy
+                  </Button>
+                </div>
+              </motion.div>
+            )}
           </form>
         </Card>
       </motion.div>
