@@ -7,13 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed-strategies": "node scripts/seedStrategies.js"
   },
   "dependencies": {
     "@lottiefiles/dotlottie-react": "^0.14.4",
     "@stripe/stripe-js": "^7.5.0",
     "@supabase/supabase-js": "^2.52.0",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.1",
     "framer-motion": "^12.23.6",
     "lucide-react": "^0.525.0",
     "plaid": "^11.0.0",
