@@ -67,6 +67,7 @@ export interface TradingStrategy {
   configuration: {
     // Common fields
     symbol?: string;
+    allocated_capital?: number;
     
     // Grid bot specific fields
     price_range_lower?: number;

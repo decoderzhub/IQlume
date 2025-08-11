@@ -102,12 +102,33 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [takeProfitType, setTakeProfitType] = useState<'amount' | 'percentage'>('amount');
   const [stopLossType, setStopLossType] = useState<'amount' | 'percentage'>('amount');
   
+  // Capital allocation
+  const [totalAvailableCapital] = useState(250000); // Mock total available capital
+  const [allocatedCapitalPercentage, setAllocatedCapitalPercentage] = useState(50);
+  const currentAllocatedCapital = (totalAvailableCapital * allocatedCapitalPercentage) / 100;
+  
   const [assets, setAssets] = useState<AssetAllocation[]>([
     { symbol: 'BTC', allocation: 50 },
     { symbol: 'ETH', allocation: 30 },
     { symbol: 'USDT', allocation: 20 },
   ]);
   const [isAllocatingByMarketCap, setIsAllocatingByMarketCap] = useState(false);
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAllocatedCapitalPercentage(Number(e.target.value));
+  };
+
+  const handleSliderSnap = () => {
+    const snapPoints = [0, 25, 50, 75, 100];
+    const threshold = 3; // 3% threshold for snapping
+    
+    for (const point of snapPoints) {
+      if (Math.abs(allocatedCapitalPercentage - point) <= threshold) {
+        setAllocatedCapitalPercentage(point);
+        break;
+      }
+    }
+  };
 
   const fetchMarketCapData = async (symbols: string[]): Promise<MarketCapData[]> => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -327,7 +348,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           price_range_lower: priceRangeLower,
           price_range_upper: priceRangeUpper,
           number_of_grids: numberOfGrids,
-          total_investment: totalInvestment,
+          total_investment: currentAllocatedCapital,
+          allocated_capital: currentAllocatedCapital,
           trigger_price: triggerPrice,
           take_profit: takeProfit ? { value: takeProfit, type: takeProfitType } : undefined,
           stop_loss: stopLoss ? { value: stopLoss, type: stopLossType } : undefined,
@@ -337,7 +359,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           price_range_lower: priceRangeLower,
           price_range_upper: priceRangeUpper,
           number_of_grids: numberOfGrids,
-          total_investment: totalInvestment,
+          total_investment: currentAllocatedCapital,
+          allocated_capital: currentAllocatedCapital,
           trigger_price: triggerPrice,
           take_profit: takeProfit ? { value: takeProfit, type: takeProfitType } : undefined,
           stop_loss: stopLoss ? { value: stopLoss, type: stopLossType } : undefined,
@@ -348,34 +371,40 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         ...(selectedType === 'infinity_grid' && {
           price_range_lower: priceRangeLower,
           number_of_grids: numberOfGrids,
-          total_investment: totalInvestment,
+          total_investment: currentAllocatedCapital,
+          allocated_capital: currentAllocatedCapital,
           trigger_price: triggerPrice,
           take_profit: takeProfit ? { value: takeProfit, type: takeProfitType } : undefined,
           stop_loss: stopLoss ? { value: stopLoss, type: stopLossType } : undefined,
           grid_mode: gridMode,
         }),
         ...(selectedType === 'dca' && {
-          investment_amount_per_interval: 100,
+          investment_amount_per_interval: Math.max(10, currentAllocatedCapital / 365), // Daily amount based on allocated capital
+          allocated_capital: currentAllocatedCapital,
           frequency: 'daily', // 'hourly', '4h', '8h', '12h', 'daily', 'weekly'
           investment_target_percent: 20, // Optional profit target
         }),
         ...(selectedType === 'smart_rebalance' && {
           assets: assets.filter(asset => asset.symbol.trim() !== '' && asset.allocation > 0),
+          allocated_capital: currentAllocatedCapital,
           trigger_type: 'threshold', // 'time' or 'threshold'
           rebalance_frequency: 'daily', // for time-based
           threshold_deviation_percent: 5, // for threshold-based
         }),
         ...(selectedType === 'covered_calls' && {
+          allocated_capital: currentAllocatedCapital,
           strike_delta: 0.30,
           dte_target: 30,
           profit_target: 0.5,
         }),
         ...(selectedType === 'iron_condor' && {
+          allocated_capital: currentAllocatedCapital,
           wing_width: 10,
           dte_target: 45,
           profit_target: 0.25,
         }),
         ...(selectedType === 'orb' && {
+          allocated_capital: currentAllocatedCapital,
           orb_period: 15, // minutes
           breakout_threshold: 0.002, // 0.2%
           stop_loss: 0.01, // 1%
@@ -454,6 +483,82 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 ))}
               </div>
             </div>
+              {/* Capital Allocation Section */}
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold text-white">Capital Allocation</h3>
+                
+                <div className="bg-gray-800/30 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-sm text-gray-400">Available Capital</p>
+                      <p className="text-xl font-bold text-white">{formatCurrency(totalAvailableCapital)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-400">Allocated Amount</p>
+                      <p className="text-xl font-bold text-blue-400">{formatCurrency(currentAllocatedCapital)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={allocatedCapitalPercentage}
+                        onChange={handleSliderChange}
+                        onMouseUp={handleSliderSnap}
+                        onTouchEnd={handleSliderSnap}
+                        className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-with-markers"
+                        style={{
+                          background: `linear-gradient(to right, 
+                            #3b82f6 0%, 
+                            #3b82f6 ${allocatedCapitalPercentage}%, 
+                            #374151 ${allocatedCapitalPercentage}%, 
+                            #374151 100%)`
+                        }}
+                      />
+                      
+                      {/* Snap point markers */}
+                      <div className="absolute top-0 left-0 w-full h-3 pointer-events-none">
+                        {[25, 50, 75, 100].map((point) => (
+                          <div
+                            key={point}
+                            className="absolute w-1 h-3 bg-white/60 rounded-full"
+                            style={{ left: `${point}%`, transform: 'translateX(-50%)' }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">0%</span>
+                      <div className="flex gap-4 text-gray-400">
+                        <span className="text-xs">25%</span>
+                        <span className="text-xs">50%</span>
+                        <span className="text-xs">75%</span>
+                      </div>
+                      <span className="text-gray-400">100%</span>
+                    </div>
+                    
+                    <div className="text-center">
+                      <span className="text-lg font-bold text-blue-400">{allocatedCapitalPercentage}%</span>
+                      <span className="text-gray-400 ml-2">of available capital</span>
+                    </div>
+                    
+                    {currentAllocatedCapital < minCapital && (
+                      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                          <p className="text-sm text-yellow-400">
+                            Allocated capital ({formatCurrency(currentAllocatedCapital)}) is below the minimum required ({formatCurrency(minCapital)}) for this strategy.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
             {selectedType && (
               <motion.div
@@ -591,35 +696,19 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                         />
                         {numberOfGrids > 0 && (
                           <p className="text-xs text-gray-400 mt-1">
-                            Profit/grid: ~{(totalInvestment / numberOfGrids).toFixed(2)} USD (fee deducted)
+                            Profit/grid: ~{(currentAllocatedCapital / numberOfGrids).toFixed(2)} USD (fee deducted)
                           </p>
                         )}
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Total Investment (USD)
+                          Allocated Investment
                         </label>
-                        <input
-                          type="number"
-                          value={totalInvestment}
-                          onChange={(e) => setTotalInvestment(Number(e.target.value))}
-                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Total investment (USD)"
-                          min="0"
-                          step="10"
-                        />
-                        <div className="mt-2">
-                          <div className="flex justify-between text-xs text-gray-400 mb-1">
-                            <span>0%</span>
-                            <span>{((totalInvestment / minCapital) * 100).toFixed(1)}% of min capital</span>
-                            <span>100%</span>
-                          </div>
-                          <div className="w-full bg-gray-700 rounded-full h-2">
-                            <div
-                              className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min((totalInvestment / minCapital) * 100, 100)}%` }}
-                            />
+                        <div className="px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg">
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-blue-400">{formatCurrency(currentAllocatedCapital)}</p>
+                            <p className="text-sm text-gray-400">From capital allocation slider above</p>
                           </div>
                         </div>
                       </div>
@@ -913,12 +1002,13 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       !name || 
                       (selectedType !== 'smart_rebalance' && !symbol.trim()) ||
                       (['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
-                        totalInvestment <= 0 || 
+                        currentAllocatedCapital <= 0 || 
                         numberOfGrids < 2 || 
-                        numberOfGrids > 1000 ||
-                        (selectedType !== 'infinity_grid' && (priceRangeLower <= 0 || priceRangeUpper <= 0 || priceRangeLower >= priceRangeUpper))
+                      if (currentAllocatedCapital <= 0) {
+                        alert('Allocated capital must be greater than 0.');
                       )) ||
-                      (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2))
+                      (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2)) ||
+                      currentAllocatedCapital < minCapital
                     }
                     className="flex-1"
                   >

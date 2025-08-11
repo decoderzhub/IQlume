@@ -25,6 +25,14 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
   const [takeProfit, setTakeProfit] = useState<number | undefined>(strategy.configuration.take_profit);
   const [stopLoss, setStopLoss] = useState<number | undefined>(strategy.configuration.stop_loss);
   const [gridMode, setGridMode] = useState<'arithmetic' | 'geometric'>(strategy.configuration.grid_mode || 'arithmetic');
+  
+  // Capital allocation
+  const [totalAvailableCapital] = useState(250000); // Mock total available capital
+  const [allocatedCapitalPercentage, setAllocatedCapitalPercentage] = useState(() => {
+    const allocatedCapital = strategy.configuration.allocated_capital || strategy.configuration.total_investment || strategy.min_capital;
+    return Math.round((allocatedCapital / 250000) * 100);
+  });
+  const currentAllocatedCapital = (totalAvailableCapital * allocatedCapitalPercentage) / 100;
 
   // Update states when strategy prop changes
   useEffect(() => {
@@ -37,6 +45,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
     setTakeProfit(strategy.configuration.take_profit);
     setStopLoss(strategy.configuration.stop_loss);
     setGridMode(strategy.configuration.grid_mode || 'arithmetic');
+    
+    const allocatedCapital = strategy.configuration.allocated_capital || strategy.configuration.total_investment || strategy.min_capital;
+    setAllocatedCapitalPercentage(Math.round((allocatedCapital / totalAvailableCapital) * 100));
   }, [strategy]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -45,6 +56,22 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
       ...prev,
       [name]: type === 'number' ? Number(value) : value
     }));
+  };
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAllocatedCapitalPercentage(Number(e.target.value));
+  };
+
+  const handleSliderSnap = () => {
+    const snapPoints = [0, 25, 50, 75, 100];
+    const threshold = 3; // 3% threshold for snapping
+    
+    for (const point of snapPoints) {
+      if (Math.abs(allocatedCapitalPercentage - point) <= threshold) {
+        setAllocatedCapitalPercentage(point);
+        break;
+      }
+    }
   };
 
   const handleSave = () => {
@@ -60,8 +87,8 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
         alert('Number of grids must be between 2 and 1000.');
         return;
       }
-      if (totalInvestment <= 0) {
-        alert('Total investment must be greater than 0.');
+      if (currentAllocatedCapital <= 0) {
+        alert('Allocated capital must be greater than 0.');
         return;
       }
     }
@@ -74,12 +101,15 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
           price_range_lower: priceRangeLower,
           price_range_upper: priceRangeUpper,
           number_of_grids: numberOfGrids,
-          total_investment: totalInvestment,
+          total_investment: currentAllocatedCapital,
+          allocated_capital: currentAllocatedCapital,
           trigger_price: triggerPrice,
           take_profit: takeProfit,
           stop_loss: stopLoss,
           grid_mode: gridMode,
         }),
+        // Add allocated_capital to all strategy types
+        allocated_capital: currentAllocatedCapital,
       },
     };
 
@@ -279,6 +309,83 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                     </label>
                     <div className={`w-2 h-2 rounded-full ${editedStrategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Capital Allocation Section */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-white">Capital Allocation</h3>
+              
+              <div className="bg-gray-800/30 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-sm text-gray-400">Available Capital</p>
+                    <p className="text-xl font-bold text-white">{formatCurrency(totalAvailableCapital)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-400">Allocated Amount</p>
+                    <p className="text-xl font-bold text-blue-400">{formatCurrency(currentAllocatedCapital)}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="relative">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={allocatedCapitalPercentage}
+                      onChange={handleSliderChange}
+                      onMouseUp={handleSliderSnap}
+                      onTouchEnd={handleSliderSnap}
+                      className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-with-markers"
+                      style={{
+                        background: `linear-gradient(to right, 
+                          #3b82f6 0%, 
+                          #3b82f6 ${allocatedCapitalPercentage}%, 
+                          #374151 ${allocatedCapitalPercentage}%, 
+                          #374151 100%)`
+                      }}
+                    />
+                    
+                    {/* Snap point markers */}
+                    <div className="absolute top-0 left-0 w-full h-3 pointer-events-none">
+                      {[25, 50, 75, 100].map((point) => (
+                        <div
+                          key={point}
+                          className="absolute w-1 h-3 bg-white/60 rounded-full"
+                          style={{ left: `${point}%`, transform: 'translateX(-50%)' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">0%</span>
+                    <div className="flex gap-4 text-gray-400">
+                      <span className="text-xs">25%</span>
+                      <span className="text-xs">50%</span>
+                      <span className="text-xs">75%</span>
+                    </div>
+                    <span className="text-gray-400">100%</span>
+                  </div>
+                  
+                  <div className="text-center">
+                    <span className="text-lg font-bold text-blue-400">{allocatedCapitalPercentage}%</span>
+                    <span className="text-gray-400 ml-2">of available capital</span>
+                  </div>
+                  
+                  {currentAllocatedCapital < editedStrategy.min_capital && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                        <p className="text-sm text-yellow-400">
+                          Allocated capital ({formatCurrency(currentAllocatedCapital)}) is below the minimum required ({formatCurrency(editedStrategy.min_capital)}) for this strategy.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -524,7 +631,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                     </div>
                     <div>
                       <span className="text-gray-400">Investment:</span>
-                      <span className="text-white ml-2">{totalInvestment} USDT</span>
+                     <span className="text-white ml-2">{formatCurrency(currentAllocatedCapital)}</span>
                     </div>
                     <div>
                       <span className="text-gray-400">Grid Mode:</span>
