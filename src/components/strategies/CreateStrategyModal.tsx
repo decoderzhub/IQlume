@@ -99,6 +99,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [takeProfit, setTakeProfit] = useState<number | undefined>(undefined);
   const [stopLoss, setStopLoss] = useState<number | undefined>(undefined);
   const [gridMode, setGridMode] = useState<'arithmetic' | 'geometric'>('arithmetic');
+  const [takeProfitType, setTakeProfitType] = useState<'amount' | 'percentage'>('amount');
+  const [stopLossType, setStopLossType] = useState<'amount' | 'percentage'>('amount');
   
   const [assets, setAssets] = useState<AssetAllocation[]>([
     { symbol: 'BTC', allocation: 50 },
@@ -327,8 +329,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           number_of_grids: numberOfGrids,
           total_investment: totalInvestment,
           trigger_price: triggerPrice,
-          take_profit: takeProfit,
-          stop_loss: stopLoss,
+          take_profit: takeProfit ? { value: takeProfit, type: takeProfitType } : undefined,
+          stop_loss: stopLoss ? { value: stopLoss, type: stopLossType } : undefined,
           grid_mode: gridMode,
         }),
         ...(selectedType === 'futures_grid' && {
@@ -337,8 +339,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           number_of_grids: numberOfGrids,
           total_investment: totalInvestment,
           trigger_price: triggerPrice,
-          take_profit: takeProfit,
-          stop_loss: stopLoss,
+          take_profit: takeProfit ? { value: takeProfit, type: takeProfitType } : undefined,
+          stop_loss: stopLoss ? { value: stopLoss, type: stopLossType } : undefined,
           grid_mode: gridMode,
           direction: 'long',
           leverage: 3,
@@ -348,8 +350,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           number_of_grids: numberOfGrids,
           total_investment: totalInvestment,
           trigger_price: triggerPrice,
-          take_profit: takeProfit,
-          stop_loss: stopLoss,
+          take_profit: takeProfit ? { value: takeProfit, type: takeProfitType } : undefined,
+          stop_loss: stopLoss ? { value: stopLoss, type: stopLossType } : undefined,
           grid_mode: gridMode,
         }),
         ...(selectedType === 'dca' && {
@@ -525,28 +527,28 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Lowest Price (USDT)
+                            Lowest Price (USD)
                           </label>
                           <input
                             type="number"
                             value={priceRangeLower}
                             onChange={(e) => setPriceRangeLower(Number(e.target.value))}
                             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Lowest price USDT"
+                            placeholder="Lowest price USD"
                             min="0"
                             step="0.01"
                           />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Highest Price (USDT)
+                            Highest Price (USD)
                           </label>
                           <input
                             type="number"
                             value={priceRangeUpper}
                             onChange={(e) => setPriceRangeUpper(Number(e.target.value))}
                             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Highest price USDT"
+                            placeholder="Highest price USD"
                             min="0"
                             step="0.01"
                           />
@@ -555,14 +557,14 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                     ) : (
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Lowest Price (USDT)
+                          Lowest Price (USD)
                         </label>
                         <input
                           type="number"
                           value={priceRangeLower}
                           onChange={(e) => setPriceRangeLower(Number(e.target.value))}
                           className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Lowest price USDT"
+                          placeholder="Lowest price USD"
                           min="0"
                           step="0.01"
                         />
@@ -589,21 +591,21 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                         />
                         {numberOfGrids > 0 && (
                           <p className="text-xs text-gray-400 mt-1">
-                            Profit/grid: ~{(totalInvestment / numberOfGrids).toFixed(2)} USDT (fee deducted)
+                            Profit/grid: ~{(totalInvestment / numberOfGrids).toFixed(2)} USD (fee deducted)
                           </p>
                         )}
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Total Investment (USDT)
+                          Total Investment (USD)
                         </label>
                         <input
                           type="number"
                           value={totalInvestment}
                           onChange={(e) => setTotalInvestment(Number(e.target.value))}
                           className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Total investment (USDT)"
+                          placeholder="Total investment (USD)"
                           min="0"
                           step="10"
                         />
@@ -630,14 +632,14 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Trigger Price (USDT, Optional)
+                            Trigger Price (USD, Optional)
                           </label>
                           <input
                             type="number"
                             value={triggerPrice || ''}
                             onChange={(e) => setTriggerPrice(e.target.value ? Number(e.target.value) : undefined)}
                             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Trigger price"
+                            placeholder="Trigger price (USD)"
                             step="0.01"
                           />
                         </div>
@@ -645,28 +647,76 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">
-                              Take Profit (USDT, Optional)
+                              Take Profit (Optional)
                             </label>
+                            <div className="flex rounded-lg bg-gray-800 border border-gray-700 overflow-hidden mb-2">
+                              <button
+                                type="button"
+                                onClick={() => setTakeProfitType('amount')}
+                                className={`flex-1 px-3 py-2 text-center text-xs font-medium transition-colors ${
+                                  takeProfitType === 'amount'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-gray-300 hover:bg-gray-700'
+                                }`}
+                              >
+                                USD Amount
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTakeProfitType('percentage')}
+                                className={`flex-1 px-3 py-2 text-center text-xs font-medium transition-colors ${
+                                  takeProfitType === 'percentage'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-gray-300 hover:bg-gray-700'
+                                }`}
+                              >
+                                Percentage
+                              </button>
+                            </div>
                             <input
                               type="number"
                               value={takeProfit || ''}
                               onChange={(e) => setTakeProfit(e.target.value ? Number(e.target.value) : undefined)}
                               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="Take Profit"
-                              step="0.01"
+                              placeholder={takeProfitType === 'amount' ? "Take Profit (USD)" : "Take Profit (%)"}
+                              step={takeProfitType === 'amount' ? "0.01" : "0.1"}
                             />
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">
-                              Stop Loss (USDT, Optional)
+                              Stop Loss (Optional)
                             </label>
+                            <div className="flex rounded-lg bg-gray-800 border border-gray-700 overflow-hidden mb-2">
+                              <button
+                                type="button"
+                                onClick={() => setStopLossType('amount')}
+                                className={`flex-1 px-3 py-2 text-center text-xs font-medium transition-colors ${
+                                  stopLossType === 'amount'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-gray-300 hover:bg-gray-700'
+                                }`}
+                              >
+                                USD Amount
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setStopLossType('percentage')}
+                                className={`flex-1 px-3 py-2 text-center text-xs font-medium transition-colors ${
+                                  stopLossType === 'percentage'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-gray-300 hover:bg-gray-700'
+                                }`}
+                              >
+                                Percentage
+                              </button>
+                            </div>
                             <input
                               type="number"
                               value={stopLoss || ''}
                               onChange={(e) => setStopLoss(e.target.value ? Number(e.target.value) : undefined)}
                               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="Stop Loss"
-                              step="0.01"
+                              placeholder={stopLossType === 'amount' ? "Stop Loss (USD)" : "Stop Loss (%)"}
+                              step={stopLossType === 'amount' ? "0.01" : "0.1"}
                             />
                           </div>
                         </div>
@@ -704,6 +754,20 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                               : 'Equal percentage changes between grids (e.g., $100, $200, $400). More effective in bearish markets or high volatility.'
                             }
                           </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Grid Mode Explanation */}
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="font-medium text-blue-400 mb-2">Grid Mode Selection</h4>
+                          <div className="space-y-2 text-sm text-blue-300">
+                            <p><strong>Arithmetic Mode:</strong> Equal price differences between grids (e.g., $100, $200, $300, $400). More effective in bullish markets where prices trend upward steadily.</p>
+                            <p><strong>Geometric Mode:</strong> Equal percentage changes between grids (e.g., $100, $200, $400, $800). More effective in bearish markets or high volatility scenarios.</p>
+                          </div>
                         </div>
                       </div>
                     </div>
