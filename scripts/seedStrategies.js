@@ -18,14 +18,13 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Define all strategies with their configurations based on the chart
 const strategiesToSeed = [
   {
-    name: 'AAPL Long Call - Bullish Momentum',
+    name: 'Long Call - Bullish Momentum',
     type: 'long_call',
-    description: 'Bullish momentum play on Apple stock using long call options for leveraged upside exposure.',
+    description: 'Bullish momentum play on an underlying stock using long call options for leveraged upside exposure.',
     risk_level: 'medium',
     min_capital: 5000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'AAPL',
       allocated_capital: 5000,
       strike_delta: 0.30,
       expiration_days: 30,
@@ -36,14 +35,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'SPY Long Straddle - Volatility Play',
+    name: 'Long Straddle - Volatility Play',
     type: 'long_straddle',
-    description: 'Volatility play around earnings using long straddle on SPY for directional movement profits.',
+    description: 'Volatility play around earnings using long straddle on an underlying asset for directional movement profits.',
     risk_level: 'medium',
     min_capital: 8000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'SPY',
       allocated_capital: 8000,
       strike_selection: 'atm',
       expiration_days: 30,
@@ -55,14 +53,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'QQQ Long Condor - Range Bound',
+    name: 'Long Condor - Range Bound',
     type: 'long_condor',
-    description: 'Range-bound profit strategy using long condor spreads on QQQ for sideways market conditions.',
+    description: 'Range-bound profit strategy using long condor spreads on an underlying asset for sideways market conditions.',
     risk_level: 'low',
     min_capital: 3000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'QQQ',
       allocated_capital: 3000,
       wing_width: 10,
       body_width: 10,
@@ -73,14 +70,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'TSLA Iron Butterfly - Low Volatility',
+    name: 'Iron Butterfly - Low Volatility',
     type: 'iron_butterfly',
-    description: 'Low volatility income strategy using iron butterfly on TSLA for range-bound markets.',
+    description: 'Low volatility income strategy using iron butterfly on an underlying stock for range-bound markets.',
     risk_level: 'medium',
     min_capital: 4000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'TSLA',
       allocated_capital: 4000,
       wing_width: 20,
       expiration_days: 30,
@@ -91,14 +87,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'NVDA Short Call - Premium Collection',
+    name: 'Short Call - Premium Collection',
     type: 'short_call',
-    description: 'High-risk premium collection strategy selling naked calls on NVDA with defined risk management.',
+    description: 'High-risk premium collection strategy selling naked calls on an underlying stock with defined risk management.',
     risk_level: 'high',
     min_capital: 15000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'NVDA',
       allocated_capital: 15000,
       strike_delta: 0.20,
       expiration_days: 30,
@@ -108,14 +103,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'META Short Straddle - Ultra High Risk',
+    name: 'Short Straddle - Ultra High Risk',
     type: 'short_straddle',
-    description: 'Ultra-high risk volatility selling strategy using short straddles on META for premium income.',
+    description: 'Ultra-high risk volatility selling strategy using short straddles on an underlying stock for premium income.',
     risk_level: 'high',
     min_capital: 20000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'META',
       allocated_capital: 20000,
       strike_selection: 'atm',
       expiration_days: 21,
@@ -126,14 +120,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'SPY Iron Condor - Defined Risk Range',
+    name: 'Iron Condor - Defined Risk Range',
     type: 'iron_condor',
-    description: 'Defined risk range trading strategy using iron condors on SPY for consistent income generation.',
+    description: 'Defined risk range trading strategy using iron condors on an underlying asset for consistent income generation.',
     risk_level: 'medium',
     min_capital: 5000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'SPY',
       allocated_capital: 5000,
       wing_width: 10,
       short_strike_delta: 0.20,
@@ -144,14 +137,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'IWM Long Butterfly - Precision Targeting',
+    name: 'Long Butterfly - Precision Targeting',
     type: 'long_butterfly',
-    description: 'Precision targeting strategy using long butterfly spreads on IWM for specific price level profits.',
+    description: 'Precision targeting strategy using long butterfly spreads on an underlying asset for specific price level profits.',
     risk_level: 'low',
     min_capital: 2500,
     is_active: false,
     configuration: {
-      underlying_symbol: 'IWM',
       allocated_capital: 2500,
       wing_width: 10,
       expiration_days: 30,
@@ -161,14 +153,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'AAPL Enhanced Covered Calls',
+    name: 'Enhanced Covered Calls',
     type: 'covered_calls',
-    description: 'Enhanced income generation strategy using covered calls on AAPL with sophisticated exit rules.',
+    description: 'Enhanced income generation strategy using covered calls on an underlying stock with sophisticated exit rules.',
     risk_level: 'low',
     min_capital: 20000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'AAPL',
       allocated_capital: 20000,
       position_size: 100,
       strike_delta: 0.30,
@@ -179,14 +170,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'QQQ Long Strangle - Directional Volatility',
+    name: 'Long Strangle - Directional Volatility',
     type: 'long_strangle',
-    description: 'Directional volatility strategy using long strangles on QQQ for large directional moves.',
+    description: 'Directional volatility strategy using long strangles on an underlying asset for large directional moves.',
     risk_level: 'medium',
     min_capital: 6000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'QQQ',
       allocated_capital: 6000,
       call_delta: 0.25,
       put_delta: -0.25,
@@ -197,14 +187,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'MSFT Short Call Vertical - Bearish Spread',
+    name: 'Short Call Vertical - Bearish Spread',
     type: 'short_call_vertical',
-    description: 'Bearish spread strategy using short call verticals on MSFT with defined maximum risk.',
+    description: 'Bearish spread strategy using short call verticals on an underlying stock with defined maximum risk.',
     risk_level: 'medium',
     min_capital: 3000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'MSFT',
       allocated_capital: 3000,
       wing_width: 10,
       short_strike_delta: 0.30,
@@ -215,14 +204,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'AMZN Short Put - Cash Secured',
+    name: 'Short Put - Cash Secured',
     type: 'short_put',
-    description: 'Cash-secured put strategy on Amazon for income generation with potential stock acquisition.',
+    description: 'Cash-secured put strategy on an underlying stock for income generation with potential stock acquisition.',
     risk_level: 'medium',
     min_capital: 15000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'AMZN',
       allocated_capital: 15000,
       strike_delta: -0.30,
       expiration_days: 30,
@@ -232,14 +220,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'GOOGL Short Strangle - Premium Collection',
+    name: 'Short Strangle - Premium Collection',
     type: 'short_strangle',
-    description: 'Premium collection strategy using short strangles on Google for low volatility environments.',
+    description: 'Premium collection strategy using short strangles on an underlying stock for low volatility environments.',
     risk_level: 'high',
     min_capital: 25000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'GOOGL',
       allocated_capital: 25000,
       call_delta: 0.20,
       put_delta: -0.20,
@@ -251,14 +238,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'SPY Short Put Vertical - Bullish Spread',
+    name: 'Short Put Vertical - Bullish Spread',
     type: 'short_put_vertical',
-    description: 'Bullish spread strategy using short put verticals on SPY with limited risk profile.',
+    description: 'Bullish spread strategy using short put verticals on an underlying asset with limited risk profile.',
     risk_level: 'medium',
     min_capital: 2500,
     is_active: false,
     configuration: {
-      underlying_symbol: 'SPY',
       allocated_capital: 2500,
       wing_width: 10,
       short_strike_delta: -0.30,
@@ -269,14 +255,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'AAPL Broken-Wing Butterfly - Asymmetric',
+    name: 'Broken-Wing Butterfly - Asymmetric',
     type: 'broken_wing_butterfly',
-    description: 'Asymmetric spread strategy using broken-wing butterfly on AAPL with directional bias.',
+    description: 'Asymmetric spread strategy using broken-wing butterfly on an underlying stock with directional bias.',
     risk_level: 'medium',
     min_capital: 3500,
     is_active: false,
     configuration: {
-      underlying_symbol: 'AAPL',
       allocated_capital: 3500,
       short_wing_width: 10,
       long_wing_width: 15,
@@ -287,14 +272,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'TSLA Option Collar - Protective Strategy',
+    name: 'Option Collar - Protective Strategy',
     type: 'option_collar',
-    description: 'Protective strategy using option collars on TSLA to limit downside while capping upside.',
+    description: 'Protective strategy using option collars on an underlying stock to limit downside while capping upside.',
     risk_level: 'low',
     min_capital: 25000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'TSLA',
       allocated_capital: 25000,
       position_size: 100,
       put_delta: -0.25,
@@ -305,14 +289,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'BTC Spot Grid - Range Trading',
+    name: 'Spot Grid - Range Trading',
     type: 'spot_grid',
-    description: 'Automated range trading bot for Bitcoin using spot grid strategy with defined price boundaries.',
+    description: 'Automated range trading bot for cryptocurrency using spot grid strategy with defined price boundaries.',
     risk_level: 'medium',
     min_capital: 5000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'BTC/USD',
       allocated_capital: 5000,
       price_range_lower: 40000,
       price_range_upper: 50000,
@@ -323,14 +306,13 @@ const strategiesToSeed = [
     }
   },
   {
-    name: 'ETH DCA - Dollar Cost Averaging',
+    name: 'DCA - Dollar Cost Averaging',
     type: 'dca',
-    description: 'Systematic dollar-cost averaging strategy for Ethereum to reduce volatility impact over time.',
+    description: 'Systematic dollar-cost averaging strategy for cryptocurrency to reduce volatility impact over time.',
     risk_level: 'low',
     min_capital: 2000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'ETH/USD',
       allocated_capital: 2000,
       investment_amount_per_interval: 50,
       frequency: 'daily',
@@ -347,26 +329,20 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 10000,
-      assets: [
-        { symbol: 'BTC', allocation: 40 },
-        { symbol: 'ETH', allocation: 30 },
-        { symbol: 'SPY', allocation: 20 },
-        { symbol: 'USDC', allocation: 10 }
-      ],
+      assets: [],
       trigger_type: 'threshold',
       threshold_deviation_percent: 5,
       rebalance_frequency: 'weekly'
     }
   },
   {
-    name: 'SPY ORB - Opening Range Breakout',
+    name: 'ORB - Opening Range Breakout',
     type: 'orb',
-    description: 'Opening range breakout strategy on SPY capturing momentum from first 30 minutes of trading.',
+    description: 'Opening range breakout strategy capturing momentum from first 30 minutes of trading.',
     risk_level: 'medium',
     min_capital: 8000,
     is_active: false,
     configuration: {
-      underlying_symbol: 'SPY',
       allocated_capital: 8000,
       orb_period: 30,
       breakout_threshold: 0.002,
