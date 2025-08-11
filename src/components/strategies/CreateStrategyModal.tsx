@@ -402,15 +402,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         }),
         ...(selectedType === 'covered_calls' && {
           allocated_capital: currentAllocatedCapital,
-          strike_delta: 0.30,
-          dte_target: 30,
-          profit_target: 0.5,
-        }),
-        ...(selectedType === 'iron_condor' && {
-          allocated_capital: currentAllocatedCapital,
-          wing_width: 10,
-          dte_target: 45,
-          profit_target: 0.25,
         }),
         ...(selectedType === 'orb' && {
           allocated_capital: currentAllocatedCapital,
