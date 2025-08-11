@@ -790,17 +790,15 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Risk Level
+                      Risk Level (Calculated)
                     </label>
-                    <select
-                      value={editedStrategy.risk_level}
-                      onChange={(e) => setEditedStrategy(prev => ({ ...prev, risk_level: e.target.value as any }))}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                    >
-                      <option value="low">Low Risk</option>
-                      <option value="auto">Auto</option>
-                      <option value="high">High Risk</option>
-                    </select>
+                    <div className="w-full px-3 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-gray-400 cursor-not-allowed">
+                      <span className="capitalize">{editedStrategy.risk_level}</span>
+                      <span className="text-xs ml-2">(Based on backtesting metrics)</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Calculated from Sharpe ratio, Beta, standard deviation, R-squared, Alpha, and VaR
+                    </p>
                   </div>
                 </div>
 

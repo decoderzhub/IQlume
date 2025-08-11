@@ -90,7 +90,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [description, setDescription] = useState('');
   const [symbol, setSymbol] = useState('');
   const [minCapital, setMinCapital] = useState(10000);
-  const [riskLevel, setRiskLevel] = useState<'low' | 'medium' | 'high'>('medium');
   const [assets, setAssets] = useState<AssetAllocation[]>([
     { symbol: 'BTC', allocation: 50 },
     { symbol: 'ETH', allocation: 30 },
@@ -290,7 +289,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       description: description || (selectedType === 'smart_rebalance' 
         ? `${selectedType} strategy with ${assets.filter(a => a.symbol.trim()).length} assets`
         : `${selectedType} strategy for ${symbol}`),
-      risk_level: riskLevel,
+      risk_level: 'medium', // Will be calculated by backend based on backtesting metrics
       min_capital: minCapital,
       is_active: false,
       configuration: {
@@ -390,7 +389,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                     whileTap={{ scale: 0.98 }}
                     onClick={() => {
                       setSelectedType(strategy.type);
-                      setRiskLevel(strategy.risk);
                       setMinCapital(strategy.minCapital);
                     }}
                     className={`p-4 rounded-lg border cursor-pointer transition-all ${
@@ -470,22 +468,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Risk Level
-                    </label>
-                    <select
-                      value={riskLevel}
-                      onChange={(e) => setRiskLevel(e.target.value as any)}
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="low">Low Risk</option>
-                      <option value="medium">Medium Risk</option>
-                      <option value="high">High Risk</option>
-                    </select>
-                  </div>
-
+                <div>
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Minimum Capital
@@ -707,19 +690,17 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
 
                 {/* Warning for high-risk strategies */}
                 {riskLevel === 'high' && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertTriangle className="w-5 h-5 text-red-400" />
-                      <h4 className="font-medium text-red-400">High Risk Strategy</h4>
-                    </div>
-                    <p className="text-sm text-red-300">
-                      This strategy involves significant risk and can result in substantial losses. 
-                      Please ensure you understand the risks and have appropriate risk management in place.
-                    </p>
-                  </div>
-                )}
-              </motion.div>
-            )}
+            {/* Risk Assessment Notice */}
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 className="w-5 h-5 text-blue-400" />
+                <h4 className="font-medium text-blue-400">Risk Assessment</h4>
+              </div>
+              <p className="text-sm text-blue-300">
+                The risk level for this strategy will be automatically calculated based on backtesting metrics including 
+                Sharpe ratio, Beta, standard deviation, R-squared, Alpha, and Value at Risk (VaR).
+              </p>
+            </div>
 
             {/* Action Buttons */}
             <div className="flex gap-4 pt-6 border-t border-gray-800">
