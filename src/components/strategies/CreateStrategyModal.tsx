@@ -1097,9 +1097,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                           </label>
                         ) : key === 'trigger_type' ? (
                           <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
-                              Trigger Type
-                            </label>
                             <select
                               value={value}
                               onChange={(e) => setConfiguration(prev => ({ ...prev, [key]: e.target.value }))}
@@ -1111,9 +1108,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                           </div>
                         ) : key === 'rebalance_frequency' && configuration.trigger_type === 'time' ? (
                           <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
-                              Rebalance Frequency
-                            </label>
                             <select
                               value={value}
                               onChange={(e) => setConfiguration(prev => ({ ...prev, [key]: e.target.value }))}

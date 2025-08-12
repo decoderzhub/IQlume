@@ -766,9 +766,6 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                         </div>
                       ) : (key === 'stop_loss' || key === 'take_profit') && typeof value === 'object' && value !== null ? (
                         <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs text-gray-400 mb-1">Value</label>
-                            <input
                               type="number"
                               value={value.value || 0}
                               onChange={(e) => {
@@ -780,9 +777,6 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                               step="0.01"
                             />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-400 mb-1">Type</label>
                             <select
                               value={value.type || 'percentage'}
                               onChange={(e) => {
