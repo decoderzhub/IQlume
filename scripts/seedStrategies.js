@@ -178,7 +178,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Long Call - Bullish Momentum',
-    type: 'covered_calls',
+    type: 'long_call',
     description: 'Bullish momentum play using long call options for leveraged upside exposure on an underlying asset.',
     risk_level: 'medium',
     min_capital: 5000,
@@ -193,7 +193,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Long Straddle - Volatility Play',
-    type: 'straddle',
+    type: 'long_straddle',
     description: 'Volatility play around earnings using long straddle on an underlying asset for directional movement profits.',
     risk_level: 'medium',
     min_capital: 8000,
@@ -210,7 +210,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Long Condor - Range Bound',
-    type: 'covered_calls',
+    type: 'long_condor',
     description: 'Range-bound profit strategy using long condor spreads on an underlying asset for sideways market conditions.',
     risk_level: 'low',
     min_capital: 3000,
@@ -227,7 +227,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Iron Butterfly - Low Volatility',
-    type: 'iron_condor',
+    type: 'iron_butterfly',
     description: 'Low volatility income strategy using iron butterfly on an underlying stock for range-bound markets.',
     risk_level: 'medium',
     min_capital: 4000,
@@ -244,7 +244,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Call - Premium Collection',
-    type: 'covered_calls',
+    type: 'short_call',
     description: 'High-risk premium collection strategy selling naked calls on an underlying stock with defined risk management.',
     risk_level: 'high',
     min_capital: 15000,
@@ -260,7 +260,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Straddle - Ultra High Risk',
-    type: 'straddle',
+    type: 'short_straddle',
     description: 'Ultra-high risk volatility selling strategy using short straddles on an underlying stock for premium income.',
     risk_level: 'high',
     min_capital: 20000,
@@ -277,7 +277,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Long Butterfly - Precision Targeting',
-    type: 'covered_calls',
+    type: 'long_butterfly',
     description: 'Precision targeting strategy using long butterfly spreads on an underlying asset for specific price level profits.',
     risk_level: 'low',
     min_capital: 2500,
@@ -293,7 +293,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Long Strangle - Directional Volatility',
-    type: 'straddle',
+    type: 'long_strangle',
     description: 'Directional volatility strategy using long strangles on an underlying asset for large directional moves.',
     risk_level: 'medium',
     min_capital: 6000,
@@ -310,7 +310,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Call Vertical - Bearish Spread',
-    type: 'covered_calls',
+    type: 'short_call_vertical',
     description: 'Bearish spread strategy using short call verticals on an underlying stock with defined maximum risk.',
     risk_level: 'medium',
     min_capital: 3000,
@@ -327,7 +327,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Put - Cash Secured',
-    type: 'covered_calls',
+    type: 'short_put',
     description: 'Cash-secured put strategy on an underlying stock for income generation with potential stock acquisition.',
     risk_level: 'medium',
     min_capital: 15000,
@@ -343,7 +343,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Strangle - Premium Collection',
-    type: 'straddle',
+    type: 'short_strangle',
     description: 'Premium collection strategy using short strangles on an underlying stock for low volatility environments.',
     risk_level: 'high',
     min_capital: 25000,
@@ -361,7 +361,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Short Put Vertical - Bullish Spread',
-    type: 'covered_calls',
+    type: 'short_put_vertical',
     description: 'Bullish spread strategy using short put verticals on an underlying asset with limited risk profile.',
     risk_level: 'medium',
     min_capital: 2500,
@@ -378,7 +378,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Broken-Wing Butterfly - Asymmetric',
-    type: 'covered_calls',
+    type: 'broken_wing_butterfly',
     description: 'Asymmetric spread strategy using broken-wing butterfly on an underlying stock with directional bias.',
     risk_level: 'medium',
     min_capital: 3500,
@@ -395,7 +395,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Option Collar - Protective Strategy',
-    type: 'covered_calls',
+    type: 'option_collar',
     description: 'Protective strategy using option collars on an underlying stock to limit downside while capping upside.',
     risk_level: 'low',
     min_capital: 25000,
@@ -412,7 +412,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Mean Reversion - Contrarian',
-    type: 'covered_calls',
+    type: 'mean_reversion',
     description: 'Contrarian strategy that profits from price reversions to the mean using statistical analysis.',
     risk_level: 'medium',
     min_capital: 7500,
@@ -428,7 +428,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Momentum Breakout - Trend Following',
-    type: 'covered_calls',
+    type: 'momentum_breakout',
     description: 'Trend following strategy that captures momentum breakouts using technical indicators.',
     risk_level: 'medium',
     min_capital: 6000,
@@ -444,7 +444,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Pairs Trading - Market Neutral',
-    type: 'covered_calls',
+    type: 'pairs_trading',
     description: 'Market neutral strategy trading correlated pairs to profit from relative price movements.',
     risk_level: 'low',
     min_capital: 10000,
@@ -460,7 +460,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Scalping - High Frequency',
-    type: 'orb',
+    type: 'scalping',
     description: 'High frequency scalping strategy for quick profits on small price movements.',
     risk_level: 'high',
     min_capital: 15000,
@@ -476,7 +476,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Swing Trading - Multi-Day Holds',
-    type: 'covered_calls',
+    type: 'swing_trading',
     description: 'Multi-day swing trading strategy capturing intermediate price movements using technical analysis.',
     risk_level: 'medium',
     min_capital: 8000,
@@ -494,7 +494,7 @@ const strategiesToSeed = [
   },
   {
     name: 'Arbitrage - Cross-Exchange',
-    type: 'covered_calls',
+    type: 'arbitrage',
     description: 'Cross-exchange arbitrage strategy exploiting price differences between trading venues.',
     risk_level: 'low',
     min_capital: 12000,
@@ -509,7 +509,7 @@ const strategiesToSeed = [
   },
   {
     name: 'News-Based Trading - Event Driven',
-    type: 'orb',
+    type: 'news_based_trading',
     description: 'Event-driven strategy that trades based on news sentiment and market reactions.',
     risk_level: 'high',
     min_capital: 10000,

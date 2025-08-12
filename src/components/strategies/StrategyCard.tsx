@@ -48,6 +48,14 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: 
       case 'short_call_vertical': return 'Short Call Vertical';
       case 'broken_wing_butterfly': return 'Broken-Wing Butterfly';
       case 'option_collar': return 'Option Collar';
+      case 'mean_reversion': return 'Mean Reversion';
+      case 'momentum_breakout': return 'Momentum Breakout';
+      case 'pairs_trading': return 'Pairs Trading';
+      case 'scalping': return 'Scalping';
+      case 'swing_trading': return 'Swing Trading';
+      case 'arbitrage': return 'Arbitrage';
+      case 'news_based_trading': return 'News-Based Trading';
+      case 'long_strangle': return 'Long Strangle';
       case 'covered_calls': return 'Covered Calls';
       case 'spot_grid': return 'Spot Grid Bot';
       case 'futures_grid': return 'Futures Grid Bot';
