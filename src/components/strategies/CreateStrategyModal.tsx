@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import { X, TrendingUp, DollarSign, Shield, Plus, Minus, BookOpen } from 'lucide-react';
   X, 
   TrendingUp, 
   DollarSign, 
@@ -27,77 +27,63 @@ import { formatCurrency } from '../../lib/utils';
 // Strategy categories organized by type (not user sophistication)
 const categorizedStrategies = {
   grid_trading: {
-    id: 'grid_trading',
-    name: 'Grid Trading Bots',
-    description: 'Automated trading bots that profit from market volatility within defined ranges',
-    icon: '⚡',
+  'Beginner': {
+    icon: BookOpen,
+    description: 'Basic concepts, low complexity, easy to automate',
+    color: 'from-green-500 to-emerald-600',
     color: 'from-blue-600 to-purple-600',
-    borderColor: 'border-blue-500/20',
-    strategies: [
       // Sorted by risk: low to high
       { id: 'spot_grid', name: 'Spot Grid Bot', description: 'Automated buy-low/sell-high trades within a defined price range', risk_level: 'low' as const, min_capital: 1000 },
       { id: 'futures_grid', name: 'Futures Grid Bot', description: 'Grid trading on futures market with leverage support', risk_level: 'medium' as const, min_capital: 2000 },
       { id: 'infinity_grid', name: 'Infinity Grid Bot', description: 'Grid trading without upper price limit for trending markets', risk_level: 'medium' as const, min_capital: 1500 },
-    ]
-  },
-  automated_core: {
-    id: 'automated_core',
-    name: 'Automated Core Strategies',
-    description: 'Algorithmic strategies using technical analysis and market patterns',
-    icon: '🤖',
-    color: 'from-purple-600 to-pink-600',
     borderColor: 'border-purple-500/20',
+      'spot_grid',
     strategies: [
-      // Sorted by risk: low to high
       { id: 'dca', name: 'DCA Bot', description: 'Dollar-Cost Averaging - Simple entry schedule, minimal decision-making', risk_level: 'low' as const, min_capital: 500 },
       { id: 'smart_rebalance', name: 'Smart Rebalance Bot', description: 'Automatic portfolio optimization without complex strategy work', risk_level: 'low' as const, min_capital: 5000 },
       { id: 'pairs_trading', name: 'Pairs Trading', description: 'Market neutral strategy trading correlated pairs', risk_level: 'low' as const, min_capital: 10000 },
       { id: 'arbitrage', name: 'Arbitrage', description: 'Cross-exchange arbitrage exploiting price differences', risk_level: 'low' as const, min_capital: 12000 },
-      { id: 'mean_reversion', name: 'Mean Reversion', description: 'Contrarian strategy profiting from price reversions to the mean', risk_level: 'medium' as const, min_capital: 7500 },
-      { id: 'momentum_breakout', name: 'Momentum Breakout', description: 'Trend following strategy capturing momentum breakouts', risk_level: 'medium' as const, min_capital: 6000 },
-      { id: 'orb', name: 'Opening Range Breakout (ORB)', description: 'Requires intraday market timing skills', risk_level: 'medium' as const, min_capital: 5000 },
-      { id: 'swing_trading', name: 'Swing Trading', description: 'Multi-day swing trading capturing intermediate price movements', risk_level: 'medium' as const, min_capital: 8000 },
-      { id: 'scalping', name: 'Scalping', description: 'High frequency scalping for quick profits on small price movements', risk_level: 'high' as const, min_capital: 15000 },
-      { id: 'news_based_trading', name: 'News-Based Trading', description: 'Event-driven strategy trading based on news sentiment', risk_level: 'high' as const, min_capital: 10000 },
-    ]
+      'covered_calls',
+      'wheel',
   },
   options_income: {
-    id: 'options_income',
+  'Moderate': {
+    icon: TrendingUp,
+    description: 'Some options knowledge, risk management, and market awareness needed',
+    color: 'from-yellow-500 to-orange-600',
+    strategies: [
+      'option_collar',
+      'short_put_vertical',
+      'short_call_vertical',
+      'iron_condor',
+      'broken_wing_butterfly',
+      'infinity_grid',
+      'futures_grid',
+      'orb',
+    ]
+  },
+  'Advanced': {
     name: 'Options Income Strategies',
-    description: 'Conservative options strategies focused on generating consistent income',
     icon: '🛡️',
     color: 'from-green-600 to-emerald-600',
     borderColor: 'border-green-500/20',
     strategies: [
-      // Sorted by risk: low to high
+    description: 'Complex adjustments, high precision, and active management required',
+    color: 'from-red-500 to-pink-600',
       { id: 'covered_calls', name: 'Covered Calls', description: 'Generate income by selling call options on owned stocks', risk_level: 'low' as const, min_capital: 15000 },
-      { id: 'wheel', name: 'The Wheel', description: 'Systematic approach combining cash-secured puts and covered calls', risk_level: 'low' as const, min_capital: 20000 },
-      { id: 'option_collar', name: 'Option Collar', description: 'Protective strategy limiting downside while capping upside', risk_level: 'low' as const, min_capital: 25000 },
-      { id: 'short_put_vertical', name: 'Short Put Vertical', description: 'Bullish spread strategy with limited risk profile', risk_level: 'medium' as const, min_capital: 2500 },
-      { id: 'short_call_vertical', name: 'Short Call Vertical', description: 'Bearish spread strategy with defined maximum risk', risk_level: 'medium' as const, min_capital: 3000 },
-      { id: 'iron_condor', name: 'Iron Condor', description: 'Profit from low volatility with defined risk spreads', risk_level: 'medium' as const, min_capital: 5000 },
-      { id: 'broken_wing_butterfly', name: 'Broken-Wing Butterfly', description: 'Asymmetric spread strategy with directional bias', risk_level: 'medium' as const, min_capital: 3500 },
-      { id: 'short_put', name: 'Short Put (Naked)', description: 'Cash-secured put strategy for income generation', risk_level: 'medium' as const, min_capital: 15000 },
-    ]
-  },
-  options_directional: {
-    id: 'options_directional',
-    name: 'Options Directional & Volatility',
-    description: 'Directional and volatility-based options strategies for active traders',
     icon: '📈',
     color: 'from-orange-600 to-red-600',
     borderColor: 'border-orange-500/20',
     strategies: [
       // Sorted by risk: low to high
       { id: 'long_condor', name: 'Long Condor', description: 'Range-bound profit strategy for sideways market conditions', risk_level: 'low' as const, min_capital: 3000 },
-      { id: 'long_butterfly', name: 'Long Butterfly', description: 'Precision targeting strategy for specific price level profits', risk_level: 'low' as const, min_capital: 2500 },
-      { id: 'iron_butterfly', name: 'Iron Butterfly', description: 'Low volatility income strategy for range-bound markets', risk_level: 'medium' as const, min_capital: 4000 },
       { id: 'long_call', name: 'Long Call', description: 'Bullish momentum play using long call options for leveraged upside', risk_level: 'medium' as const, min_capital: 5000 },
       { id: 'long_straddle', name: 'Long Straddle', description: 'Profit from high volatility in either direction', risk_level: 'medium' as const, min_capital: 8000 },
       { id: 'long_strangle', name: 'Long Strangle', description: 'Directional volatility strategy for large directional moves', risk_level: 'medium' as const, min_capital: 6000 },
       { id: 'short_call', name: 'Short Call (Naked)', description: 'High-risk premium collection with unlimited upside risk', risk_level: 'high' as const, min_capital: 15000 },
       { id: 'short_straddle', name: 'Short Straddle', description: 'Ultra-high risk volatility selling strategy', risk_level: 'high' as const, min_capital: 20000 },
       { id: 'short_strangle', name: 'Short Strangle', description: 'Premium collection strategy for low volatility environments', risk_level: 'high' as const, min_capital: 25000 },
+      'short_put',
     ]
   },
 };
