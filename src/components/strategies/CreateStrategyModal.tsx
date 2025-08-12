@@ -208,6 +208,15 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [riskLevel, setRiskLevel] = useState<TradingStrategy['risk_level']>('medium');
   const [minCapital, setMinCapital] = useState(10000);
   const [isActive, setIsActive] = useState(false);
+  const [priceRangeLower, setPriceRangeLower] = useState(0);
+  const [priceRangeUpper, setPriceRangeUpper] = useState(0);
+  const [numberOfGrids, setNumberOfGrids] = useState(10);
+  const [totalInvestment, setTotalInvestment] = useState(1000);
+  const [triggerPrice, setTriggerPrice] = useState(0);
+  const [takeProfit, setTakeProfit] = useState(0);
+  const [stopLoss, setStopLoss] = useState(0);
+  const [gridMode, setGridMode] = useState('arithmetic');
+  const [symbol, setSymbol] = useState('BTC/USDT');
 
   const handleStrategySelect = (strategy: typeof categorizedStrategies[0]['strategies'][0]) => {
     setSelectedType(strategy.type);
@@ -223,10 +232,27 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const handleCreate = () => {
     if (!selectedType) return;
 
+    // Validate grid bot specific requirements
+    const isGridBot = ['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType);
+    if (isGridBot) {
+      if (selectedType !== 'infinity_grid' && (priceRangeLower <= 0 || priceRangeUpper <= 0 || priceRangeLower >= priceRangeUpper)) {
+        alert('Please set a valid price range (lower price must be less than upper price and both must be greater than 0).');
+        return;
+      }
+      if (numberOfGrids < 2 || numberOfGrids > 1000) {
+        alert('Number of grids must be between 2 and 1000.');
+        return;
+      }
+      if (totalInvestment <= 0) {
+        alert('Total investment must be greater than 0.');
+        return;
+      }
+    }
+
     const strategy: Omit<TradingStrategy, 'id'> = {
       name,
       type: selectedType,
-      description,
+      description: `${selectedType} strategy for ${symbol}`,
       risk_level: riskLevel,
       min_capital: minCapital,
       is_active: isActive,
@@ -249,17 +275,25 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           profit_target: 25,
         }),
         ...(selectedType === 'spot_grid' && {
-          price_range_lower: 0,
-          price_range_upper: 0,
-          number_of_grids: 20,
-          grid_mode: 'arithmetic',
+          price_range_lower: priceRangeLower,
+          price_range_upper: priceRangeUpper,
+          number_of_grids: numberOfGrids,
+          total_investment: totalInvestment,
+          trigger_price: triggerPrice,
+          take_profit: takeProfit,
+          stop_loss: stopLoss,
+          grid_mode: gridMode,
         }),
         ...(selectedType === 'futures_grid' && {
           symbol: 'BTC/USDT',
-          price_range_lower: 0,
-          price_range_upper: 0,
-          number_of_grids: 25,
-          grid_mode: 'arithmetic',
+          price_range_lower: priceRangeLower,
+          price_range_upper: priceRangeUpper,
+          number_of_grids: numberOfGrids,
+          total_investment: totalInvestment,
+          trigger_price: triggerPrice,
+          take_profit: takeProfit,
+          stop_loss: stopLoss,
+          grid_mode: gridMode,
           direction: 'long',
           leverage: 3,
         }),
@@ -275,9 +309,13 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             { symbol: 'ETH', allocation: 30 },
             { symbol: 'USDT', allocation: 30 },
           ],
-          trigger_type: 'threshold',
-          threshold_deviation_percent: 5,
-          rebalance_frequency: 'weekly',
+          price_range_lower: priceRangeLower,
+          number_of_grids: numberOfGrids,
+          total_investment: totalInvestment,
+          trigger_price: triggerPrice,
+          take_profit: takeProfit,
+          stop_loss: stopLoss,
+          grid_mode: gridMode,
         }),
         ...(selectedType === 'dca' && {
           symbol: 'BTC/USDT',
