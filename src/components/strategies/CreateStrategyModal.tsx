@@ -19,7 +19,8 @@ import {
   TrendingDown,
   Shuffle,
   Clock,
-  Gauge
+  Gauge,
+  Plus
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -917,11 +918,113 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   <h4 className="font-semibold text-white mb-4">Strategy Configuration</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(configuration).map(([key, value]) => (
-                      <div key={key}>
+                      <div key={key} className={
+                        key === 'assets' || 
+                        (typeof value === 'object' && value !== null && !Array.isArray(value) && 
+                         (key === 'stop_loss' || key === 'take_profit')) 
+                          ? 'md:col-span-2' : ''
+                      }>
                         <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
                           {key.replace(/_/g, ' ')}
                         </label>
-                        {typeof value === 'boolean' ? (
+                        {key === 'assets' && Array.isArray(value) ? (
+                          <div className="space-y-3">
+                            {value.map((asset: any, index: number) => (
+                              <div key={index} className="flex gap-3 items-end">
+                                <div className="flex-1">
+                                  <label className="block text-xs text-gray-400 mb-1">Symbol</label>
+                                  <input
+                                    type="text"
+                                    value={asset.symbol || ''}
+                                    onChange={(e) => {
+                                      const newAssets = [...value];
+                                      newAssets[index] = { ...asset, symbol: e.target.value };
+                                      setConfiguration(prev => ({ ...prev, [key]: newAssets }));
+                                    }}
+                                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                                    placeholder="BTC"
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <label className="block text-xs text-gray-400 mb-1">Allocation %</label>
+                                  <input
+                                    type="number"
+                                    value={asset.allocation || 0}
+                                    onChange={(e) => {
+                                      const newAssets = [...value];
+                                      newAssets[index] = { ...asset, allocation: Number(e.target.value) };
+                                      setConfiguration(prev => ({ ...prev, [key]: newAssets }));
+                                    }}
+                                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                  />
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const newAssets = value.filter((_: any, i: number) => i !== index);
+                                    setConfiguration(prev => ({ ...prev, [key]: newAssets }));
+                                  }}
+                                  className="text-red-400 hover:text-red-300 px-2 py-2"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newAssets = [...value, { symbol: '', allocation: 0 }];
+                                setConfiguration(prev => ({ ...prev, [key]: newAssets }));
+                              }}
+                              className="w-full"
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add Asset
+                            </Button>
+                            <div className="text-xs text-gray-400">
+                              Total allocation: {value.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0)}%
+                            </div>
+                          </div>
+                        ) : (key === 'stop_loss' || key === 'take_profit') && typeof value === 'object' && value !== null ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-1">Value</label>
+                              <input
+                                type="number"
+                                value={value.value || 0}
+                                onChange={(e) => {
+                                  setConfiguration(prev => ({ 
+                                    ...prev, 
+                                    [key]: { ...value, value: Number(e.target.value) }
+                                  }));
+                                }}
+                                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                                step="0.01"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-400 mb-1">Type</label>
+                              <select
+                                value={value.type || 'percentage'}
+                                onChange={(e) => {
+                                  setConfiguration(prev => ({ 
+                                    ...prev, 
+                                    [key]: { ...value, type: e.target.value }
+                                  }));
+                                }}
+                                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="percentage">Percentage</option>
+                                <option value="absolute">Absolute</option>
+                              </select>
+                            </div>
+                          </div>
+                        ) : typeof value === 'boolean' ? (
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input
                               type="checkbox"
@@ -939,48 +1042,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                             step={key.includes('percent') || key.includes('delta') ? '0.01' : '1'}
                           />
-                        ) : Array.isArray(value) ? (
-                          <div>
-                            <textarea
-                              value={JSON.stringify(value, null, 2)}
-                              onChange={(e) => {
-                                try {
-                                  const parsedValue = JSON.parse(e.target.value);
-                                  setConfiguration(prev => ({ ...prev, [key]: parsedValue }));
-                                } catch (error) {
-                                  // Keep the text as is if JSON is invalid
-                                  console.warn('Invalid JSON for', key, ':', error);
-                                }
-                              }}
-                              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                              rows={Math.min(JSON.stringify(value, null, 2).split('\n').length, 6)}
-                              placeholder="Enter JSON array"
-                            />
-                            <p className="text-xs text-gray-400 mt-1">
-                              Enter valid JSON format
-                            </p>
-                          </div>
-                        ) : typeof value === 'object' && value !== null ? (
-                          <div>
-                            <textarea
-                              value={JSON.stringify(value, null, 2)}
-                              onChange={(e) => {
-                                try {
-                                  const parsedValue = JSON.parse(e.target.value);
-                                  setConfiguration(prev => ({ ...prev, [key]: parsedValue }));
-                                } catch (error) {
-                                  // Keep the text as is if JSON is invalid
-                                  console.warn('Invalid JSON for', key, ':', error);
-                                }
-                              }}
-                              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                              rows={Math.min(JSON.stringify(value, null, 2).split('\n').length, 6)}
-                              placeholder="Enter JSON object"
-                            />
-                            <p className="text-xs text-gray-400 mt-1">
-                              Enter valid JSON format
-                            </p>
-                          </div>
                         ) : (
                           <input
                             type="text"
