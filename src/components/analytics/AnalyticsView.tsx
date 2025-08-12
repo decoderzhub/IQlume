@@ -73,10 +73,12 @@ const monthlyReturnsData = [
 ];
 
 const riskMetricsData = [
-  { metric: 'Portfolio Beta', value: 0.85, description: 'Lower than market volatility' },
-  { metric: 'Value at Risk (95%)', value: -2.8, description: 'Maximum expected loss' },
-  { metric: 'Correlation to S&P 500', value: 0.72, description: 'Moderate correlation' },
-  { metric: 'Information Ratio', value: 1.35, description: 'Excess return per unit of risk' },
+  { metric: 'Portfolio Beta', value: 0.85, description: 'Lower than market volatility', unit: '' },
+  { metric: 'Value at Risk (95%)', value: -2.8, description: 'Maximum expected loss', unit: '%' },
+  { metric: 'Portfolio Volatility', value: 14.2, description: 'Annualized price fluctuation', unit: '%' },
+  { metric: 'Sharpe Ratio', value: 1.68, description: 'Risk-adjusted return measure', unit: '' },
+  { metric: 'Portfolio Alpha', value: 2.1, description: 'Excess return vs benchmark', unit: '%' },
+  { metric: 'Standard Deviation', value: 12.8, description: 'Return variability measure', unit: '%' },
 ];
 
 export function AnalyticsView() {
@@ -431,7 +433,7 @@ export function AnalyticsView() {
                       : metric.value.toFixed(2)
                     : metric.value
                   }
-                  {metric.metric.includes('%') || metric.metric.includes('Risk') ? '%' : ''}
+                  {metric.unit}
                 </span>
               </div>
               <p className="text-xs text-gray-400">{metric.description}</p>

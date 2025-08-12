@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Play, Calendar, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
+import { X, Play, Calendar, TrendingUp, TrendingDown, BarChart3, AlertTriangle } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent } from '../../lib/utils';
+import { generateRiskMetrics, determineRiskLevel } from '../../lib/riskUtils';
 
 interface BacktestModalProps {
   strategy: TradingStrategy;
   onClose: () => void;
+  onSave?: (strategy: TradingStrategy) => void;
 }
 
 interface BacktestResult {
@@ -23,14 +25,20 @@ interface BacktestResult {
   end_date: string;
   initial_capital: number;
   final_capital: number;
+  volatility: number;
+  standard_deviation: number;
+  beta: number;
+  alpha: number;
+  value_at_risk: number;
 }
 
-export function BacktestModal({ strategy, onClose }: BacktestModalProps) {
+export function BacktestModal({ strategy, onClose, onSave }: BacktestModalProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [startDate, setStartDate] = useState('2023-01-01');
   const [endDate, setEndDate] = useState('2024-01-15');
   const [initialCapital, setInitialCapital] = useState(100000);
   const [results, setResults] = useState<BacktestResult | null>(null);
+  const [updatedStrategy, setUpdatedStrategy] = useState<TradingStrategy | null>(null);
 
   const runBacktest = async () => {
     setIsRunning(true);
@@ -38,12 +46,11 @@ export function BacktestModal({ strategy, onClose }: BacktestModalProps) {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 3000));
     
-    // Mock results
-    const mockResults: BacktestResult = {
+    // Generate base mock results
+    const baseResults = {
       total_return: 0.156,
       win_rate: 0.73,
       max_drawdown: 0.08,
-      sharpe_ratio: 1.42,
       total_trades: 48,
       avg_trade_duration: 28,
       profit_factor: 1.85,
@@ -53,8 +60,56 @@ export function BacktestModal({ strategy, onClose }: BacktestModalProps) {
       final_capital: initialCapital * (1 + 0.156),
     };
     
+    // Generate realistic risk metrics based on strategy type and performance
+    const riskMetrics = generateRiskMetrics(
+      strategy.type,
+      baseResults.total_return,
+      baseResults.max_drawdown,
+      baseResults.win_rate
+    );
+    
+    // Combine base results with risk metrics
+    const mockResults: BacktestResult = {
+      ...baseResults,
+      ...riskMetrics,
+    };
+    
     setResults(mockResults);
+    
+    // Create updated strategy with new performance data and dynamic risk level
+    const newPerformance = {
+      total_return: mockResults.total_return,
+      win_rate: mockResults.win_rate,
+      max_drawdown: mockResults.max_drawdown,
+      sharpe_ratio: mockResults.sharpe_ratio,
+      total_trades: mockResults.total_trades,
+      avg_trade_duration: mockResults.avg_trade_duration,
+      volatility: mockResults.volatility,
+      standard_deviation: mockResults.standard_deviation,
+      beta: mockResults.beta,
+      alpha: mockResults.alpha,
+      value_at_risk: mockResults.value_at_risk,
+    };
+    
+    // Dynamically determine risk level based on calculated metrics
+    const dynamicRiskLevel = determineRiskLevel(newPerformance);
+    
+    const strategyWithUpdatedRisk: TradingStrategy = {
+      ...strategy,
+      risk_level: dynamicRiskLevel,
+      performance: newPerformance,
+      updated_at: new Date().toISOString(),
+    };
+    
+    setUpdatedStrategy(strategyWithUpdatedRisk);
     setIsRunning(false);
+  };
+
+  const handleSaveUpdatedStrategy = () => {
+    if (updatedStrategy && onSave) {
+      onSave(updatedStrategy);
+      onClose();
+    }
   };
 
   return (
@@ -219,11 +274,41 @@ export function BacktestModal({ strategy, onClose }: BacktestModalProps) {
 
                 <Card className="p-4">
                   <div className="flex items-center gap-2 mb-2">
+                    <BarChart3 className="w-5 h-5 text-purple-400" />
+                    <span className="text-sm text-gray-400">Volatility</span>
+                  </div>
+                  <p className="text-xl font-bold text-purple-400">
+                    {(results.volatility * 100).toFixed(2)}%
+                  </p>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-5 h-5 text-blue-400" />
+                    <span className="text-sm text-gray-400">Beta</span>
+                  </div>
+                  <p className="text-xl font-bold text-blue-400">
+                    {results.beta.toFixed(2)}
+                  </p>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingDown className="w-5 h-5 text-red-400" />
+                    <span className="text-sm text-gray-400">Value at Risk</span>
+                  </div>
+                  <p className="text-xl font-bold text-red-400">
+                    {(results.value_at_risk * 100).toFixed(2)}%
+                  </p>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="w-5 h-5 text-yellow-400" />
-                    <span className="text-sm text-gray-400">Sharpe Ratio</span>
+                    <span className="text-sm text-gray-400">Alpha</span>
                   </div>
                   <p className="text-xl font-bold text-yellow-400">
-                    {results.sharpe_ratio.toFixed(2)}
+                    {(results.alpha * 100).toFixed(2)}%
                   </p>
                 </Card>
               </div>
@@ -251,6 +336,14 @@ export function BacktestModal({ strategy, onClose }: BacktestModalProps) {
                       <span className="text-gray-400">Profit Factor:</span>
                       <span className="text-white">{results.profit_factor.toFixed(2)}</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Sharpe Ratio:</span>
+                      <span className="text-white">{results.sharpe_ratio.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Standard Deviation:</span>
+                      <span className="text-white">{(results.standard_deviation * 100).toFixed(2)}%</span>
+                    </div>
                   </div>
                 </Card>
 
@@ -277,6 +370,41 @@ export function BacktestModal({ strategy, onClose }: BacktestModalProps) {
                 </Card>
               </div>
 
+              {/* Dynamic Risk Assessment */}
+              {updatedStrategy && updatedStrategy.risk_level !== strategy.risk_level && (
+                <Card className="p-6 bg-yellow-500/10 border border-yellow-500/20">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-6 h-6 text-yellow-400 flex-shrink-0" />
+                    <div>
+                      <h3 className="font-semibold text-yellow-400 mb-2">Risk Level Updated</h3>
+                      <p className="text-sm text-yellow-300 mb-3">
+                        Based on the backtest results and calculated risk metrics, this strategy's risk level 
+                        has been updated from <span className="font-semibold capitalize">{strategy.risk_level}</span> to{' '}
+                        <span className="font-semibold capitalize">{updatedStrategy.risk_level}</span>.
+                      </p>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div>
+                          <span className="text-gray-400">Volatility:</span>
+                          <span className="text-white ml-2">{(results!.volatility * 100).toFixed(2)}%</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Sharpe Ratio:</span>
+                          <span className="text-white ml-2">{results!.sharpe_ratio.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Beta:</span>
+                          <span className="text-white ml-2">{results!.beta.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">VaR (95%):</span>
+                          <span className="text-white ml-2">{(results!.value_at_risk * 100).toFixed(2)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
               {/* Chart Placeholder */}
               <Card className="p-6">
                 <h3 className="font-semibold text-white mb-4">Equity Curve</h3>
@@ -293,6 +421,11 @@ export function BacktestModal({ strategy, onClose }: BacktestModalProps) {
                 <Button variant="secondary" onClick={() => setResults(null)}>
                   Run New Backtest
                 </Button>
+                {updatedStrategy && onSave && (
+                  <Button onClick={handleSaveUpdatedStrategy} variant="primary">
+                    Save Updated Strategy
+                  </Button>
+                )}
                 <Button onClick={onClose}>
                   Close
                 </Button>

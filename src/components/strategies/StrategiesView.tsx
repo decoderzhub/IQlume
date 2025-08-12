@@ -491,6 +491,12 @@ export function StrategiesView() {
         <BacktestModal
           strategy={selectedStrategy}
           onClose={() => setShowBacktestModal(false)}
+          onSave={(updatedStrategy) => {
+            setStrategies(prev => prev.map(s => 
+              s.id === updatedStrategy.id ? updatedStrategy : s
+            ));
+            setShowBacktestModal(false);
+          }}
         />
       )}
         </>

@@ -107,6 +107,19 @@ const strategiesToSeed = [
       minimum_premium: 200,
       profit_target: 50,
       roll_when_itm: true
+    },
+    performance: {
+      total_return: 0.085,
+      win_rate: 0.82,
+      max_drawdown: 0.04,
+      sharpe_ratio: 1.65,
+      total_trades: 28,
+      avg_trade_duration: 30,
+      volatility: 0.08,
+      standard_deviation: 0.07,
+      beta: 0.68,
+      alpha: 0.022,
+      value_at_risk: -0.012,
     }
   },
   {
@@ -124,6 +137,19 @@ const strategiesToSeed = [
       net_credit_target: 200,
       profit_target: 25,
       stop_loss: { value: 200, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.095,
+      win_rate: 0.75,
+      max_drawdown: 0.08,
+      sharpe_ratio: 1.25,
+      total_trades: 36,
+      avg_trade_duration: 35,
+      volatility: 0.16,
+      standard_deviation: 0.14,
+      beta: 0.85,
+      alpha: 0.012,
+      value_at_risk: -0.024,
     }
   },
   {
