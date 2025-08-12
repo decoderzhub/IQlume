@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, TrendingUp, DollarSign, Shield, Plus, Minus, BookOpen } from 'lucide-react';
 import { 
-  DollarSign, 
   Shield, 
   AlertTriangle,
   Bot,
