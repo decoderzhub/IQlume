@@ -957,6 +957,10 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                               placeholder="Enter JSON array"
                             />
                             <p className="text-xs text-gray-400 mt-1">
+                              Enter valid JSON format
+                            </p>
+                          </div>
+                        ) : typeof value === 'object' && value !== null ? (
                           <div>
                             <textarea
                               value={JSON.stringify(value, null, 2)}
