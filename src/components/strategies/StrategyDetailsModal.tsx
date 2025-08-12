@@ -5,6 +5,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent } from '../../lib/utils';
+import { useStore } from '../../store/useStore';
 
 interface StrategyDetailsModalProps {
   strategy: TradingStrategy;
@@ -15,6 +16,7 @@ interface StrategyDetailsModalProps {
 
 export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: StrategyDetailsModalProps) {
   const [editedStrategy, setEditedStrategy] = useState<TradingStrategy>(strategy);
+  const { portfolio } = useStore();
   
   // Grid bot specific states
   const [priceRangeLower, setPriceRangeLower] = useState<number>(strategy.configuration.price_range_lower || 0);
@@ -27,10 +29,10 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
   const [gridMode, setGridMode] = useState<'arithmetic' | 'geometric'>(strategy.configuration.grid_mode || 'arithmetic');
   
   // Capital allocation
-  const [totalAvailableCapital] = useState(250000); // Mock total available capital
+  const totalAvailableCapital = portfolio?.total_value || 0;
   const [allocatedCapitalPercentage, setAllocatedCapitalPercentage] = useState(() => {
     const allocatedCapital = strategy.configuration.allocated_capital || strategy.configuration.total_investment || strategy.min_capital;
-    return Math.round((allocatedCapital / 250000) * 100);
+    return totalAvailableCapital > 0 ? Math.round((allocatedCapital / totalAvailableCapital) * 100) : 0;
   });
   const currentAllocatedCapital = (totalAvailableCapital * allocatedCapitalPercentage) / 100;
 

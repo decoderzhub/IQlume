@@ -5,6 +5,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy, AssetAllocation, MarketCapData } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { useStore } from '../../store/useStore';
 
 interface CreateStrategyModalProps {
   onClose: () => void;
@@ -89,6 +90,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
   const [minCapital, setMinCapital] = useState(10000);
+  const { portfolio } = useStore();
   
   // Grid bot specific states
   const [priceRangeLower, setPriceRangeLower] = useState<number>(0);
@@ -103,7 +105,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [stopLossType, setStopLossType] = useState<'amount' | 'percentage'>('amount');
   
   // Capital allocation
-  const [totalAvailableCapital] = useState(250000); // Mock total available capital
+  const totalAvailableCapital = portfolio?.total_value || 0;
   const [allocatedCapitalPercentage, setAllocatedCapitalPercentage] = useState(50);
   const currentAllocatedCapital = (totalAvailableCapital * allocatedCapitalPercentage) / 100;
   
