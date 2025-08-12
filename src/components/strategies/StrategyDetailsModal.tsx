@@ -720,7 +720,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                             placeholder="Enter JSON array"
                           />
                           <p className="text-xs text-gray-400 mt-1">
-                            Enter valid JSON format. For assets: [{"symbol": "BTC", "allocation": 40}, {"symbol": "ETH", "allocation": 30}]
+                            Enter valid JSON format. For assets: [&lbrace;"symbol": "BTC", "allocation": 40&rbrace;, &lbrace;"symbol": "ETH", "allocation": 30&rbrace;]
                           </p>
                         </div>
                       ) : typeof value === 'object' && value !== null ? (
