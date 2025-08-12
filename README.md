@@ -86,7 +86,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-The frontend will be available at `http://localhost:5173` and the API at `http://localhost:8000`.
+The frontend will be available at `http://localhost:5173` and the API at `http://localhost:6853`.
 
 ## 📊 Architecture
 
