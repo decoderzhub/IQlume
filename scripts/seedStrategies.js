@@ -41,12 +41,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 2000,
+      symbol: 'BTC/USDT',
       price_range_lower: 0,
       price_range_upper: 0,
       number_of_grids: 25,
       grid_mode: 'arithmetic',
       direction: 'long',
       leverage: 3
+    },
+    performance: {
+      total_return: 0.142,
+      win_rate: 0.68,
+      max_drawdown: 0.12,
+      sharpe_ratio: 1.35,
+      total_trades: 89,
+      avg_trade_duration: 4,
+      volatility: 0.18,
+      standard_deviation: 0.16,
+      beta: 1.15,
+      alpha: 0.018,
+      value_at_risk: -0.028,
     }
   },
   {
@@ -58,9 +72,23 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 1500,
+      symbol: 'ETH/USDT',
       price_range_lower: 0,
       number_of_grids: 30,
       grid_mode: 'geometric'
+    },
+    performance: {
+      total_return: 0.186,
+      win_rate: 0.71,
+      max_drawdown: 0.14,
+      sharpe_ratio: 1.28,
+      total_trades: 124,
+      avg_trade_duration: 3,
+      volatility: 0.22,
+      standard_deviation: 0.19,
+      beta: 1.25,
+      alpha: 0.022,
+      value_at_risk: -0.032,
     }
   },
   {
@@ -72,9 +100,23 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 500,
+      symbol: 'BTC/USDT',
       investment_amount_per_interval: 50,
       frequency: 'daily',
       investment_target_percent: 25
+    },
+    performance: {
+      total_return: 0.095,
+      win_rate: 0.92,
+      max_drawdown: 0.08,
+      sharpe_ratio: 1.55,
+      total_trades: 365,
+      avg_trade_duration: 1,
+      volatility: 0.12,
+      standard_deviation: 0.10,
+      beta: 0.75,
+      alpha: 0.015,
+      value_at_risk: -0.018,
     }
   },
   {
@@ -86,10 +128,27 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 5000,
-      assets: [],
+      assets: [
+        { symbol: 'BTC', allocation: 40 },
+        { symbol: 'ETH', allocation: 30 },
+        { symbol: 'USDT', allocation: 30 },
+      ],
       trigger_type: 'threshold',
       threshold_deviation_percent: 5,
       rebalance_frequency: 'weekly'
+    },
+    performance: {
+      total_return: 0.078,
+      win_rate: 0.88,
+      max_drawdown: 0.06,
+      sharpe_ratio: 1.42,
+      total_trades: 24,
+      avg_trade_duration: 7,
+      volatility: 0.09,
+      standard_deviation: 0.08,
+      beta: 0.65,
+      alpha: 0.012,
+      value_at_risk: -0.014,
     }
   },
   {
@@ -101,6 +160,7 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 15000,
+      symbol: 'AAPL',
       position_size: 100,
       strike_delta: 0.30,
       expiration_days: 30,
@@ -131,6 +191,7 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 5000,
+      symbol: 'SPY',
       wing_width: 10,
       short_strike_delta: 0.20,
       expiration_days: 45,
@@ -161,12 +222,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 8000,
+      symbol: 'SPY',
       strike_selection: 'atm',
       expiration_days: 30,
       volatility_threshold: 20,
       max_premium_percent: 12,
       stop_loss: { value: 50, type: 'percentage' },
       take_profit: { value: 100, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.165,
+      win_rate: 0.58,
+      max_drawdown: 0.18,
+      sharpe_ratio: 1.12,
+      total_trades: 42,
+      avg_trade_duration: 25,
+      volatility: 0.28,
+      standard_deviation: 0.24,
+      beta: 1.35,
+      alpha: 0.008,
+      value_at_risk: -0.038,
     }
   },
   {
@@ -178,12 +253,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 20000,
+      symbol: 'AAPL',
       position_size: 100,
       put_strike_delta: -0.30,
       call_strike_delta: 0.30,
       expiration_days: 30,
       minimum_premium: 150,
       assignment_handling: 'automatic'
+    },
+    performance: {
+      total_return: 0.092,
+      win_rate: 0.84,
+      max_drawdown: 0.07,
+      sharpe_ratio: 1.58,
+      total_trades: 36,
+      avg_trade_duration: 32,
+      volatility: 0.11,
+      standard_deviation: 0.09,
+      beta: 0.72,
+      alpha: 0.019,
+      value_at_risk: -0.016,
     }
   },
   {
@@ -195,11 +284,25 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 5000,
+      symbol: 'SPY',
       orb_period: 30,
       breakout_threshold: 0.002,
       stop_loss: { value: 1, type: 'percentage' },
       take_profit: { value: 2, type: 'percentage' },
       max_position_size: 100
+    },
+    performance: {
+      total_return: 0.128,
+      win_rate: 0.65,
+      max_drawdown: 0.11,
+      sharpe_ratio: 1.25,
+      total_trades: 156,
+      avg_trade_duration: 2,
+      volatility: 0.19,
+      standard_deviation: 0.17,
+      beta: 1.08,
+      alpha: 0.014,
+      value_at_risk: -0.026,
     }
   },
   {
@@ -211,10 +314,24 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 5000,
+      symbol: 'AAPL',
       strike_delta: 0.30,
       expiration_days: 30,
       max_premium_percent: 10,
       stop_loss: { value: 50, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.245,
+      win_rate: 0.52,
+      max_drawdown: 0.22,
+      sharpe_ratio: 0.95,
+      total_trades: 28,
+      avg_trade_duration: 18,
+      volatility: 0.35,
+      standard_deviation: 0.31,
+      beta: 1.55,
+      alpha: 0.025,
+      value_at_risk: -0.048,
     }
   },
   {
@@ -226,12 +343,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 8000,
+      symbol: 'SPY',
       strike_selection: 'atm',
       expiration_days: 30,
       volatility_threshold: 20,
       max_premium_percent: 12,
       stop_loss: { value: 50, type: 'percentage' },
       take_profit: { value: 100, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.198,
+      win_rate: 0.48,
+      max_drawdown: 0.25,
+      sharpe_ratio: 0.88,
+      total_trades: 32,
+      avg_trade_duration: 22,
+      volatility: 0.42,
+      standard_deviation: 0.38,
+      beta: 1.68,
+      alpha: 0.012,
+      value_at_risk: -0.055,
     }
   },
   {
@@ -243,12 +374,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 3000,
+      symbol: 'SPY',
       wing_width: 10,
       body_width: 10,
       expiration_days: 45,
       max_debit_percent: 8,
       profit_target: 50,
       stop_loss: { value: 100, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.065,
+      win_rate: 0.78,
+      max_drawdown: 0.04,
+      sharpe_ratio: 1.48,
+      total_trades: 18,
+      avg_trade_duration: 35,
+      volatility: 0.08,
+      standard_deviation: 0.07,
+      beta: 0.58,
+      alpha: 0.008,
+      value_at_risk: -0.012,
     }
   },
   {
@@ -260,12 +405,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 4000,
+      symbol: 'SPY',
       wing_width: 20,
       expiration_days: 30,
       net_credit_target: 300,
       volatility_filter: 25,
       profit_target: 50,
       stop_loss: { value: 200, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.088,
+      win_rate: 0.72,
+      max_drawdown: 0.09,
+      sharpe_ratio: 1.32,
+      total_trades: 24,
+      avg_trade_duration: 28,
+      volatility: 0.14,
+      standard_deviation: 0.12,
+      beta: 0.85,
+      alpha: 0.011,
+      value_at_risk: -0.021,
     }
   },
   {
@@ -277,11 +436,25 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 15000,
+      symbol: 'AAPL',
       strike_delta: 0.20,
       expiration_days: 30,
       minimum_premium: 300,
       stop_loss: { value: 200, type: 'percentage' },
       margin_requirement: 10000
+    },
+    performance: {
+      total_return: 0.156,
+      win_rate: 0.45,
+      max_drawdown: 0.28,
+      sharpe_ratio: 0.72,
+      total_trades: 36,
+      avg_trade_duration: 25,
+      volatility: 0.38,
+      standard_deviation: 0.34,
+      beta: 1.75,
+      alpha: -0.005,
+      value_at_risk: -0.052,
     }
   },
   {
@@ -293,12 +466,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 20000,
+      symbol: 'SPY',
       strike_selection: 'atm',
       expiration_days: 21,
       minimum_premium: 600,
       volatility_filter: 25,
       stop_loss: { value: 200, type: 'percentage' },
       max_loss_per_trade: 3000
+    },
+    performance: {
+      total_return: 0.225,
+      win_rate: 0.38,
+      max_drawdown: 0.35,
+      sharpe_ratio: 0.65,
+      total_trades: 48,
+      avg_trade_duration: 18,
+      volatility: 0.48,
+      standard_deviation: 0.42,
+      beta: 1.95,
+      alpha: -0.012,
+      value_at_risk: -0.068,
     }
   },
   {
@@ -310,11 +497,25 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 2500,
+      symbol: 'SPY',
       wing_width: 10,
       expiration_days: 30,
       max_debit: 150,
       profit_target: 100,
       stop_loss: { value: 50, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.058,
+      win_rate: 0.82,
+      max_drawdown: 0.03,
+      sharpe_ratio: 1.65,
+      total_trades: 15,
+      avg_trade_duration: 42,
+      volatility: 0.06,
+      standard_deviation: 0.05,
+      beta: 0.45,
+      alpha: 0.012,
+      value_at_risk: -0.009,
     }
   },
   {
@@ -326,12 +527,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 6000,
+      symbol: 'SPY',
       call_delta: 0.25,
       put_delta: -0.25,
       expiration_days: 30,
       volatility_threshold: 25,
       profit_target: 100,
       stop_loss: { value: 50, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.138,
+      win_rate: 0.55,
+      max_drawdown: 0.16,
+      sharpe_ratio: 1.08,
+      total_trades: 38,
+      avg_trade_duration: 20,
+      volatility: 0.24,
+      standard_deviation: 0.21,
+      beta: 1.28,
+      alpha: 0.006,
+      value_at_risk: -0.034,
     }
   },
   {
@@ -343,12 +558,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 3000,
+      symbol: 'QQQ',
       wing_width: 10,
       short_strike_delta: 0.30,
       expiration_days: 30,
       net_credit_target: 250,
       profit_target: 50,
       stop_loss: { value: 200, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.105,
+      win_rate: 0.71,
+      max_drawdown: 0.09,
+      sharpe_ratio: 1.38,
+      total_trades: 26,
+      avg_trade_duration: 28,
+      volatility: 0.15,
+      standard_deviation: 0.13,
+      beta: 0.88,
+      alpha: 0.014,
+      value_at_risk: -0.022,
     }
   },
   {
@@ -360,11 +589,25 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 15000,
+      symbol: 'AAPL',
       strike_delta: -0.30,
       expiration_days: 30,
       minimum_premium: 150,
       profit_target: 50,
       stop_loss: { value: 200, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.112,
+      win_rate: 0.76,
+      max_drawdown: 0.11,
+      sharpe_ratio: 1.28,
+      total_trades: 32,
+      avg_trade_duration: 26,
+      volatility: 0.17,
+      standard_deviation: 0.15,
+      beta: 0.95,
+      alpha: 0.016,
+      value_at_risk: -0.025,
     }
   },
   {
@@ -376,6 +619,7 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 25000,
+      symbol: 'SPY',
       call_delta: 0.20,
       put_delta: -0.20,
       expiration_days: 21,
@@ -383,6 +627,19 @@ const strategiesToSeed = [
       volatility_filter: 25,
       profit_target: 50,
       stop_loss: { value: 200, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.185,
+      win_rate: 0.42,
+      max_drawdown: 0.32,
+      sharpe_ratio: 0.68,
+      total_trades: 52,
+      avg_trade_duration: 16,
+      volatility: 0.45,
+      standard_deviation: 0.39,
+      beta: 1.85,
+      alpha: -0.008,
+      value_at_risk: -0.062,
     }
   },
   {
@@ -394,12 +651,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 2500,
+      symbol: 'QQQ',
       wing_width: 10,
       short_strike_delta: -0.30,
       expiration_days: 30,
       net_credit_target: 200,
       profit_target: 50,
       stop_loss: { value: 200, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.098,
+      win_rate: 0.74,
+      max_drawdown: 0.08,
+      sharpe_ratio: 1.42,
+      total_trades: 22,
+      avg_trade_duration: 30,
+      volatility: 0.13,
+      standard_deviation: 0.11,
+      beta: 0.82,
+      alpha: 0.013,
+      value_at_risk: -0.019,
     }
   },
   {
@@ -411,12 +682,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 3500,
+      symbol: 'SPY',
       short_wing_width: 10,
       long_wing_width: 15,
       expiration_days: 45,
       max_debit: 100,
       profit_target: 100,
       stop_loss: { value: 150, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.118,
+      win_rate: 0.68,
+      max_drawdown: 0.12,
+      sharpe_ratio: 1.22,
+      total_trades: 20,
+      avg_trade_duration: 38,
+      volatility: 0.18,
+      standard_deviation: 0.16,
+      beta: 0.92,
+      alpha: 0.009,
+      value_at_risk: -0.027,
     }
   },
   {
@@ -428,12 +713,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 25000,
+      symbol: 'AAPL',
       position_size: 100,
       put_delta: -0.25,
       call_delta: 0.25,
       expiration_days: 45,
       net_cost_target: 50,
       roll_frequency: 'monthly'
+    },
+    performance: {
+      total_return: 0.072,
+      win_rate: 0.85,
+      max_drawdown: 0.05,
+      sharpe_ratio: 1.52,
+      total_trades: 12,
+      avg_trade_duration: 45,
+      volatility: 0.09,
+      standard_deviation: 0.08,
+      beta: 0.62,
+      alpha: 0.008,
+      value_at_risk: -0.013,
     }
   },
   {
@@ -445,11 +744,25 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 7500,
+      symbol: 'SPY',
       lookback_period: 20,
       deviation_threshold: 2.0,
       position_size: 100,
       stop_loss: { value: 1, type: 'percentage' },
       take_profit: { value: 1.5, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.125,
+      win_rate: 0.64,
+      max_drawdown: 0.13,
+      sharpe_ratio: 1.18,
+      total_trades: 85,
+      avg_trade_duration: 5,
+      volatility: 0.20,
+      standard_deviation: 0.18,
+      beta: 1.12,
+      alpha: 0.011,
+      value_at_risk: -0.029,
     }
   },
   {
@@ -461,11 +774,25 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 6000,
+      symbol: 'QQQ',
       breakout_threshold: 0.03,
       volume_confirmation: true,
       position_size: 100,
       stop_loss: { value: 2, type: 'percentage' },
       take_profit: { value: 5, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.148,
+      win_rate: 0.58,
+      max_drawdown: 0.15,
+      sharpe_ratio: 1.08,
+      total_trades: 72,
+      avg_trade_duration: 8,
+      volatility: 0.25,
+      standard_deviation: 0.22,
+      beta: 1.32,
+      alpha: 0.018,
+      value_at_risk: -0.035,
     }
   },
   {
@@ -477,11 +804,25 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 10000,
+      pair_symbols: ['AAPL', 'MSFT'],
       correlation_threshold: 0.8,
       z_score_entry: 2.0,
       z_score_exit: 0.5,
       lookback_period: 60,
       position_ratio: 1.0
+    },
+    performance: {
+      total_return: 0.082,
+      win_rate: 0.79,
+      max_drawdown: 0.06,
+      sharpe_ratio: 1.45,
+      total_trades: 34,
+      avg_trade_duration: 12,
+      volatility: 0.10,
+      standard_deviation: 0.09,
+      beta: 0.25,
+      alpha: 0.015,
+      value_at_risk: -0.015,
     }
   },
   {
@@ -493,11 +834,25 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 15000,
+      symbol: 'SPY',
       time_frame: '1m',
       profit_target: 0.1,
       stop_loss: { value: 0.05, type: 'percentage' },
       max_trades_per_day: 50,
       position_size: 100
+    },
+    performance: {
+      total_return: 0.285,
+      win_rate: 0.48,
+      max_drawdown: 0.32,
+      sharpe_ratio: 0.58,
+      total_trades: 1250,
+      avg_trade_duration: 0.1,
+      volatility: 0.52,
+      standard_deviation: 0.48,
+      beta: 2.15,
+      alpha: -0.018,
+      value_at_risk: -0.078,
     }
   },
   {
@@ -509,6 +864,7 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 8000,
+      symbol: 'QQQ',
       holding_period_min: 2,
       holding_period_max: 10,
       rsi_oversold: 30,
@@ -516,6 +872,19 @@ const strategiesToSeed = [
       position_size: 100,
       stop_loss: { value: 3, type: 'percentage' },
       take_profit: { value: 6, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.135,
+      win_rate: 0.62,
+      max_drawdown: 0.14,
+      sharpe_ratio: 1.15,
+      total_trades: 64,
+      avg_trade_duration: 6,
+      volatility: 0.22,
+      standard_deviation: 0.19,
+      beta: 1.18,
+      alpha: 0.012,
+      value_at_risk: -0.031,
     }
   },
   {
@@ -527,10 +896,24 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 12000,
+      symbol: 'BTC/USDT',
       min_spread_threshold: 0.5,
       execution_speed: 'fast',
       max_position_size: 1000,
       exchanges: ['primary', 'secondary']
+    },
+    performance: {
+      total_return: 0.045,
+      win_rate: 0.95,
+      max_drawdown: 0.02,
+      sharpe_ratio: 2.15,
+      total_trades: 156,
+      avg_trade_duration: 0.5,
+      volatility: 0.04,
+      standard_deviation: 0.03,
+      beta: 0.15,
+      alpha: 0.025,
+      value_at_risk: -0.006,
     }
   },
   {
@@ -542,12 +925,26 @@ const strategiesToSeed = [
     is_active: false,
     configuration: {
       allocated_capital: 10000,
+      symbol: 'SPY',
       sentiment_threshold: 0.7,
       news_sources: ['reuters', 'bloomberg', 'cnbc'],
       reaction_window: 30,
       position_size: 100,
       stop_loss: { value: 2, type: 'percentage' },
       take_profit: { value: 4, type: 'percentage' }
+    },
+    performance: {
+      total_return: 0.195,
+      win_rate: 0.44,
+      max_drawdown: 0.24,
+      sharpe_ratio: 0.82,
+      total_trades: 96,
+      avg_trade_duration: 3,
+      volatility: 0.38,
+      standard_deviation: 0.34,
+      beta: 1.65,
+      alpha: 0.008,
+      value_at_risk: -0.051,
     }
   }
 ];
