@@ -89,6 +89,11 @@ export interface TradingStrategy {
     sharpe_ratio?: number;
     total_trades?: number;
     avg_trade_duration?: number;
+    volatility?: number;
+    standard_deviation?: number;
+    beta?: number;
+    alpha?: number;
+    value_at_risk?: number;
   };
   created_at?: string;
   updated_at?: string;
