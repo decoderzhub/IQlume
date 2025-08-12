@@ -7,43 +7,13 @@ import { formatCurrency, formatPercent } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
 
-// Mock data - replace with real data from your API
-const mockPortfolio = {
-  total_value: 125420.50,
-  day_change: 1247.82,
-  day_change_percent: 1.01,
-  accounts: [
-    {
-      id: '1',
-      user_id: '1',
-      brokerage: 'alpaca' as const,
-      account_name: 'Main Trading',
-      account_type: 'stocks' as const,
-      balance: 85420.50,
-      is_connected: true,
-      last_sync: '2024-01-15T10:30:00Z',
-    },
-    {
-      id: '2',
-      user_id: '1',
-      brokerage: 'binance' as const,
-      account_name: 'Crypto Portfolio',
-      account_type: 'crypto' as const,
-      balance: 40000.00,
-      is_connected: true,
-      last_sync: '2024-01-15T10:25:00Z',
-    },
-  ],
-};
-
 export function PortfolioOverview() {
-  const { portfolio: storePortfolio, user } = useStore();
+  const { portfolio, user, brokerageAccounts, bankAccounts, custodialWallets } = useStore();
   const [marketData, setMarketData] = React.useState<any>(null);
   const [historicalData, setHistoricalData] = React.useState<any>({});
   const [loading, setLoading] = React.useState(false);
   
-  const portfolio = storePortfolio ?? mockPortfolio;
-  const isPositive = portfolio.day_change >= 0;
+  const isPositive = (portfolio?.day_change || 0) >= 0;
 
   // Generate mock historical data for charts (in production, this would come from your API)
   const generateMockHistoricalData = (currentPrice: number, symbol: string) => {
@@ -144,25 +114,25 @@ export function PortfolioOverview() {
   const stats = [
     {
       label: 'Total Value',
-      value: formatCurrency(portfolio.total_value),
+      value: formatCurrency(portfolio?.total_value || 0),
       icon: DollarSign,
       color: 'text-blue-400',
     },
     {
       label: 'Today\'s Change',
-      value: formatCurrency(Math.abs(portfolio.day_change)),
+      value: formatCurrency(Math.abs(portfolio?.day_change || 0)),
       icon: isPositive ? TrendingUp : TrendingDown,
       color: isPositive ? 'text-green-400' : 'text-red-400',
     },
     {
       label: 'Day Change %',
-      value: formatPercent(Math.abs(portfolio.day_change_percent)),
+      value: formatPercent(Math.abs(portfolio?.day_change_percent || 0)),
       icon: Activity,
       color: isPositive ? 'text-green-400' : 'text-red-400',
     },
     {
       label: 'Connected Accounts',
-      value: portfolio.accounts.filter(acc => acc.is_connected).length.toString(),
+      value: brokerageAccounts.filter(acc => acc.is_connected).length.toString(),
       icon: Activity,
       color: 'text-purple-400',
     },
@@ -386,7 +356,7 @@ export function PortfolioOverview() {
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Connected Accounts</h3>
         <div className="space-y-4">
-          {portfolio.accounts.map((account) => (
+          {brokerageAccounts.map((account) => (
             <div key={account.id} className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
               <div className="flex items-center gap-4">
                 <div className={`w-3 h-3 rounded-full ${account.is_connected ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -404,6 +374,34 @@ export function PortfolioOverview() {
             </div>
           ))}
         </div>
+        
+        {/* Show custodial wallets as available capital */}
+        {custodialWallets.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-gray-700">
+            <h4 className="text-md font-semibold text-white mb-4">Available Trading Capital</h4>
+            <div className="space-y-3">
+              {custodialWallets.map((wallet) => (
+                <div key={wallet.id} className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-4 h-4 text-green-400" />
+                    <div>
+                      <p className="font-medium text-white text-sm">{wallet.wallet_name}</p>
+                      <p className="text-xs text-gray-400">
+                        APY: {(wallet.apy * 100).toFixed(2)}% • FDIC Insured
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-green-400">
+                      {formatCurrency(wallet.balance_usd + wallet.balance_treasuries)}
+                    </p>
+                    <p className="text-xs text-gray-400">Available for trading</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

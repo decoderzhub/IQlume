@@ -9,72 +9,63 @@ import { CustodialWalletModal } from './CustodialWalletModal';
 import { TransferAssetsModal } from './TransferAssetsModal';
 import { BrokerageAccount, BankAccount, CustodialWallet } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
-
-const mockBrokerageAccounts: BrokerageAccount[] = [
-  {
-    id: '1',
-    user_id: '1',
-    brokerage: 'schwab',
-    account_name: 'Charles Schwab Brokerage',
-    account_type: 'stocks',
-    balance: 125420.50,
-    is_connected: true,
-    last_sync: '2024-01-15T10:30:00Z',
-  },
-  {
-    id: '2',
-    user_id: '1',
-    brokerage: 'coinbase',
-    account_name: 'Coinbase Pro',
-    account_type: 'crypto',
-    balance: 45000.00,
-    is_connected: true,
-    last_sync: '2024-01-15T10:25:00Z',
-  },
-];
-
-const mockBankAccounts: BankAccount[] = [
-  {
-    id: '1',
-    user_id: '1',
-    bank_name: 'Chase',
-    account_name: 'Chase Checking',
-    account_type: 'checking',
-    account_number_masked: '****1234',
-    routing_number: '021000021',
-    balance: 15420.50,
-    is_verified: true,
-    plaid_account_id: 'plaid_123',
-    plaid_access_token: 'access_token_123',
-    last_sync: '2024-01-15T09:30:00Z',
-  },
-];
-
-const mockCustodialWallets: CustodialWallet[] = [
-  {
-    id: '1',
-    user_id: '1',
-    wallet_name: 'High-Yield Treasury Wallet',
-    balance_usd: 25000.00,
-    balance_treasuries: 75000.00,
-    apy: 0.0485,
-    is_fdic_insured: true,
-    created_at: '2024-01-01T00:00:00Z',
-  },
-];
+import { DepositFundsModal } from './DepositFundsModal';
+import { useStore } from '../../store/useStore';
 
 export function AccountsView() {
   const [showBrokerageModal, setShowBrokerageModal] = useState(false);
   const [showBankModal, setShowBankModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [brokerageAccounts, setBrokerageAccounts] = useState(mockBrokerageAccounts);
-  const [bankAccounts, setBankAccounts] = useState(mockBankAccounts);
-  const [custodialWallets, setCustodialWallets] = useState(mockCustodialWallets);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [selectedWalletForDeposit, setSelectedWalletForDeposit] = useState<CustodialWallet | null>(null);
+  
+  const { 
+    brokerageAccounts, 
+    bankAccounts, 
+    custodialWallets, 
+    setBrokerageAccounts, 
+    setBankAccounts, 
+    setCustodialWallets,
+    updatePortfolioFromAccounts 
+  } = useStore();
 
   const totalBrokerageValue = brokerageAccounts.reduce((sum, acc) => sum + acc.balance, 0);
   const totalBankValue = bankAccounts.reduce((sum, acc) => sum + acc.balance, 0);
   const totalWalletValue = custodialWallets.reduce((sum, wallet) => sum + wallet.balance_usd + wallet.balance_treasuries, 0);
+
+  const handleBrokerageConnect = (account: Omit<BrokerageAccount, 'id'>) => {
+    const newAccount = { ...account, id: Date.now().toString() };
+    setBrokerageAccounts([...brokerageAccounts, newAccount]);
+    updatePortfolioFromAccounts();
+    setShowBrokerageModal(false);
+  };
+
+  const handleBankConnect = (account: Omit<BankAccount, 'id'>) => {
+    const newAccount = { ...account, id: Date.now().toString() };
+    setBankAccounts([...bankAccounts, newAccount]);
+    updatePortfolioFromAccounts();
+    setShowBankModal(false);
+  };
+
+  const handleWalletCreate = (wallet: Omit<CustodialWallet, 'id'>) => {
+    const newWallet = { ...wallet, id: Date.now().toString() };
+    setCustodialWallets([...custodialWallets, newWallet]);
+    updatePortfolioFromAccounts();
+    setShowWalletModal(false);
+  };
+
+  const handleDeposit = (walletId: string, amount: number) => {
+    const updatedWallets = custodialWallets.map(wallet =>
+      wallet.id === walletId
+        ? { ...wallet, balance_usd: wallet.balance_usd + amount }
+        : wallet
+    );
+    setCustodialWallets(updatedWallets);
+    updatePortfolioFromAccounts();
+    setShowDepositModal(false);
+    setSelectedWalletForDeposit(null);
+  };
 
   return (
     <motion.div
@@ -238,6 +229,18 @@ export function AccountsView() {
                   <p className="font-medium text-white">
                     {formatCurrency(wallet.balance_usd + wallet.balance_treasuries)}
                   </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedWalletForDeposit(wallet);
+                      setShowDepositModal(true);
+                    }}
+                    className="mt-2"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Deposit
+                  </Button>
                 </div>
               </div>
               
@@ -260,30 +263,32 @@ export function AccountsView() {
       {showBrokerageModal && (
         <ConnectBrokerageModal
           onClose={() => setShowBrokerageModal(false)}
-          onConnect={(account) => {
-            setBrokerageAccounts(prev => [...prev, { ...account, id: Date.now().toString() }]);
-            setShowBrokerageModal(false);
-          }}
+          onConnect={handleBrokerageConnect}
         />
       )}
 
       {showBankModal && (
         <ConnectBankModal
           onClose={() => setShowBankModal(false)}
-          onConnect={(account) => {
-            setBankAccounts(prev => [...prev, { ...account, id: Date.now().toString() }]);
-            setShowBankModal(false);
-          }}
+          onConnect={handleBankConnect}
         />
       )}
 
       {showWalletModal && (
         <CustodialWalletModal
           onClose={() => setShowWalletModal(false)}
-          onCreate={(wallet) => {
-            setCustodialWallets(prev => [...prev, { ...wallet, id: Date.now().toString() }]);
-            setShowWalletModal(false);
+          onCreate={handleWalletCreate}
+        />
+      )}
+
+      {showDepositModal && selectedWalletForDeposit && (
+        <DepositFundsModal
+          wallet={selectedWalletForDeposit}
+          onClose={() => {
+            setShowDepositModal(false);
+            setSelectedWalletForDeposit(null);
           }}
+          onDeposit={handleDeposit}
         />
       )}
 

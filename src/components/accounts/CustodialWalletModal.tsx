@@ -177,6 +177,9 @@ export function CustodialWalletModal({ onClose, onCreate }: CustodialWalletModal
                       step="1000"
                     />
                   </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    This amount will be available as trading capital on the platform
+                  </p>
                 </div>
               </div>
 

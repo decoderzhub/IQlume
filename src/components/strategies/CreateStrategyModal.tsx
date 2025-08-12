@@ -987,31 +987,122 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   </div>
                 )}
 
-                {/* Action Buttons */}
-                <div className="flex gap-4 pt-6 border-t border-gray-800">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={onClose}
-                    className="flex-1"
-                  >
+                {/* Strategy Summary */}
+                {selectedStrategyType && (
+                  <div className="bg-gray-800/30 rounded-lg p-6">
+                    <h4 className="font-semibold text-white mb-4">Strategy Summary</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">Type:</span>
+                        <span className="text-white ml-2">{selectedStrategyType.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Risk Level:</span>
+                        <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
+                          selectedStrategyType.risk === 'low' ? 'bg-green-400/10 text-green-400' :
+                          selectedStrategyType.risk === 'medium' ? 'bg-yellow-400/10 text-yellow-400' :
+                          'bg-red-400/10 text-red-400'
+                        }`}>
+                          {selectedStrategyType.risk}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Min Capital:</span>
+                        <span className="text-white ml-2">{formatCurrency(minCapital)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Allocated:</span>
+                        <span className="text-blue-400 ml-2">{formatCurrency(currentAllocatedCapital)}</span>
+                      </div>
+                      {selectedType !== 'smart_rebalance' && symbol && (
+                        <div>
+                          <span className="text-gray-400">Symbol:</span>
+                          <span className="text-white ml-2">{symbol}</span>
+                        </div>
+                      )}
+                      {['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
+                        <>
+                          <div>
+                            <span className="text-gray-400">Price Range:</span>
+                            <span className="text-white ml-2">
+                              {selectedType === 'infinity_grid' 
+                                ? `${priceRangeLower || 0}+ USDT`
+                                : `${priceRangeLower || 0} - ${priceRangeUpper || 0} USDT`
+                              }
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Grids:</span>
+                            <span className="text-white ml-2">{numberOfGrids}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Investment:</span>
+                            <span className="text-white ml-2">{totalInvestment} USDT</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Grid Mode:</span>
+                            <span className="text-white ml-2 capitalize">{gridMode}</span>
+                          </div>
+                          {triggerPrice && (
+                            <div>
+                              <span className="text-gray-400">Trigger:</span>
+                              <span className="text-white ml-2">{triggerPrice} USDT</span>
+                            </div>
+                          )}
+                          {takeProfit && (
+                            <div>
+                              <span className="text-gray-400">Take Profit:</span>
+                              <span className="text-green-400 ml-2">{takeProfit} USDT</span>
+                            </div>
+                          )}
+                          {stopLoss && (
+                            <div>
+                              <span className="text-gray-400">Stop Loss:</span>
+                              <span className="text-red-400 ml-2">{stopLoss} USDT</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {selectedType === 'smart_rebalance' && (
+                        <div className="col-span-2">
+                          <span className="text-gray-400">Assets:</span>
+                          <div className="mt-2 space-y-1">
+                            {assets.filter(a => a.symbol.trim()).map((asset, index) => (
+                              <div key={index} className="flex justify-between">
+                                <span className="text-white">{asset.symbol}</span>
+                                <span className="text-blue-400">{asset.allocation}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Submit Button */}
+                <div className="flex justify-end gap-4">
+                  <Button type="button" variant="outline" onClick={onClose}>
                     Cancel
                   </Button>
-                  <Button
+                  <Button 
                     type="submit"
                     disabled={
                       !selectedType || 
                       !name || 
                       (selectedType !== 'smart_rebalance' && !symbol.trim()) ||
+                      (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim() && a.allocation > 0).length < 2)) ||
+                      (currentAllocatedCapital < minCapital) ||
                       (['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
                         totalInvestment <= 0 || 
                         numberOfGrids < 2 || 
-                        currentAllocatedCapital <= 0
-                      )) ||
-                      (selectedType === 'smart_rebalance' && (!isAllocationValid() || assets.filter(a => a.symbol.trim()).length < 2))
+                        numberOfGrids > 1000 ||
+                        (selectedType !== 'infinity_grid' && (priceRangeLower <= 0 || priceRangeUpper <= 0 || priceRangeLower >= priceRangeUpper))
+                      ))
                     }
-                    className="flex-1"
+                    className="flex items-center gap-2"
                   >
+                    <TrendingUp className="w-4 h-4" />
                     Create Strategy
                   </Button>
                 </div>

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { User, Portfolio, TradingStrategy, Trade, BrokerageAccount } from '../types';
+import { User, Portfolio, TradingStrategy, Trade, BrokerageAccount, BankAccount, CustodialWallet } from '../types';
 
 interface AppState {
   // Auth state
@@ -9,6 +9,9 @@ interface AppState {
   
   // Portfolio state
   portfolio: Portfolio | null;
+  brokerageAccounts: BrokerageAccount[];
+  bankAccounts: BankAccount[];
+  custodialWallets: CustodialWallet[];
   selectedAccount: string | null;
   
   // Trading state
@@ -23,6 +26,10 @@ interface AppState {
   // Actions
   setUser: (user: User | null) => void;
   setPortfolio: (portfolio: Portfolio) => void;
+  setBrokerageAccounts: (accounts: BrokerageAccount[]) => void;
+  setBankAccounts: (accounts: BankAccount[]) => void;
+  setCustodialWallets: (wallets: CustodialWallet[]) => void;
+  updatePortfolioFromAccounts: () => void;
   setSelectedAccount: (accountId: string) => void;
   setStrategies: (strategies: TradingStrategy[]) => void;
   setActiveStrategy: (strategy: TradingStrategy) => void;
@@ -38,6 +45,9 @@ export const useStore = create<AppState>((set) => ({
   isAuthenticated: false,
   loading: false,
   portfolio: null,
+  brokerageAccounts: [],
+  bankAccounts: [],
+  custodialWallets: [],
   selectedAccount: null,
   strategies: [],
   activeStrategy: null,
@@ -48,6 +58,29 @@ export const useStore = create<AppState>((set) => ({
   // Actions
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   setPortfolio: (portfolio) => set({ portfolio }),
+  setBrokerageAccounts: (accounts) => set({ brokerageAccounts: accounts }, false, 'setBrokerageAccounts'),
+  setBankAccounts: (accounts) => set({ bankAccounts: accounts }, false, 'setBankAccounts'),
+  setCustodialWallets: (wallets) => set({ custodialWallets: wallets }, false, 'setCustodialWallets'),
+  updatePortfolioFromAccounts: () => set((state) => {
+    const brokerageTotal = state.brokerageAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+    const bankTotal = state.bankAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+    const walletTotal = state.custodialWallets.reduce((sum, wallet) => sum + wallet.balance_usd + wallet.balance_treasuries, 0);
+    
+    const totalValue = brokerageTotal + bankTotal + walletTotal;
+    const dayChange = totalValue * 0.01; // Mock 1% daily change
+    const dayChangePercent = 1.0;
+    
+    return {
+      portfolio: {
+        total_value: totalValue,
+        day_change: dayChange,
+        day_change_percent: dayChangePercent,
+        accounts: state.brokerageAccounts,
+        bank_accounts: state.bankAccounts,
+        custodial_wallets: state.custodialWallets,
+      }
+    };
+  }, false, 'updatePortfolioFromAccounts'),
   setSelectedAccount: (accountId) => set({ selectedAccount: accountId }),
   setStrategies: (strategies) => set({ strategies }),
   setActiveStrategy: (strategy) => set({ activeStrategy: strategy }),
