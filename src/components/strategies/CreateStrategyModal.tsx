@@ -24,256 +24,174 @@ import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 
-interface CreateStrategyModalProps {
-  onClose: () => void;
-  onSave: (strategy: Omit<TradingStrategy, 'id'>) => void;
-}
-
-// Categorized and sorted strategies (low to high risk within each category)
-const strategyCategories = {
-  'Grid Trading Bots': [
+// Strategy categories organized by user sophistication level
+const categorizedStrategies = {
+  'Beginner (Basic concepts, low complexity, easy to automate)': [
     {
       id: 'dca',
       name: 'DCA Bot (Dollar-Cost Averaging)',
-      description: 'Automatically invests at fixed intervals to minimize volatility risk through systematic purchasing.',
+      description: 'Simple entry schedule, minimal decision-making.',
       risk_level: 'low' as const,
       min_capital: 500,
-      icon: Repeat,
+      icon: '📈',
+    },
+    {
+      id: 'spot_grid',
+      name: 'Spot Grid Bot (tight grid, low leverage)',
+      description: 'Works well in range-bound markets, minimal monitoring.',
+      risk_level: 'low' as const,
+      min_capital: 1000,
+      icon: '🤖',
     },
     {
       id: 'smart_rebalance',
       name: 'Smart Rebalance Bot',
-      description: 'Maintains target allocations in a portfolio of selected assets through automatic rebalancing.',
+      description: 'Automatic portfolio optimization without complex strategy work.',
       risk_level: 'low' as const,
       min_capital: 5000,
-      icon: BarChart3,
-    },
-    {
-      id: 'spot_grid',
-      name: 'Spot Grid Bot',
-      description: 'Automates buy-low/sell-high trades within a defined price range for cryptocurrency trading.',
-      risk_level: 'low' as const,
-      min_capital: 1000,
-      icon: Grid3X3,
-    },
-    {
-      id: 'futures_grid',
-      name: 'Futures Grid Bot',
-      description: 'Grid trading on futures market with leverage support for advanced traders.',
-      risk_level: 'medium' as const,
-      min_capital: 2000,
-      icon: TrendingUp,
-    },
-    {
-      id: 'infinity_grid',
-      name: 'Infinity Grid Bot',
-      description: 'Grid trading without upper price limit for trending markets and bull runs.',
-      risk_level: 'medium' as const,
-      min_capital: 1500,
-      icon: Zap,
-    },
-  ],
-  'Automated Core Strategies': [
-    {
-      id: 'arbitrage',
-      name: 'Arbitrage',
-      description: 'Cross-exchange arbitrage strategy exploiting price differences between trading venues.',
-      risk_level: 'low' as const,
-      min_capital: 12000,
-      icon: ArrowUpDown,
-    },
-    {
-      id: 'pairs_trading',
-      name: 'Pairs Trading',
-      description: 'Market neutral strategy trading correlated pairs to profit from relative price movements.',
-      risk_level: 'low' as const,
-      min_capital: 10000,
-      icon: Target,
-    },
-    {
-      id: 'orb',
-      name: 'Opening Range Breakout (ORB)',
-      description: 'Trade breakouts from the first 15-30 minutes of market open for momentum capture.',
-      risk_level: 'medium' as const,
-      min_capital: 5000,
-      icon: Activity,
-    },
-    {
-      id: 'mean_reversion',
-      name: 'Mean Reversion',
-      description: 'Contrarian strategy that profits from price reversions to the mean using statistical analysis.',
-      risk_level: 'medium' as const,
-      min_capital: 7500,
-      icon: TrendingDown,
-    },
-    {
-      id: 'momentum_breakout',
-      name: 'Momentum Breakout',
-      description: 'Trend following strategy that captures momentum breakouts using technical indicators.',
-      risk_level: 'medium' as const,
-      min_capital: 6000,
-      icon: TrendingUp,
-    },
-    {
-      id: 'swing_trading',
-      name: 'Swing Trading',
-      description: 'Multi-day swing trading strategy capturing intermediate price movements using technical analysis.',
-      risk_level: 'medium' as const,
-      min_capital: 8000,
-      icon: BarChart3,
-    },
-    {
-      id: 'news_based_trading',
-      name: 'News-Based Trading',
-      description: 'Event-driven strategy that trades based on news sentiment and market reactions.',
-      risk_level: 'high' as const,
-      min_capital: 10000,
-      icon: Activity,
-    },
-    {
-      id: 'scalping',
-      name: 'Scalping',
-      description: 'High frequency scalping strategy for quick profits on small price movements.',
-      risk_level: 'high' as const,
-      min_capital: 15000,
-      icon: Zap,
-    },
-  ],
-  'Options Income Strategies': [
-    {
-      id: 'long_butterfly',
-      name: 'Long Butterfly',
-      description: 'Precision targeting strategy using long butterfly spreads for specific price level profits.',
-      risk_level: 'low' as const,
-      min_capital: 2500,
-      icon: Target,
-    },
-    {
-      id: 'long_condor',
-      name: 'Long Condor',
-      description: 'Range-bound profit strategy using long condor spreads for sideways market conditions.',
-      risk_level: 'low' as const,
-      min_capital: 3000,
-      icon: Shield,
+      icon: '⚖️',
     },
     {
       id: 'covered_calls',
-      name: 'Covered Calls',
-      description: 'Generate income by selling call options on owned stocks while maintaining the underlying position.',
+      name: 'Covered Call',
+      description: 'Straightforward income play if investor already owns stock.',
       risk_level: 'low' as const,
       min_capital: 15000,
-      icon: Shield,
+      icon: '🛡️',
     },
     {
       id: 'wheel',
-      name: 'The Wheel',
-      description: 'Systematic approach combining cash-secured puts and covered calls for consistent income generation.',
+      name: 'The Wheel (basic use with large-cap stocks)',
+      description: 'Simple routine of selling puts/calls in rotation.',
       risk_level: 'low' as const,
       min_capital: 20000,
-      icon: Repeat,
+      icon: '🎡',
     },
+  ],
+  'Moderate (Some options knowledge, risk management, and market awareness needed)': [
     {
       id: 'option_collar',
       name: 'Option Collar',
-      description: 'Protective strategy using option collars to limit downside while capping upside.',
+      description: 'Understanding of both protective puts and covered calls.',
       risk_level: 'low' as const,
       min_capital: 25000,
-      icon: Shield,
-    },
-    {
-      id: 'iron_condor',
-      name: 'Iron Condor',
-      description: 'Profit from low volatility with defined risk spreads on an underlying asset.',
-      risk_level: 'medium' as const,
-      min_capital: 5000,
-      icon: Target,
-    },
-    {
-      id: 'iron_butterfly',
-      name: 'Iron Butterfly',
-      description: 'Low volatility income strategy using iron butterfly for range-bound markets.',
-      risk_level: 'medium' as const,
-      min_capital: 4000,
-      icon: Target,
+      icon: '🛡️',
     },
     {
       id: 'short_put_vertical',
       name: 'Short Put Vertical',
-      description: 'Bullish spread strategy using short put verticals with limited risk profile.',
+      description: 'Requires spread knowledge and defined-risk trading discipline.',
       risk_level: 'medium' as const,
       min_capital: 2500,
-      icon: TrendingUp,
+      icon: '📈',
     },
     {
       id: 'short_call_vertical',
       name: 'Short Call Vertical',
-      description: 'Bearish spread strategy using short call verticals with defined maximum risk.',
+      description: 'Same as above, but with bearish bias.',
       risk_level: 'medium' as const,
       min_capital: 3000,
-      icon: TrendingDown,
+      icon: '📉',
+    },
+    {
+      id: 'iron_condor',
+      name: 'Iron Condor',
+      description: 'Needs volatility assessment and risk monitoring.',
+      risk_level: 'medium' as const,
+      min_capital: 5000,
+      icon: '🦅',
     },
     {
       id: 'broken_wing_butterfly',
       name: 'Broken-Wing Butterfly',
-      description: 'Asymmetric spread strategy using broken-wing butterfly with directional bias.',
+      description: 'Directional component plus skew management.',
       risk_level: 'medium' as const,
       min_capital: 3500,
-      icon: Target,
+      icon: '🦋',
     },
     {
-      id: 'short_put',
-      name: 'Short Put',
-      description: 'Cash-secured put strategy for income generation with potential stock acquisition.',
+      id: 'infinity_grid',
+      name: 'Infinity Grid Bot',
+      description: 'Requires awareness of trending market dangers.',
       risk_level: 'medium' as const,
-      min_capital: 15000,
-      icon: TrendingDown,
+      min_capital: 1500,
+      icon: '♾️',
+    },
+    {
+      id: 'futures_grid',
+      name: 'Futures Grid Bot (moderate leverage)',
+      description: 'More active oversight and trend risk awareness.',
+      risk_level: 'medium' as const,
+      min_capital: 2000,
+      icon: '⚡',
+    },
+    {
+      id: 'orb',
+      name: 'Opening Range Breakout (ORB)',
+      description: 'Requires intraday market timing skills.',
+      risk_level: 'medium' as const,
+      min_capital: 5000,
+      icon: '🌅',
     },
   ],
-  'Options Directional & Volatility': [
+  'Advanced (Complex adjustments, high precision, and active management required)': [
     {
       id: 'long_call',
       name: 'Long Call',
-      description: 'Bullish momentum play using long call options for leveraged upside exposure.',
+      description: 'Not complex mechanically, but advanced in risk management due to decay.',
       risk_level: 'medium' as const,
       min_capital: 5000,
-      icon: TrendingUp,
+      icon: '📞',
     },
     {
-      id: 'long_strangle',
-      name: 'Long Strangle',
-      description: 'Directional volatility strategy using long strangles for large directional moves.',
-      risk_level: 'medium' as const,
-      min_capital: 6000,
-      icon: ArrowUpDown,
+      id: 'short_call',
+      name: 'Short Call (Naked)',
+      description: 'Unlimited risk, requires margin sophistication and hedging ability.',
+      risk_level: 'high' as const,
+      min_capital: 15000,
+      icon: '⚠️',
     },
     {
       id: 'straddle',
       name: 'Long Straddle',
-      description: 'Profit from high volatility in either direction using long straddle options strategy.',
+      description: 'Volatility trading, requires event/timing precision.',
       risk_level: 'medium' as const,
       min_capital: 8000,
-      icon: ArrowUpDown,
-    },
-    {
-      id: 'long_straddle',
-      name: 'Long Straddle - Volatility Play',
-      description: 'Volatility play around earnings using long straddle for directional movement profits.',
-      risk_level: 'medium' as const,
-      min_capital: 8000,
-      icon: ArrowUpDown,
-    },
-    {
-      id: 'short_call',
-      name: 'Short Call',
-      description: 'High-risk premium collection strategy selling naked calls with defined risk management.',
-      risk_level: 'high' as const,
-      min_capital: 15000,
-      icon: TrendingDown,
+      icon: '⚡',
     },
     {
       id: 'short_straddle',
       name: 'Short Straddle',
-      description: 'Ultra-high risk volatility selling strategy using short straddles for premium income.',
+      description: 'Unlimited risk, needs constant adjustment.',
+      risk_level: 'high' as const,
+      min_capital: 20000,
+      icon: '💥',
+    },
+    {
+      id: 'long_strangle',
+      name: 'Long Strangle',
+      description: 'Similar to straddle, requires volatility forecasting.',
+      risk_level: 'medium' as const,
+      min_capital: 6000,
+      icon: '🎯',
+    },
+    {
+      id: 'short_strangle',
+      name: 'Short Strangle',
+      description: 'Unlimited risk, must manage delta, gamma, vega actively.',
+      risk_level: 'high' as const,
+      min_capital: 25000,
+      icon: '🎯',
+    },
+    {
+      id: 'short_put',
+      name: 'Short Put (Naked)',
+      description: 'Large downside exposure, needs deep understanding of assignment risk.',
+      risk_level: 'medium' as const,
+      min_capital: 15000,
+      icon: '💰',
+    },
+  ],
       risk_level: 'high' as const,
       min_capital: 20000,
       icon: ArrowUpDown,
@@ -1416,6 +1334,21 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       disabled={assets.length >= 10}
                     >
                       Add Asset
+                  
+                  // Get category icon and color based on sophistication level
+                  const getCategoryIcon = (name: string) => {
+                    if (name.includes('Beginner')) return '🟢';
+                    if (name.includes('Moderate')) return '🟡';
+                    if (name.includes('Advanced')) return '🔴';
+                    return '📊';
+                  };
+                  
+                  const getCategoryColor = (name: string) => {
+                    if (name.includes('Beginner')) return 'from-green-900/20 to-emerald-900/20 border-green-500/20';
+                    if (name.includes('Moderate')) return 'from-yellow-900/20 to-orange-900/20 border-yellow-500/20';
+                    if (name.includes('Advanced')) return 'from-red-900/20 to-pink-900/20 border-red-500/20';
+                    return 'from-blue-900/20 to-purple-900/20 border-blue-500/20';
+                  };
                     </Button>
                     <div className={`text-sm font-medium ${
                       totalAllocation === 100 ? 'text-green-400' : 'text-yellow-400'
@@ -1423,9 +1356,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       Total: {totalAllocation}%
                     </div>
                   </div>
-                  
+                      className={`p-6 bg-gradient-to-r ${getCategoryColor(categoryName)} rounded-lg cursor-pointer hover:border-opacity-60 transition-all border`}
                   {totalAllocation !== 100 && (
-                    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded p-3">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="text-2xl">{getCategoryIcon(categoryName)}</span>
+                        <h3 className="text-lg font-semibold text-white">{categoryName}</h3>
+                      </div>
                       <p className="text-sm text-yellow-400">
                         Total allocation must equal 100%. Current total: {totalAllocation}%
                       </p>
