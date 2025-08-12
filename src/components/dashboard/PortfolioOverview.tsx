@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, DollarSign, Activity, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Activity, Info, Shield } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Card } from '../ui/Card';
 import { formatCurrency, formatPercent } from '../../lib/utils';
