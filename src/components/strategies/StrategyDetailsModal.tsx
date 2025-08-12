@@ -355,7 +355,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                         <div
                           key={point}
                           className="absolute w-1 h-3 bg-white/60 rounded-full"
-                          style={{ left: `${point}%`, transform: 'translateX(-50%)' }}
+                         style={{ left: `calc(${point}% - 12px)` }}
                         />
                       ))}
                     </div>
