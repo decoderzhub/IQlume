@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, TrendingUp, DollarSign, Shield, Plus, Minus, BookOpen } from 'lucide-react';
+import { 
   X, 
   TrendingUp, 
   DollarSign, 
@@ -26,18 +27,11 @@ import { formatCurrency } from '../../lib/utils';
 
 // Strategy categories organized by type (not user sophistication)
 const categorizedStrategies = {
-  grid_trading: {
   'Beginner': {
     icon: BookOpen,
     description: 'Basic concepts, low complexity, easy to automate',
-    color: 'from-green-500 to-emerald-600',
     color: 'from-blue-600 to-purple-600',
-      // Sorted by risk: low to high
-      { id: 'spot_grid', name: 'Spot Grid Bot', description: 'Automated buy-low/sell-high trades within a defined price range', risk_level: 'low' as const, min_capital: 1000 },
-      { id: 'futures_grid', name: 'Futures Grid Bot', description: 'Grid trading on futures market with leverage support', risk_level: 'medium' as const, min_capital: 2000 },
-      { id: 'infinity_grid', name: 'Infinity Grid Bot', description: 'Grid trading without upper price limit for trending markets', risk_level: 'medium' as const, min_capital: 1500 },
     borderColor: 'border-purple-500/20',
-      'spot_grid',
     strategies: [
       { id: 'dca', name: 'DCA Bot', description: 'Dollar-Cost Averaging - Simple entry schedule, minimal decision-making', risk_level: 'low' as const, min_capital: 500 },
       { id: 'smart_rebalance', name: 'Smart Rebalance Bot', description: 'Automatic portfolio optimization without complex strategy work', risk_level: 'low' as const, min_capital: 5000 },
@@ -45,8 +39,8 @@ const categorizedStrategies = {
       { id: 'arbitrage', name: 'Arbitrage', description: 'Cross-exchange arbitrage exploiting price differences', risk_level: 'low' as const, min_capital: 12000 },
       'covered_calls',
       'wheel',
+    ]
   },
-  options_income: {
   'Moderate': {
     icon: TrendingUp,
     description: 'Some options knowledge, risk management, and market awareness needed',
@@ -63,15 +57,8 @@ const categorizedStrategies = {
     ]
   },
   'Advanced': {
-    name: 'Options Income Strategies',
-    icon: '🛡️',
-    color: 'from-green-600 to-emerald-600',
-    borderColor: 'border-green-500/20',
-    strategies: [
-    description: 'Complex adjustments, high precision, and active management required',
-    color: 'from-red-500 to-pink-600',
-      { id: 'covered_calls', name: 'Covered Calls', description: 'Generate income by selling call options on owned stocks', risk_level: 'low' as const, min_capital: 15000 },
     icon: '📈',
+    description: 'Complex adjustments, high precision, and active management required',
     color: 'from-orange-600 to-red-600',
     borderColor: 'border-orange-500/20',
     strategies: [
