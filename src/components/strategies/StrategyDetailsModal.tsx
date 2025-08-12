@@ -26,6 +26,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
   const [stopLoss, setStopLoss] = useState<number | undefined>(strategy.configuration.stop_loss);
   const [gridMode, setGridMode] = useState<'arithmetic' | 'geometric'>(strategy.configuration.grid_mode || 'arithmetic');
   
+  // Configuration state for dynamic editing
+  const [configurationState, setConfigurationState] = useState<Record<string, any>>(strategy.configuration);
+  
   // Capital allocation
   const [totalAvailableCapital] = useState(250000); // Mock total available capital
   const [allocatedCapitalPercentage, setAllocatedCapitalPercentage] = useState(() => {
@@ -37,6 +40,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
   // Update states when strategy prop changes
   useEffect(() => {
     setEditedStrategy(strategy);
+    setConfigurationState(strategy.configuration);
     setPriceRangeLower(strategy.configuration.price_range_lower || 0);
     setPriceRangeUpper(strategy.configuration.price_range_upper || 0);
     setNumberOfGrids(strategy.configuration.number_of_grids || 20);
@@ -49,6 +53,10 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
     const allocatedCapital = strategy.configuration.allocated_capital || strategy.configuration.total_investment || strategy.min_capital;
     setAllocatedCapitalPercentage(Math.round((allocatedCapital / totalAvailableCapital) * 100));
   }, [strategy]);
+
+  const handleConfigurationChange = (key: string, value: any) => {
+    setConfigurationState(prev => ({ ...prev, [key]: value }));
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -96,7 +104,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
     const updatedStrategy: TradingStrategy = {
       ...editedStrategy,
       configuration: {
-        ...editedStrategy.configuration,
+        ...configurationState,
         ...(isGridBot && {
           price_range_lower: priceRangeLower,
           price_range_upper: priceRangeUpper,
@@ -608,10 +616,10 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
             <div className="bg-gray-800/30 rounded-lg p-6">
               <h4 className="font-semibold text-white mb-4">Current Configuration</h4>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                {editedStrategy.configuration.symbol && (
+                {configurationState.symbol && (
                   <div>
                     <span className="text-gray-400">Symbol:</span>
-                    <span className="text-white ml-2">{editedStrategy.configuration.symbol}</span>
+                    <span className="text-white ml-2">{configurationState.symbol}</span>
                   </div>
                 )}
                 {isGridBot && (
@@ -653,6 +661,99 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                     )}
                   </>
                 )}
+              </div>
+            </div>
+
+            {/* Dynamic Strategy-Specific Configuration */}
+            <div className="bg-gray-800/30 rounded-lg p-6">
+              <h4 className="font-semibold text-white mb-4">Strategy-Specific Parameters</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(configurationState)
+                  .filter(([key]) => {
+                    // Exclude grid bot specific fields that are handled separately
+                    if (isGridBot) {
+                      return !['price_range_lower', 'price_range_upper', 'number_of_grids', 
+                              'total_investment', 'allocated_capital', 'trigger_price', 
+                              'take_profit', 'stop_loss', 'grid_mode'].includes(key);
+                    }
+                    // Exclude allocated_capital for all strategies (handled by slider)
+                    return key !== 'allocated_capital';
+                  })
+                  .map(([key, value]) => (
+                    <div key={key} className={Array.isArray(value) || (typeof value === 'object' && value !== null) ? 'md:col-span-2' : ''}>
+                      <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
+                        {key.replace(/_/g, ' ')}
+                      </label>
+                      {typeof value === 'boolean' ? (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={value}
+                            onChange={(e) => handleConfigurationChange(key, e.target.checked)}
+                            className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                          />
+                          <span className="text-sm text-gray-300">Enabled</span>
+                        </label>
+                      ) : typeof value === 'number' ? (
+                        <input
+                          type="number"
+                          value={value}
+                          onChange={(e) => handleConfigurationChange(key, Number(e.target.value))}
+                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                          step={key.includes('percent') || key.includes('delta') || key.includes('ratio') ? '0.01' : '1'}
+                        />
+                      ) : Array.isArray(value) ? (
+                        <div>
+                          <textarea
+                            value={JSON.stringify(value, null, 2)}
+                            onChange={(e) => {
+                              try {
+                                const parsedValue = JSON.parse(e.target.value);
+                                handleConfigurationChange(key, parsedValue);
+                              } catch (error) {
+                                // Keep the text as is if JSON is invalid
+                                console.warn('Invalid JSON for', key, ':', error);
+                              }
+                            }}
+                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                            rows={Math.min(JSON.stringify(value, null, 2).split('\n').length + 1, 8)}
+                            placeholder="Enter JSON array"
+                          />
+                          <p className="text-xs text-gray-400 mt-1">
+                            Enter valid JSON format. For assets: [{"symbol": "BTC", "allocation": 40}, {"symbol": "ETH", "allocation": 30}]
+                          </p>
+                        </div>
+                      ) : typeof value === 'object' && value !== null ? (
+                        <div>
+                          <textarea
+                            value={JSON.stringify(value, null, 2)}
+                            onChange={(e) => {
+                              try {
+                                const parsedValue = JSON.parse(e.target.value);
+                                handleConfigurationChange(key, parsedValue);
+                              } catch (error) {
+                                // Keep the text as is if JSON is invalid
+                                console.warn('Invalid JSON for', key, ':', error);
+                              }
+                            }}
+                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                            rows={Math.min(JSON.stringify(value, null, 2).split('\n').length + 1, 6)}
+                            placeholder="Enter JSON object"
+                          />
+                          <p className="text-xs text-gray-400 mt-1">
+                            Enter valid JSON format
+                          </p>
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={value}
+                          onChange={(e) => handleConfigurationChange(key, e.target.value)}
+                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                        />
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
 

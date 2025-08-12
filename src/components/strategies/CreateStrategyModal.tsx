@@ -940,8 +940,42 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                             step={key.includes('percent') || key.includes('delta') ? '0.01' : '1'}
                           />
                         ) : Array.isArray(value) ? (
-                          <div className="text-sm text-gray-400 p-3 bg-gray-900/50 rounded border border-gray-700">
-                            {JSON.stringify(value, null, 2)}
+                          <div>
+                            <textarea
+                              value={JSON.stringify(value, null, 2)}
+                              onChange={(e) => {
+                                try {
+                                  const parsedValue = JSON.parse(e.target.value);
+                                  setConfiguration(prev => ({ ...prev, [key]: parsedValue }));
+                                } catch (error) {
+                                  // Keep the text as is if JSON is invalid
+                                  console.warn('Invalid JSON for', key, ':', error);
+                                }
+                              }}
+                              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                              rows={Math.min(JSON.stringify(value, null, 2).split('\n').length, 6)}
+                              placeholder="Enter JSON array"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">
+                          <div>
+                            <textarea
+                              value={JSON.stringify(value, null, 2)}
+                              onChange={(e) => {
+                                try {
+                                  const parsedValue = JSON.parse(e.target.value);
+                                  setConfiguration(prev => ({ ...prev, [key]: parsedValue }));
+                                } catch (error) {
+                                  // Keep the text as is if JSON is invalid
+                                  console.warn('Invalid JSON for', key, ':', error);
+                                }
+                              }}
+                              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                              rows={Math.min(JSON.stringify(value, null, 2).split('\n').length, 6)}
+                              placeholder="Enter JSON object"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">
+                              Enter valid JSON format
+                            </p>
                           </div>
                         ) : (
                           <input
