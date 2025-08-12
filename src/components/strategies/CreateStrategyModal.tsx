@@ -730,7 +730,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {sophisticationCategories.map((category) => {
+                  {strategyCategories.map((category) => {
                     const stats = getCategoryStats(category.name);
                     const Icon = category.icon;
                     
