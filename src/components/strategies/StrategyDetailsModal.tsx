@@ -25,6 +25,8 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
   const [takeProfit, setTakeProfit] = useState<number | undefined>(strategy.configuration.take_profit);
   const [stopLoss, setStopLoss] = useState<number | undefined>(strategy.configuration.stop_loss);
   const [gridMode, setGridMode] = useState<'arithmetic' | 'geometric'>(strategy.configuration.grid_mode || 'arithmetic');
+  const [stopLoss, setStopLoss] = useState<number | undefined>(strategy.configuration.stop_loss);
+  const [gridMode, setGridMode] = useState<'arithmetic' | 'geometric'>(strategy.configuration.grid_mode || 'arithmetic');
   
   // Configuration state for dynamic editing
   const [configurationState, setConfigurationState] = useState<Record<string, any>>(strategy.configuration);
@@ -50,6 +52,8 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
     setTotalInvestment(strategy.configuration.total_investment || 1000);
     setTriggerPrice(strategy.configuration.trigger_price);
     setTakeProfit(strategy.configuration.take_profit);
+    setStopLoss(strategy.configuration.stop_loss);
+    setGridMode(strategy.configuration.grid_mode || 'arithmetic');
     setStopLoss(strategy.configuration.stop_loss);
     setGridMode(strategy.configuration.grid_mode || 'arithmetic');
     
@@ -572,6 +576,272 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                     </div>
 
                     {/* Grid Mode Toggle */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-3">Grid Mode</label>
+                      <div className="flex rounded-lg bg-gray-800 border border-gray-700 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setGridMode('geometric')}
+                          className={`flex-1 px-4 py-3 text-center text-sm font-medium transition-colors ${
+                            gridMode === 'geometric' 
+                              ? 'bg-blue-600 text-white' 
+                              : 'text-gray-300 hover:bg-gray-700'
+                          }`}
+                        >
+                          Geometric
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGridMode('arithmetic')}
+                          className={`flex-1 px-4 py-3 text-center text-sm font-medium transition-colors ${
+                            gridMode === 'arithmetic' 
+                              ? 'bg-blue-600 text-white' 
+                              : 'text-gray-300 hover:bg-gray-700'
+                          }`}
+                        >
+                          Arithmetic
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-2">
+                        {gridMode === 'arithmetic'
+                          ? 'Equal price differences between grids (e.g., $100, $200, $300). More effective in bullish markets.'
+                          : 'Equal percentage changes between grids (e.g., $100, $200, $400). More effective in bearish markets or high volatility.'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid Mode Explanation */}
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-blue-400 mb-2">Grid Mode Selection</h4>
+                      <div className="space-y-2 text-sm text-blue-300">
+                        <p><strong>Arithmetic Mode:</strong> Equal price differences between grids (e.g., $100, $200, $300, $400). More effective in bullish markets where prices trend upward steadily.</p>
+                        <p><strong>Geometric Mode:</strong> Equal percentage changes between grids (e.g., $100, $200, $400, $800). More effective in bearish markets or high volatility scenarios.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Dynamic Strategy-Specific Configuration */}
+            <div className="bg-gray-800/30 rounded-lg p-6">
+              <h4 className="font-semibold text-white mb-4">Strategy-Specific Parameters</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(configurationState)
+                  .filter(([key]) => {
+                    // Exclude grid bot specific fields that are handled separately
+                    if (isGridBot) {
+                      return !['price_range_lower', 'price_range_upper', 'number_of_grids', 
+                              'total_investment', 'allocated_capital', 'trigger_price', 
+                              'take_profit', 'stop_loss', 'grid_mode'].includes(key);
+                    }
+                    // Exclude allocated_capital for all strategies (handled by slider)
+                    return key !== 'allocated_capital';
+                  })
+                  .map(([key, value]) => (
+                    <div key={key} className={
+                      key === 'assets' || 
+                      (typeof value === 'object' && value !== null && !Array.isArray(value) && 
+                       (key === 'stop_loss' || key === 'take_profit')) 
+                        ? 'md:col-span-2' : ''
+                    }>
+                      <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
+                        {key.replace(/_/g, ' ')}
+                      </label>
+                      {key === 'assets' && Array.isArray(value) ? (
+                        <div className="space-y-3">
+                          {value.map((asset: any, index: number) => (
+                            <div key={index} className="flex gap-3 items-end">
+                              <div className="flex-1">
+                                <label className="block text-xs text-gray-400 mb-1">Symbol</label>
+                                <input
+                                  type="text"
+                                  value={asset.symbol || ''}
+                                  onChange={(e) => {
+                                    const newAssets = [...value];
+                                    newAssets[index] = { ...asset, symbol: e.target.value };
+                                    handleConfigurationChange(key, newAssets);
+                                  }}
+                                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                                  placeholder="BTC"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs text-gray-400 mb-1">Allocation %</label>
+                                <input
+                                  type="number"
+                                  value={asset.allocation || 0}
+                                  onChange={(e) => {
+                                    const newAssets = [...value];
+                                    newAssets[index] = { ...asset, allocation: Number(e.target.value) };
+                                    handleConfigurationChange(key, newAssets);
+                                  }}
+                                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                />
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const newAssets = value.filter((_: any, i: number) => i !== index);
+                                  handleConfigurationChange(key, newAssets);
+                                }}
+                                className="text-red-400 hover:text-red-300 px-2 py-2"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newAssets = [...value, { symbol: '', allocation: 0 }];
+                              handleConfigurationChange(key, newAssets);
+                            }}
+                            className="w-full"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Asset
+                          </Button>
+                          <div className="text-xs text-gray-400">
+                            Total allocation: {value.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0)}%
+                          </div>
+                        </div>
+                      ) : (key === 'stop_loss' || key === 'take_profit') && typeof value === 'object' && value !== null ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">Value</label>
+                            <input
+                              type="number"
+                              value={value.value || 0}
+                              onChange={(e) => {
+                                handleConfigurationChange(key, { 
+                                  ...value, 
+                                  value: Number(e.target.value) 
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                              step="0.01"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-400 mb-1">Type</label>
+                            <select
+                              value={value.type || 'percentage'}
+                              onChange={(e) => {
+                                handleConfigurationChange(key, { 
+                                  ...value, 
+                                  type: e.target.value 
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="percentage">Percentage</option>
+                              <option value="absolute">Absolute</option>
+                            </select>
+                          </div>
+                        </div>
+                      ) : key === 'trigger_type' ? (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
+                            Trigger Type
+                          </label>
+                          <select
+                            value={value}
+                            onChange={(e) => handleConfigurationChange(key, e.target.value)}
+                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="threshold">Threshold</option>
+                            <option value="time">Time</option>
+                          </select>
+                        </div>
+                      ) : key === 'rebalance_frequency' && configurationState.trigger_type === 'time' ? (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
+                            Rebalance Frequency
+                          </label>
+                          <select
+                            value={value}
+                            onChange={(e) => handleConfigurationChange(key, e.target.value)}
+                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="1h">1 Hour</option>
+                            <option value="6h">6 Hours</option>
+                            <option value="24h">24 Hours</option>
+                            <option value="1 week">1 Week</option>
+                            <option value="1 month">1 Month</option>
+                            <option value="6 months">6 Months</option>
+                            <option value="1 year">1 Year</option>
+                          </select>
+                        </div>
+                      ) : typeof value === 'boolean' ? (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={value}
+                            onChange={(e) => handleConfigurationChange(key, e.target.checked)}
+                            className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                          />
+                          <span className="text-sm text-gray-300">Enabled</span>
+                        </label>
+                      ) : typeof value === 'number' ? (
+                        <input
+                          type="number"
+                          value={value}
+                          onChange={(e) => handleConfigurationChange(key, Number(e.target.value))}
+                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                          step={key.includes('percent') || key.includes('delta') || key.includes('ratio') ? '0.01' : '1'}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={value}
+                          onChange={(e) => handleConfigurationChange(key, e.target.value)}
+                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                        />
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-4">
+              <Button
+                variant="secondary"
+                onClick={() => onDelete(editedStrategy.id)}
+                className="text-red-400 border-red-500/20 hover:bg-red-500/10"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Strategy
+              </Button>
+              
+              <div className="flex-1" />
+              
+              <Button variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+              
+              <Button onClick={handleSave}>
+                <Save className="w-4 h-4 mr-2" />
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-3">Grid Mode</label>
                       <div className="flex rounded-lg bg-gray-800 border border-gray-700 overflow-hidden">

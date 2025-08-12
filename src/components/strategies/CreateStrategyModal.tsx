@@ -60,6 +60,9 @@ const strategyTemplates: StrategyTemplate[] = [
       price_range_upper: 50000,
       number_of_grids: 20,
       grid_mode: 'arithmetic',
+      trigger_type: 'threshold',
+      threshold_deviation_percent: 5,
+      rebalance_frequency: '24h',
     },
   },
   {
@@ -78,6 +81,9 @@ const strategyTemplates: StrategyTemplate[] = [
       number_of_grids: 25,
       leverage: 3,
       direction: 'long',
+      trigger_type: 'threshold',
+      threshold_deviation_percent: 5,
+      rebalance_frequency: '24h',
     },
   },
   {
@@ -94,6 +100,9 @@ const strategyTemplates: StrategyTemplate[] = [
       price_range_lower: 2000,
       number_of_grids: 30,
       grid_mode: 'geometric',
+      trigger_type: 'threshold',
+      threshold_deviation_percent: 5,
+      rebalance_frequency: '24h',
     },
   },
 
@@ -112,6 +121,8 @@ const strategyTemplates: StrategyTemplate[] = [
       investment_amount_per_interval: 100,
       frequency: 'daily',
       investment_target_percent: 25,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
     },
   },
   {
@@ -131,6 +142,8 @@ const strategyTemplates: StrategyTemplate[] = [
       ],
       trigger_type: 'threshold',
       threshold_deviation_percent: 5,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
     },
   },
   {
@@ -148,6 +161,8 @@ const strategyTemplates: StrategyTemplate[] = [
       breakout_threshold: 0.002,
       stop_loss: { value: 1, type: 'percentage' },
       take_profit: { value: 2, type: 'percentage' },
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       max_position_size: 100,
     },
   },
@@ -166,6 +181,8 @@ const strategyTemplates: StrategyTemplate[] = [
       volume_confirmation: true,
       position_size: 100,
       stop_loss: { value: 2, type: 'percentage' },
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       take_profit: { value: 5, type: 'percentage' },
     },
   },
@@ -184,6 +201,8 @@ const strategyTemplates: StrategyTemplate[] = [
       z_score_entry: 2.0,
       z_score_exit: 0.5,
       lookback_period: 60,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       position_ratio: 1.0,
     },
   },
@@ -201,6 +220,8 @@ const strategyTemplates: StrategyTemplate[] = [
       lookback_period: 20,
       deviation_threshold: 2.0,
       position_size: 100,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       stop_loss: { value: 1, type: 'percentage' },
       take_profit: { value: 1.5, type: 'percentage' },
     },
@@ -221,6 +242,8 @@ const strategyTemplates: StrategyTemplate[] = [
       rsi_oversold: 30,
       rsi_overbought: 70,
       position_size: 100,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       stop_loss: { value: 3, type: 'percentage' },
       take_profit: { value: 6, type: 'percentage' },
     },
@@ -239,6 +262,8 @@ const strategyTemplates: StrategyTemplate[] = [
       min_spread_threshold: 0.5,
       execution_speed: 'fast',
       max_position_size: 1000,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       exchanges: ['primary', 'secondary'],
     },
   },
@@ -256,6 +281,8 @@ const strategyTemplates: StrategyTemplate[] = [
       time_frame: '1m',
       profit_target: 0.1,
       stop_loss: { value: 0.05, type: 'percentage' },
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       max_trades_per_day: 50,
       position_size: 100,
     },
@@ -274,6 +301,8 @@ const strategyTemplates: StrategyTemplate[] = [
       sentiment_threshold: 0.7,
       news_sources: ['reuters', 'bloomberg', 'cnbc'],
       reaction_window: 30,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       position_size: 100,
       stop_loss: { value: 2, type: 'percentage' },
       take_profit: { value: 4, type: 'percentage' },
@@ -297,6 +326,8 @@ const strategyTemplates: StrategyTemplate[] = [
       expiration_days: 30,
       minimum_premium: 200,
       profit_target: 50,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       roll_when_itm: true,
     },
   },
@@ -316,6 +347,8 @@ const strategyTemplates: StrategyTemplate[] = [
       call_strike_delta: 0.30,
       expiration_days: 30,
       minimum_premium: 150,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       assignment_handling: 'automatic',
     },
   },
@@ -335,6 +368,8 @@ const strategyTemplates: StrategyTemplate[] = [
       expiration_days: 45,
       net_credit_target: 200,
       profit_target: 25,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       stop_loss: { value: 200, type: 'percentage' },
     },
   },
@@ -352,6 +387,8 @@ const strategyTemplates: StrategyTemplate[] = [
       strike_delta: -0.30,
       expiration_days: 30,
       minimum_premium: 150,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       profit_target: 50,
       stop_loss: { value: 200, type: 'percentage' },
     },
@@ -370,6 +407,8 @@ const strategyTemplates: StrategyTemplate[] = [
       wing_width: 10,
       expiration_days: 30,
       max_debit: 150,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       profit_target: 100,
       stop_loss: { value: 50, type: 'percentage' },
     },
@@ -388,6 +427,8 @@ const strategyTemplates: StrategyTemplate[] = [
       wing_width: 20,
       expiration_days: 30,
       net_credit_target: 300,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       volatility_filter: 25,
       profit_target: 50,
       stop_loss: { value: 200, type: 'percentage' },
@@ -408,6 +449,8 @@ const strategyTemplates: StrategyTemplate[] = [
       short_strike_delta: 0.30,
       expiration_days: 30,
       net_credit_target: 250,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       profit_target: 50,
       stop_loss: { value: 200, type: 'percentage' },
     },
@@ -427,6 +470,8 @@ const strategyTemplates: StrategyTemplate[] = [
       short_strike_delta: -0.30,
       expiration_days: 30,
       net_credit_target: 200,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       profit_target: 50,
       stop_loss: { value: 200, type: 'percentage' },
     },
@@ -447,6 +492,8 @@ const strategyTemplates: StrategyTemplate[] = [
       strike_delta: 0.30,
       expiration_days: 30,
       max_premium_percent: 10,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       stop_loss: { value: 50, type: 'percentage' },
     },
   },
@@ -465,6 +512,8 @@ const strategyTemplates: StrategyTemplate[] = [
       expiration_days: 30,
       volatility_threshold: 20,
       max_premium_percent: 12,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       stop_loss: { value: 50, type: 'percentage' },
       take_profit: { value: 100, type: 'percentage' },
     },
@@ -484,6 +533,8 @@ const strategyTemplates: StrategyTemplate[] = [
       put_delta: -0.25,
       expiration_days: 30,
       volatility_threshold: 25,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       profit_target: 100,
       stop_loss: { value: 50, type: 'percentage' },
     },
@@ -502,6 +553,8 @@ const strategyTemplates: StrategyTemplate[] = [
       short_wing_width: 10,
       long_wing_width: 15,
       expiration_days: 45,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       max_debit: 100,
       profit_target: 100,
       stop_loss: { value: 150, type: 'percentage' },
@@ -522,6 +575,8 @@ const strategyTemplates: StrategyTemplate[] = [
       put_delta: -0.25,
       call_delta: 0.25,
       expiration_days: 45,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       net_cost_target: 50,
       roll_frequency: 'monthly',
     },
@@ -540,6 +595,8 @@ const strategyTemplates: StrategyTemplate[] = [
       strike_delta: 0.20,
       expiration_days: 30,
       minimum_premium: 300,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       stop_loss: { value: 200, type: 'percentage' },
       margin_requirement: 10000,
     },
@@ -558,6 +615,8 @@ const strategyTemplates: StrategyTemplate[] = [
       strike_selection: 'atm',
       expiration_days: 21,
       minimum_premium: 600,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       volatility_filter: 25,
       stop_loss: { value: 200, type: 'percentage' },
       max_loss_per_trade: 3000,
@@ -577,6 +636,8 @@ const strategyTemplates: StrategyTemplate[] = [
       call_delta: 0.20,
       put_delta: -0.20,
       expiration_days: 21,
+      take_profit: { value: 0, type: 'percentage' },
+      stop_loss: { value: 0, type: 'percentage' },
       minimum_premium: 500,
       volatility_filter: 25,
       profit_target: 50,
@@ -1023,6 +1084,49 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                                 <option value="absolute">Absolute</option>
                               </select>
                             </div>
+                          </div>
+                        ) : typeof value === 'boolean' ? (
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={value}
+                              onChange={(e) => setConfiguration(prev => ({ ...prev, [key]: e.target.checked }))}
+                              className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                            />
+                            <span className="text-sm text-gray-300">Enabled</span>
+                          </label>
+                        ) : key === 'trigger_type' ? (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
+                              Trigger Type
+                            </label>
+                            <select
+                              value={value}
+                              onChange={(e) => setConfiguration(prev => ({ ...prev, [key]: e.target.value }))}
+                              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="threshold">Threshold</option>
+                              <option value="time">Time</option>
+                            </select>
+                          </div>
+                        ) : key === 'rebalance_frequency' && configuration.trigger_type === 'time' ? (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
+                              Rebalance Frequency
+                            </label>
+                            <select
+                              value={value}
+                              onChange={(e) => setConfiguration(prev => ({ ...prev, [key]: e.target.value }))}
+                              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="1h">1 Hour</option>
+                              <option value="6h">6 Hours</option>
+                              <option value="24h">24 Hours</option>
+                              <option value="1 week">1 Week</option>
+                              <option value="1 month">1 Month</option>
+                              <option value="6 months">6 Months</option>
+                              <option value="1 year">1 Year</option>
+                            </select>
                           </div>
                         ) : typeof value === 'boolean' ? (
                           <label className="flex items-center gap-2 cursor-pointer">
