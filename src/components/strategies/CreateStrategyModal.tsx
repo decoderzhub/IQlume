@@ -208,6 +208,15 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [riskLevel, setRiskLevel] = useState<TradingStrategy['risk_level']>('medium');
   const [minCapital, setMinCapital] = useState(10000);
   const [isActive, setIsActive] = useState(false);
+  const [priceRangeLower, setPriceRangeLower] = useState(0);
+  const [priceRangeUpper, setPriceRangeUpper] = useState(0);
+  const [numberOfGrids, setNumberOfGrids] = useState(10);
+  const [totalInvestment, setTotalInvestment] = useState(1000);
+  const [triggerPrice, setTriggerPrice] = useState(0);
+  const [takeProfit, setTakeProfit] = useState(0);
+  const [stopLoss, setStopLoss] = useState(0);
+  const [gridMode, setGridMode] = useState('arithmetic');
+  const [symbol, setSymbol] = useState('BTC/USDT');
 
   const handleStrategySelect = (strategy: typeof categorizedStrategies[0]['strategies'][0]) => {
     setSelectedType(strategy.type);
@@ -223,10 +232,27 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const handleCreate = () => {
     if (!selectedType) return;
 
+    // Validate grid bot specific requirements
+    const isGridBot = ['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType);
+    if (isGridBot) {
+      if (selectedType !== 'infinity_grid' && (priceRangeLower <= 0 || priceRangeUpper <= 0 || priceRangeLower >= priceRangeUpper)) {
+        alert('Please set a valid price range (lower price must be less than upper price and both must be greater than 0).');
+        return;
+      }
+      if (numberOfGrids < 2 || numberOfGrids > 1000) {
+        alert('Number of grids must be between 2 and 1000.');
+        return;
+      }
+      if (totalInvestment <= 0) {
+        alert('Total investment must be greater than 0.');
+        return;
+      }
+    }
+
     const strategy: Omit<TradingStrategy, 'id'> = {
       name,
       type: selectedType,
-      description,
+      description: `${selectedType} strategy for ${symbol}`,
       risk_level: riskLevel,
       min_capital: minCapital,
       is_active: isActive,
@@ -249,17 +275,25 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           profit_target: 25,
         }),
         ...(selectedType === 'spot_grid' && {
-          price_range_lower: 0,
-          price_range_upper: 0,
-          number_of_grids: 20,
-          grid_mode: 'arithmetic',
+          price_range_lower: priceRangeLower,
+          price_range_upper: priceRangeUpper,
+          number_of_grids: numberOfGrids,
+          total_investment: totalInvestment,
+          trigger_price: triggerPrice,
+          take_profit: takeProfit,
+          stop_loss: stopLoss,
+          grid_mode: gridMode,
         }),
         ...(selectedType === 'futures_grid' && {
           symbol: 'BTC/USDT',
-          price_range_lower: 0,
-          price_range_upper: 0,
-          number_of_grids: 25,
-          grid_mode: 'arithmetic',
+          price_range_lower: priceRangeLower,
+          price_range_upper: priceRangeUpper,
+          number_of_grids: numberOfGrids,
+          total_investment: totalInvestment,
+          trigger_price: triggerPrice,
+          take_profit: takeProfit,
+          stop_loss: stopLoss,
+          grid_mode: gridMode,
           direction: 'long',
           leverage: 3,
         }),
@@ -275,9 +309,13 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             { symbol: 'ETH', allocation: 30 },
             { symbol: 'USDT', allocation: 30 },
           ],
-          trigger_type: 'threshold',
-          threshold_deviation_percent: 5,
-          rebalance_frequency: 'weekly',
+          price_range_lower: priceRangeLower,
+          number_of_grids: numberOfGrids,
+          total_investment: totalInvestment,
+          trigger_price: triggerPrice,
+          take_profit: takeProfit,
+          stop_loss: stopLoss,
+          grid_mode: gridMode,
         }),
         ...(selectedType === 'dca' && {
           symbol: 'BTC/USDT',
@@ -360,52 +398,10 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       {/* Category Header */}
                       <motion.button
                         whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
                         onClick={() => toggleCategory(category.risk)}
-                        className="w-full p-6 flex items-center justify-between"
+                        className="w-full p-6 flex items-center justify-between text-left"
                       >
-                      {['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
-                        <>
-                          <div>
-                            <span className="text-gray-400">Price Range:</span>
-                            <span className="text-white ml-2">
-                              {selectedType === 'infinity_grid' 
-                                ? `${priceRangeLower || 0}+ USDT`
-                                : `${priceRangeLower || 0} - ${priceRangeUpper || 0} USDT`
-                              }
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Grids:</span>
-                            <span className="text-white ml-2">{numberOfGrids}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Investment:</span>
-                            <span className="text-white ml-2">{totalInvestment} USDT</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Grid Mode:</span>
-                            <span className="text-white ml-2 capitalize">{gridMode}</span>
-                          </div>
-                          {triggerPrice && (
-                            <div>
-                              <span className="text-gray-400">Trigger:</span>
-                              <span className="text-white ml-2">{triggerPrice} USDT</span>
-                            </div>
-                          )}
-                          {takeProfit && (
-                            <div>
-                              <span className="text-gray-400">Take Profit:</span>
-                              <span className="text-green-400 ml-2">{takeProfit} USDT</span>
-                            </div>
-                          )}
-                          {stopLoss && (
-                            <div>
-                              <span className="text-gray-400">Stop Loss:</span>
-                              <span className="text-red-400 ml-2">{stopLoss} USDT</span>
-                            </div>
-                          )}
-                        </>
-                      )}
                         <div className="flex items-center gap-4">
                           <Icon className={`w-8 h-8 ${category.colorClass}`} />
                           <div>
@@ -554,13 +550,17 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Minimum Capital
                   </label>
-                  <input
-                    type="number"
-                    value={minCapital}
-                    onChange={(e) => setMinCapital(Number(e.target.value))}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter minimum capital"
-                  />
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="number"
+                      value={minCapital}
+                      onChange={(e) => setMinCapital(Number(e.target.value))}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      min="500"
+                      step="500"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -570,29 +570,16 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   <select
                     value={riskLevel}
                     onChange={(e) => setRiskLevel(e.target.value as TradingStrategy['risk_level'])}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="low">Low Risk</option>
                     <option value="medium">Medium Risk</option>
                     <option value="high">High Risk</option>
                   </select>
+                  <p className="text-xs text-gray-400 mt-1">
+                    This will be dynamically updated after backtesting
+                  </p>
                 </div>
-
-                {/* Grid Mode Explanation */}
-                {selectedType && ['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType) && (
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="font-medium text-blue-400 mb-2">Grid Mode Selection</h4>
-                        <div className="space-y-2 text-sm text-blue-300">
-                          <p><strong>Arithmetic Mode:</strong> Equal price differences between grids (e.g., $100, $200, $300, $400). More effective in bullish markets where prices trend upward steadily.</p>
-                          <p><strong>Geometric Mode:</strong> Equal percentage changes between grids (e.g., $100, $200, $400, $800). More effective in bearish markets or high volatility scenarios.</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
