@@ -48,6 +48,7 @@ export interface CustodialWallet {
 
 export interface Portfolio {
   total_value: number;
+  buying_power: number;
   day_change: number;
   day_change_percent: number;
   accounts: BrokerageAccount[];

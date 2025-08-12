@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, DollarSign, Activity, Info, Shield } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Activity, Info, Shield, Wallet } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Card } from '../ui/Card';
 import { formatCurrency, formatPercent } from '../../lib/utils';
@@ -119,6 +119,12 @@ export function PortfolioOverview() {
       color: 'text-blue-400',
     },
     {
+      label: 'Buying Power',
+      value: formatCurrency(portfolio?.buying_power || 0),
+      icon: Wallet,
+      color: 'text-green-400',
+    },
+    {
       label: 'Today\'s Change',
       value: formatCurrency(Math.abs(portfolio?.day_change || 0)),
       icon: isPositive ? TrendingUp : TrendingDown,
@@ -129,12 +135,6 @@ export function PortfolioOverview() {
       value: formatPercent(Math.abs(portfolio?.day_change_percent || 0)),
       icon: Activity,
       color: isPositive ? 'text-green-400' : 'text-red-400',
-    },
-    {
-      label: 'Connected Accounts',
-      value: brokerageAccounts.filter(acc => acc.is_connected).length.toString(),
-      icon: Activity,
-      color: 'text-purple-400',
     },
   ];
 

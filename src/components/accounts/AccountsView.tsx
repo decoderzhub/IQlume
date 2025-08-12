@@ -33,6 +33,7 @@ export function AccountsView() {
   const totalBrokerageValue = brokerageAccounts.reduce((sum, acc) => sum + acc.balance, 0);
   const totalBankValue = bankAccounts.reduce((sum, acc) => sum + acc.balance, 0);
   const totalWalletValue = custodialWallets.reduce((sum, wallet) => sum + wallet.balance_usd + wallet.balance_treasuries, 0);
+  const buyingPower = totalBankValue + custodialWallets.reduce((sum, wallet) => sum + wallet.balance_usd, 0);
 
   const handleBrokerageConnect = (account: Omit<BrokerageAccount, 'id'>) => {
     const newAccount = { ...account, id: Date.now().toString() };
@@ -79,6 +80,16 @@ export function AccountsView() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
+              <p className="text-sm font-medium text-gray-400">Buying Power</p>
+              <p className="text-2xl font-bold text-green-400">{formatCurrency(buyingPower)}</p>
+            </div>
+            <Wallet className="w-8 h-8 text-green-400" />
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
               <p className="text-sm font-medium text-gray-400">Total Brokerage</p>
               <p className="text-2xl font-bold text-white">{formatCurrency(totalBrokerageValue)}</p>
             </div>
@@ -90,9 +101,9 @@ export function AccountsView() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-400">Bank Accounts</p>
-              <p className="text-2xl font-bold text-green-400">{formatCurrency(totalBankValue)}</p>
+              <p className="text-2xl font-bold text-white">{formatCurrency(totalBankValue)}</p>
             </div>
-            <Building className="w-8 h-8 text-green-400" />
+            <Building className="w-8 h-8 text-blue-400" />
           </div>
         </Card>
 
@@ -103,18 +114,6 @@ export function AccountsView() {
               <p className="text-2xl font-bold text-purple-400">{formatCurrency(totalWalletValue)}</p>
             </div>
             <Shield className="w-8 h-8 text-purple-400" />
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-400">Total Assets</p>
-              <p className="text-2xl font-bold text-yellow-400">
-                {formatCurrency(totalBrokerageValue + totalBankValue + totalWalletValue)}
-              </p>
-            </div>
-            <Wallet className="w-8 h-8 text-yellow-400" />
           </div>
         </Card>
       </div>

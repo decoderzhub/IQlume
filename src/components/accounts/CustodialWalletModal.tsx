@@ -202,10 +202,11 @@ export function CustodialWalletModal({ onClose, onCreate }: CustodialWalletModal
                       {formatCurrency(initialDeposit * Math.pow(1 + (selectedWalletType?.apy || 0), 3) - initialDeposit)}
                     </p>
                   </div>
-                  <div>
+                    <h4 className="font-medium text-blue-400 mb-2">Increases Buying Power</h4>
                     <p className="text-sm text-gray-400">5 Years</p>
-                    <p className="font-semibold text-green-400">
-                      {formatCurrency(initialDeposit * Math.pow(1 + (selectedWalletType?.apy || 0), 5) - initialDeposit)}
+                      This deposit will increase your buying power, making it immediately available as trading capital 
+                      for your automated strategies. You can allocate these funds to any of your trading bots or 
+                      strategies from the Strategies page.
                     </p>
                   </div>
                 </div>

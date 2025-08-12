@@ -65,6 +65,7 @@ export const useStore = create<AppState>((set) => ({
     const brokerageTotal = state.brokerageAccounts.reduce((sum, acc) => sum + acc.balance, 0);
     const bankTotal = state.bankAccounts.reduce((sum, acc) => sum + acc.balance, 0);
     const walletTotal = state.custodialWallets.reduce((sum, wallet) => sum + wallet.balance_usd + wallet.balance_treasuries, 0);
+    const buyingPower = bankTotal + state.custodialWallets.reduce((sum, wallet) => sum + wallet.balance_usd, 0);
     
     const totalValue = brokerageTotal + bankTotal + walletTotal;
     const dayChange = totalValue * 0.01; // Mock 1% daily change
@@ -73,6 +74,7 @@ export const useStore = create<AppState>((set) => ({
     return {
       portfolio: {
         total_value: totalValue,
+        buying_power: buyingPower,
         day_change: dayChange,
         day_change_percent: dayChangePercent,
         accounts: state.brokerageAccounts,

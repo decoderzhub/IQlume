@@ -196,10 +196,11 @@ export function DepositFundsModal({ wallet, onClose, onDeposit }: DepositFundsMo
               <div className="flex items-start gap-3">
                 <TrendingUp className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-blue-400 mb-2">Available for Trading</h4>
+                  <h4 className="font-medium text-blue-400 mb-2">Increases Buying Power</h4>
                   <p className="text-sm text-blue-300">
-                    This deposit will be immediately available as trading capital for your automated strategies. 
-                    You can allocate these funds to any of your trading bots or strategies from the Strategies page.
+                    This deposit will increase your buying power, making it immediately available as trading capital 
+                    for your automated strategies. You can allocate these funds to any of your trading bots or 
+                    strategies from the Strategies page.
                   </p>
                 </div>
               </div>
