@@ -20,7 +20,8 @@ import {
   Shuffle,
   Clock,
   Gauge,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
