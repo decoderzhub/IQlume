@@ -195,11 +195,55 @@ export function StrategiesView() {
   });
 
   const handleToggleStrategy = (strategyId: string) => {
-    setStrategies(prev => prev.map(strategy => 
-      strategy.id === strategyId 
-        ? { ...strategy, is_active: !strategy.is_active }
-        : strategy
+    const strategy = strategies.find(s => s.id === strategyId);
+    if (!strategy || !user) return;
+
+    const newActiveStatus = !strategy.is_active;
+    
+    // Optimistically update local state
+    setStrategies(prev => prev.map(s => 
+      s.id === strategyId 
+        ? { ...s, is_active: newActiveStatus }
+        : s
     ));
+
+    // Persist to database
+    const updateDatabase = async () => {
+      try {
+        const { error } = await supabase
+          .from('trading_strategies')
+          .update({ 
+            is_active: newActiveStatus,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', strategyId)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Error updating strategy active status:', error);
+          // Revert local state on error
+          setStrategies(prev => prev.map(s => 
+            s.id === strategyId 
+              ? { ...s, is_active: !newActiveStatus }
+              : s
+          ));
+          alert(`Failed to ${newActiveStatus ? 'start' : 'pause'} strategy: ${error.message}`);
+        } else {
+          console.log(`Strategy ${newActiveStatus ? 'started' : 'paused'} successfully`);
+        }
+      } catch (error) {
+        console.error('Unexpected error updating strategy:', error);
+        // Revert local state on error
+        setStrategies(prev => prev.map(s => 
+          s.id === strategyId 
+            ? { ...s, is_active: !newActiveStatus }
+            : s
+        ));
+        alert('An unexpected error occurred while updating the strategy');
+      }
+    };
+
+    updateDatabase();
   };
 
   const handleViewDetails = (strategy: TradingStrategy) => {
@@ -475,9 +519,43 @@ export function StrategiesView() {
           strategy={selectedStrategy}
           onClose={() => setShowDetailsModal(false)}
           onSave={(updatedStrategy) => {
+            // Optimistically update local state
             setStrategies(prev => prev.map(s => 
               s.id === updatedStrategy.id ? updatedStrategy : s
             ));
+            
+            // Persist to database
+            const updateDatabase = async () => {
+              if (!user) return;
+              
+              try {
+                const { error } = await supabase
+                  .from('trading_strategies')
+                  .update({
+                    name: updatedStrategy.name,
+                    description: updatedStrategy.description,
+                    risk_level: updatedStrategy.risk_level,
+                    min_capital: updatedStrategy.min_capital,
+                    is_active: updatedStrategy.is_active,
+                    configuration: updatedStrategy.configuration,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', updatedStrategy.id)
+                  .eq('user_id', user.id);
+
+                if (error) {
+                  console.error('Error updating strategy:', error);
+                  alert(`Failed to save strategy changes: ${error.message}`);
+                } else {
+                  console.log('Strategy updated successfully in database');
+                }
+              } catch (error) {
+                console.error('Unexpected error updating strategy:', error);
+                alert('An unexpected error occurred while saving the strategy');
+              }
+            };
+
+            updateDatabase();
             setShowDetailsModal(false);
           }}
           onDelete={(strategyId) => {
@@ -492,9 +570,42 @@ export function StrategiesView() {
           strategy={selectedStrategy}
           onClose={() => setShowBacktestModal(false)}
           onSave={(updatedStrategy) => {
+            // Optimistically update local state
             setStrategies(prev => prev.map(s => 
               s.id === updatedStrategy.id ? updatedStrategy : s
             ));
+            
+            // Persist to database
+            const updateDatabase = async () => {
+              if (!user) return;
+              
+              try {
+                const { error } = await supabase
+                  .from('trading_strategies')
+                  .update({
+                    name: updatedStrategy.name,
+                    description: updatedStrategy.description,
+                    risk_level: updatedStrategy.risk_level,
+                    min_capital: updatedStrategy.min_capital,
+                    is_active: updatedStrategy.is_active,
+                    configuration: updatedStrategy.configuration,
+                    performance: updatedStrategy.performance,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', updatedStrategy.id)
+                if (error) {
+                  console.error('Error updating strategy after backtest:', error);
+                  alert(`Failed to save strategy changes: ${error.message}`);
+                } else {
+                  console.log('Strategy updated successfully after backtest');
+                }
+              } catch (error) {
+                console.error('Unexpected error updating strategy after backtest:', error);
+                alert('An unexpected error occurred while saving the strategy');
+              }
+            };
+                  .eq('user_id', user.id);
+            updateDatabase();
             setShowBacktestModal(false);
           }}
         />
