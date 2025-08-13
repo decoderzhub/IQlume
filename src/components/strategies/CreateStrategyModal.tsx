@@ -1039,7 +1039,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                const newAssets = [...value, { symbol: '', allocation: 0 }];
+                               const newAssets = [...value, { symbol: '', allocation: 0 }];
                                 setConfiguration(prev => ({ ...prev, [key]: newAssets }));
                               }}
                               className="w-full"
