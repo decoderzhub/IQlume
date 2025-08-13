@@ -744,7 +744,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                                 }}
                                 className="text-red-400 hover:text-red-300 px-2 py-2"
                               >
-                                <X className="w-4 h-4" />
+                                <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
                           ))}

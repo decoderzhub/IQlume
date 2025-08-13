@@ -1032,7 +1032,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                                   }}
                                   className="text-red-400 hover:text-red-300 px-2 py-2"
                                 >
-                                  placeholder="Add Symbol"
+                                  <Trash2 className="w-4 h-4" />
                                 </Button>
                               </div>
                             ))}
