@@ -716,7 +716,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                                     handleConfigurationChange(key, newAssets);
                                   }}
                                   className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
-                                  placeholder="BTC"
+                                  placeholder="Add Symbol"
                                 />
                               </div>
                               <div className="flex-1">
