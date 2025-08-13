@@ -593,6 +593,7 @@ export function StrategiesView() {
                     updated_at: new Date().toISOString()
                   })
                   .eq('id', updatedStrategy.id)
+                  .eq('user_id', user.id);
                 if (error) {
                   console.error('Error updating strategy after backtest:', error);
                   alert(`Failed to save strategy changes: ${error.message}`);
@@ -604,7 +605,6 @@ export function StrategiesView() {
                 alert('An unexpected error occurred while saving the strategy');
               }
             };
-                  .eq('user_id', user.id);
             updateDatabase();
             setShowBacktestModal(false);
           }}
