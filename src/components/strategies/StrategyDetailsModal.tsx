@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Save, Trash2, Play, Pause, BarChart3, DollarSign, AlertTriangle, TrendingUp, Shield, Plus } from 'lucide-react';
+import { X, Save, Trash2, Play, Pause, BarChart3, DollarSign, AlertTriangle, TrendingUp, Shield, Plus, Wallet, Activity, Clock, Mail, Bell, Zap, Filter } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
@@ -16,54 +16,28 @@ interface StrategyDetailsModalProps {
 export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: StrategyDetailsModalProps) {
   const [editedStrategy, setEditedStrategy] = useState<TradingStrategy>(strategy);
   
-  // Grid bot specific states
-  const [priceRangeLower, setPriceRangeLower] = useState<number>(strategy.configuration.price_range_lower || 0);
-  const [priceRangeUpper, setPriceRangeUpper] = useState<number>(strategy.configuration.price_range_upper || 0);
-  const [numberOfGrids, setNumberOfGrids] = useState<number>(strategy.configuration.number_of_grids || 20);
-  const [totalInvestment, setTotalInvestment] = useState<number>(strategy.configuration.total_investment || 1000);
-  const [triggerPrice, setTriggerPrice] = useState<number | undefined>(strategy.configuration.trigger_price);
-  const [takeProfit, setTakeProfit] = useState<number | undefined>(strategy.configuration.take_profit);
-  const [stopLoss, setStopLoss] = useState<number | undefined>(strategy.configuration.stop_loss);
-  const [gridMode, setGridMode] = useState<'arithmetic' | 'geometric'>(strategy.configuration.grid_mode || 'arithmetic');
-  
   // Configuration state for dynamic editing
   const [configurationState, setConfigurationState] = useState<Record<string, any>>(strategy.configuration);
   
   // Capital allocation
   const [totalAvailableCapital] = useState(250000); // Mock total available capital
   const [allocatedCapitalPercentage, setAllocatedCapitalPercentage] = useState(() => {
-    const allocatedCapital = strategy.configuration.allocated_capital || strategy.configuration.total_investment || strategy.min_capital;
+    const allocatedCapital = strategy.capital_allocation?.value || strategy.min_capital;
     return Math.round((allocatedCapital / 250000) * 100);
   });
   const currentAllocatedCapital = (totalAvailableCapital * allocatedCapitalPercentage) / 100;
 
   // Update states when strategy prop changes
   useEffect(() => {
-    console.log('Strategy prop received:', strategy);
-    console.log('Strategy configuration:', strategy.configuration);
-    
     setEditedStrategy(strategy);
     setConfigurationState(strategy.configuration || {});
-    setPriceRangeLower(strategy.configuration.price_range_lower || 0);
-    setPriceRangeUpper(strategy.configuration.price_range_upper || 0);
-    setNumberOfGrids(strategy.configuration.number_of_grids || 20);
-    setTotalInvestment(strategy.configuration.total_investment || 1000);
-    setTriggerPrice(strategy.configuration.trigger_price);
-    setTakeProfit(strategy.configuration.take_profit);
-    setStopLoss(strategy.configuration.stop_loss);
-    setGridMode(strategy.configuration.grid_mode || 'arithmetic');
     
-    const allocatedCapital = strategy.configuration.allocated_capital || strategy.configuration.total_investment || strategy.min_capital;
+    // Update allocated capital percentage based on new strategy prop
+    const allocatedCapital = strategy.capital_allocation?.value || strategy.min_capital;
     setAllocatedCapitalPercentage(Math.round((allocatedCapital / totalAvailableCapital) * 100));
   }, [strategy]);
 
-  // Debug configuration state
-  useEffect(() => {
-    console.log('Configuration state updated:', configurationState);
-  }, [configurationState]);
-
   const handleConfigurationChange = (key: string, value: any) => {
-    console.log('Configuration change:', key, value);
     setConfigurationState(prev => ({ ...prev, [key]: value }));
   };
 
@@ -75,7 +49,21 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
     }));
   };
 
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUniversalFieldChange = (field: keyof TradingStrategy, value: any) => {
+    setEditedStrategy(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleNestedUniversalFieldChange = (section: keyof TradingStrategy, key: string, value: any) => {
+    setEditedStrategy(prev => ({
+      ...prev,
+      [section]: { ...prev[section], [key]: value }
+    }));
+  };
+
+  const handleCapitalAllocationSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAllocatedCapitalPercentage(Number(e.target.value));
   };
 
@@ -92,47 +80,29 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
   };
 
   const handleSave = () => {
-    // Validate grid bot specific fields
-    const isGridBot = ['spot_grid', 'futures_grid', 'infinity_grid'].includes(editedStrategy.type);
-    
-    if (isGridBot) {
-      if (editedStrategy.type !== 'infinity_grid' && (priceRangeLower <= 0 || priceRangeUpper <= 0 || priceRangeLower >= priceRangeUpper)) {
-        alert('Please set a valid price range (lower price must be less than upper price and both must be greater than 0).');
-        return;
-      }
-      if (numberOfGrids < 2 || numberOfGrids > 1000) {
-        alert('Number of grids must be between 2 and 1000.');
-        return;
-      }
-      if (currentAllocatedCapital <= 0) {
-        alert('Allocated capital must be greater than 0.');
-        return;
-      }
+    // Update capital allocation value based on slider
+    const updatedCapitalAllocation = {
+      ...editedStrategy.capital_allocation,
+      value: currentAllocatedCapital
+    };
+
+    // Basic validation for min_capital vs allocated_capital
+    if (currentAllocatedCapital < editedStrategy.min_capital) {
+      alert(`Allocated capital (${formatCurrency(currentAllocatedCapital)}) is below the minimum required (${formatCurrency(editedStrategy.min_capital)}) for this strategy.`);
+      return;
     }
 
-    console.log('Saving strategy with configuration:', configurationState);
+    // No console.log('Saving strategy with configuration:', configurationState);
 
     const updatedStrategy: TradingStrategy = {
       ...editedStrategy,
       configuration: {
         ...configurationState,
-        ...(isGridBot && {
-          price_range_lower: priceRangeLower,
-          price_range_upper: priceRangeUpper,
-          number_of_grids: numberOfGrids,
-          total_investment: currentAllocatedCapital,
-          allocated_capital: currentAllocatedCapital,
-          trigger_price: triggerPrice,
-          take_profit: takeProfit,
-          stop_loss: stopLoss,
-          grid_mode: gridMode,
-        }),
-        // Add allocated_capital to all strategy types
-        allocated_capital: currentAllocatedCapital,
+        ...configurationState, // Strategy-specific config
       },
+      capital_allocation: updatedCapitalAllocation, // Update universal capital allocation
     };
 
-    console.log('Final strategy to save:', updatedStrategy);
     onSave(updatedStrategy);
   };
 
@@ -147,9 +117,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
 
   const getStrategyTypeLabel = (type: TradingStrategy['type']) => {
     switch (type) {
-      case 'spot_grid': return 'Spot Grid Bot';
-      case 'futures_grid': return 'Futures Grid Bot';
-      case 'infinity_grid': return 'Infinity Grid Bot';
+      case 'spot_grid': return 'Spot Grid';
+      case 'futures_grid': return 'Futures Grid';
+      case 'infinity_grid': return 'Infinity Grid';
       case 'dca': return 'DCA Bot';
       case 'smart_rebalance': return 'Smart Rebalance';
       case 'covered_calls': return 'Covered Calls';
@@ -161,8 +131,6 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
     }
   };
 
-  const isGridBot = ['spot_grid', 'futures_grid', 'infinity_grid'].includes(editedStrategy.type);
-  const profitPerGrid = isGridBot && numberOfGrids > 0 ? (totalInvestment / numberOfGrids).toFixed(2) : '0';
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -318,16 +286,320 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
                   <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
                         checked={editedStrategy.is_active}
-                        onChange={(e) => setEditedStrategy(prev => ({ ...prev, is_active: e.target.checked }))}
-                        className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                        onChange={(e) => handleUniversalFieldChange('is_active', e.target.checked)}
+                        className="sr-only peer"
                       />
-                      <span className="text-sm text-gray-300">Active</span>
+                      <div className="relative w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <span className="ml-3 text-sm font-medium text-gray-300">
+                        {editedStrategy.is_active ? 'Active' : 'Inactive'}
+                      </span>
                     </label>
-                    <div className={`w-2 h-2 rounded-full ${editedStrategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Universal Bot Fields */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-white">Universal Bot Fields</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Account ID</label>
+                  <input
+                    type="text"
+                    value={editedStrategy.account_id || ''}
+                    onChange={(e) => handleUniversalFieldChange('account_id', e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., Alpaca-12345"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Asset Class</label>
+                  <select
+                    value={editedStrategy.asset_class || ''}
+                    onChange={(e) => handleUniversalFieldChange('asset_class', e.target.value as any)}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Asset Class</option>
+                    <option value="equity">Equity</option>
+                    <option value="options">Options</option>
+                    <option value="crypto">Crypto</option>
+                    <option value="futures">Futures</option>
+                    <option value="forex">Forex</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Base Symbol</label>
+                  <input
+                    type="text"
+                    value={editedStrategy.base_symbol || ''}
+                    onChange={(e) => handleUniversalFieldChange('base_symbol', e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., AAPL or BTC"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Quote Currency</label>
+                  <input
+                    type="text"
+                    value={editedStrategy.quote_currency || ''}
+                    onChange={(e) => handleUniversalFieldChange('quote_currency', e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., USD or USDT"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Time Horizon</label>
+                  <select
+                    value={editedStrategy.time_horizon || ''}
+                    onChange={(e) => handleUniversalFieldChange('time_horizon', e.target.value as any)}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Time Horizon</option>
+                    <option value="intraday">Intraday</option>
+                    <option value="swing">Swing</option>
+                    <option value="long_term">Long Term</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Automation Level</label>
+                  <select
+                    value={editedStrategy.automation_level || ''}
+                    onChange={(e) => handleUniversalFieldChange('automation_level', e.target.value as any)}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Automation Level</option>
+                    <option value="fully_auto">Fully Automatic</option>
+                    <option value="semi_auto">Semi-Automatic</option>
+                    <option value="manual">Manual</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Capital Allocation */}
+              <div className="bg-gray-800/30 rounded-lg p-6">
+                <h4 className="font-semibold text-white mb-4 flex items-center gap-2"><Wallet className="w-5 h-5 text-blue-400" /> Capital Allocation</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Mode</label>
+                    <select
+                      value={editedStrategy.capital_allocation?.mode || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('capital_allocation', 'mode', e.target.value as any)}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    >
+                      <option value="fixed_amount_usd">Fixed Amount (USD)</option>
+                      <option value="percent_of_portfolio">Percent of Portfolio</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Value</label>
+                    <input
+                      type="number"
+                      value={editedStrategy.capital_allocation?.value || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('capital_allocation', 'value', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Max Positions</label>
+                    <input
+                      type="number"
+                      value={editedStrategy.capital_allocation?.max_positions || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('capital_allocation', 'max_positions', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Max Exposure (USD)</label>
+                    <input
+                      type="number"
+                      value={editedStrategy.capital_allocation?.max_exposure_usd || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('capital_allocation', 'max_exposure_usd', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Execution */}
+              <div className="bg-gray-800/30 rounded-lg p-6">
+                <h4 className="font-semibold text-white mb-4 flex items-center gap-2"><Activity className="w-5 h-5 text-green-400" /> Order Execution</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Default Order Type</label>
+                    <select
+                      value={editedStrategy.order_execution?.order_type_default || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('order_execution', 'order_type_default', e.target.value as any)}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    >
+                      <option value="market">Market</option>
+                      <option value="limit">Limit</option>
+                      <option value="limit_if_touched">Limit If Touched</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Limit Tolerance (%)</label>
+                    <input
+                      type="number"
+                      value={editedStrategy.order_execution?.limit_tolerance_percent || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('order_execution', 'limit_tolerance_percent', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Allow Partial Fill</label>
+                    <input
+                      type="checkbox"
+                      checked={editedStrategy.order_execution?.allow_partial_fill || false}
+                      onChange={(e) => handleNestedUniversalFieldChange('order_execution', 'allow_partial_fill', e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Combo Execution</label>
+                    <select
+                      value={editedStrategy.order_execution?.combo_execution || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('order_execution', 'combo_execution', e.target.value as any)}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    >
+                      <option value="atomic">Atomic</option>
+                      <option value="legged">Legged</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Risk Controls */}
+              <div className="bg-gray-800/30 rounded-lg p-6">
+                <h4 className="font-semibold text-white mb-4 flex items-center gap-2"><Shield className="w-5 h-5 text-purple-400" /> Risk Controls</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Take Profit (%)</label>
+                    <input
+                      type="number"
+                      value={editedStrategy.risk_controls?.take_profit_percent || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('risk_controls', 'take_profit_percent', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Stop Loss (%)</label>
+                    <input
+                      type="number"
+                      value={editedStrategy.risk_controls?.stop_loss_percent || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('risk_controls', 'stop_loss_percent', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Max Daily Loss (USD)</label>
+                    <input
+                      type="number"
+                      value={editedStrategy.risk_controls?.max_daily_loss_usd || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('risk_controls', 'max_daily_loss_usd', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Max Drawdown (%)</label>
+                    <input
+                      type="number"
+                      value={editedStrategy.risk_controls?.max_drawdown_percent || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('risk_controls', 'max_drawdown_percent', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Filters */}
+              <div className="bg-gray-800/30 rounded-lg p-6">
+                <h4 className="font-semibold text-white mb-4 flex items-center gap-2"><Filter className="w-5 h-5 text-yellow-400" /> Data Filters</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Min Liquidity</label>
+                    <input
+                      type="number"
+                      value={editedStrategy.data_filters?.min_liquidity || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('data_filters', 'min_liquidity', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Max Bid/Ask Spread (%)</label>
+                    <input
+                      type="number"
+                      value={editedStrategy.data_filters?.max_bid_ask_spread_pct || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('data_filters', 'max_bid_ask_spread_pct', Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      step="0.0001"
+                    />
+                  </div>
+                  {editedStrategy.asset_class === 'options' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">IV Rank Threshold</label>
+                        <input
+                          type="number"
+                          value={editedStrategy.data_filters?.iv_rank_threshold || ''}
+                          onChange={(e) => handleNestedUniversalFieldChange('data_filters', 'iv_rank_threshold', Number(e.target.value))}
+                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Min Open Interest</label>
+                        <input
+                          type="number"
+                          value={editedStrategy.data_filters?.min_open_interest || ''}
+                          onChange={(e) => handleNestedUniversalFieldChange('data_filters', 'min_open_interest', Number(e.target.value))}
+                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Notifications */}
+              <div className="bg-gray-800/30 rounded-lg p-6">
+                <h4 className="font-semibold text-white mb-4 flex items-center gap-2"><Bell className="w-5 h-5 text-orange-400" /> Notifications</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Email Alerts</label>
+                    <input
+                      type="checkbox"
+                      checked={editedStrategy.notifications?.email_alerts || false}
+                      onChange={(e) => handleNestedUniversalFieldChange('notifications', 'email_alerts', e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Push Notifications</label>
+                    <input
+                      type="checkbox"
+                      checked={editedStrategy.notifications?.push_notifications || false}
+                      onChange={(e) => handleNestedUniversalFieldChange('notifications', 'push_notifications', e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Webhook URL</label>
+                    <input
+                      type="text"
+                      value={editedStrategy.notifications?.webhook_url || ''}
+                      onChange={(e) => handleNestedUniversalFieldChange('notifications', 'webhook_url', e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      placeholder="https://your-webhook.com/endpoint"
+                    />
                   </div>
                 </div>
               </div>
@@ -355,8 +627,8 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                       type="range"
                       min="0"
                       max="100"
-                      value={allocatedCapitalPercentage}
-                      onChange={handleSliderChange}
+                      value={allocatedCapitalPercentage} // This is the percentage
+                      onChange={handleCapitalAllocationSliderChange}
                       onMouseUp={handleSliderSnap}
                       onTouchEnd={handleSliderSnap}
                       className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-with-markers"
@@ -411,10 +683,10 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
             </div>
 
             {/* Grid Bot Specific Configuration */}
-            {isGridBot && (
+            {['spot_grid', 'futures_grid', 'infinity_grid'].includes(editedStrategy.type) && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white">Grid Bot Configuration</h3>
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2"><Grid3X3 className="w-5 h-5 text-blue-400" /> Grid Bot Configuration</h3>
                   <span className="text-sm text-gray-400">
                     {getStrategyTypeLabel(editedStrategy.type)}
                   </span>
@@ -428,9 +700,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                         Lowest Price (USDT)
                       </label>
                       <input
-                        type="number"
-                        value={priceRangeLower}
-                        onChange={(e) => setPriceRangeLower(Number(e.target.value))}
+                        type="number" // This should be part of configurationState
+                        value={configurationState.price_floor || ''}
+                        onChange={(e) => handleConfigurationChange('price_floor', Number(e.target.value))}
                         className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                         placeholder="Lowest price USDT"
                         min="0"
@@ -442,9 +714,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                         Highest Price (USDT)
                       </label>
                       <input
-                        type="number"
-                        value={priceRangeUpper}
-                        onChange={(e) => setPriceRangeUpper(Number(e.target.value))}
+                        type="number" // This should be part of configurationState
+                        value={configurationState.price_ceiling || ''}
+                        onChange={(e) => handleConfigurationChange('price_ceiling', Number(e.target.value))}
                         className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                         placeholder="Highest price USDT"
                         min="0"
@@ -458,9 +730,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                       Lowest Price (USDT)
                     </label>
                     <input
-                      type="number"
-                      value={priceRangeLower}
-                      onChange={(e) => setPriceRangeLower(Number(e.target.value))}
+                      type="number" // This should be part of configurationState
+                      value={configurationState.price_floor || ''}
+                      onChange={(e) => handleConfigurationChange('price_floor', Number(e.target.value))}
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                       placeholder="Lowest price USDT"
                       min="0"
@@ -479,9 +751,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                       Quantity of Grids (2-1000)
                     </label>
                     <input
-                      type="number"
-                      value={numberOfGrids}
-                      onChange={(e) => setNumberOfGrids(Number(e.target.value))}
+                      type="number" // This should be part of configurationState
+                      value={configurationState.grid_count || ''}
+                      onChange={(e) => handleConfigurationChange('grid_count', Number(e.target.value))}
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                       placeholder="Number of grids"
                       min="2"
@@ -489,7 +761,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                     />
                     {numberOfGrids > 0 && (
                       <p className="text-xs text-gray-400 mt-1">
-                        Profit/grid: ~{profitPerGrid} USDT (fee deducted)
+                        Profit/grid: ~{(configurationState.total_investment / configurationState.grid_count).toFixed(2)} USDT (fee deducted)
                       </p>
                     )}
                   </div>
@@ -499,9 +771,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                       Total Investment (USDT)
                     </label>
                     <input
-                      type="number"
-                      value={totalInvestment}
-                      onChange={(e) => setTotalInvestment(Number(e.target.value))}
+                      type="number" // This should be part of configurationState
+                      value={configurationState.total_investment || ''}
+                      onChange={(e) => handleConfigurationChange('total_investment', Number(e.target.value))}
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                       placeholder="Total investment (USDT)"
                       min="0"
@@ -509,7 +781,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                     />
                     <div className="mt-2">
                       <div className="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>0%</span>
+                        <span>0%</span> {/* This is incorrect, should be based on totalInvestment / min_capital */}
                         <span>{((totalInvestment / editedStrategy.min_capital) * 100).toFixed(1)}% of min capital</span>
                         <span>100%</span>
                       </div>
@@ -533,9 +805,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                         Trigger Price (USDT, Optional)
                       </label>
                       <input
-                        type="number"
-                        value={triggerPrice || ''}
-                        onChange={(e) => setTriggerPrice(e.target.value ? Number(e.target.value) : undefined)}
+                        type="number" // This should be part of configurationState
+                        value={configurationState.trigger_price || ''}
+                        onChange={(e) => handleConfigurationChange('trigger_price', e.target.value ? Number(e.target.value) : undefined)}
                         className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                         placeholder="Trigger price"
                         step="0.01"
@@ -548,9 +820,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                           Take Profit (USDT, Optional)
                         </label>
                         <input
-                          type="number"
-                          value={takeProfit || ''}
-                          onChange={(e) => setTakeProfit(e.target.value ? Number(e.target.value) : undefined)}
+                          type="number" // This should be part of configurationState
+                          value={configurationState.take_profit || ''}
+                          onChange={(e) => handleConfigurationChange('take_profit', e.target.value ? Number(e.target.value) : undefined)}
                           className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                           placeholder="Take Profit"
                           step="0.01"
@@ -561,9 +833,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                           Stop Loss (USDT, Optional)
                         </label>
                         <input
-                          type="number"
-                          value={stopLoss || ''}
-                          onChange={(e) => setStopLoss(e.target.value ? Number(e.target.value) : undefined)}
+                          type="number" // This should be part of configurationState
+                          value={configurationState.stop_loss || ''}
+                          onChange={(e) => handleConfigurationChange('stop_loss', e.target.value ? Number(e.target.value) : undefined)}
                           className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
                           placeholder="Stop Loss"
                           step="0.01"
@@ -577,7 +849,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                       <div className="flex rounded-lg bg-gray-800 border border-gray-700 overflow-hidden">
                         <button
                           type="button"
-                          onClick={() => setGridMode('geometric')}
+                          onClick={() => handleConfigurationChange('grid_mode', 'geometric')}
                           className={`flex-1 px-4 py-3 text-center text-sm font-medium transition-colors ${
                             gridMode === 'geometric' 
                               ? 'bg-blue-600 text-white' 
@@ -588,7 +860,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                         </button>
                         <button
                           type="button"
-                          onClick={() => setGridMode('arithmetic')}
+                          onClick={() => handleConfigurationChange('grid_mode', 'arithmetic')}
                           className={`flex-1 px-4 py-3 text-center text-sm font-medium transition-colors ${
                             gridMode === 'arithmetic' 
                               ? 'bg-blue-600 text-white' 
@@ -631,44 +903,44 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                 {configurationState.symbol && (
                   <div>
                     <span className="text-gray-400">Symbol:</span>
-                    <span className="text-white ml-2">{configurationState.symbol}</span>
+                    <span className="text-white ml-2">{editedStrategy.base_symbol}</span>
                   </div>
                 )}
-                {isGridBot && (
+                {['spot_grid', 'futures_grid', 'infinity_grid'].includes(editedStrategy.type) && (
                   <>
                     <div>
                       <span className="text-gray-400">Price Range:</span>
                       <span className="text-white ml-2">
                         {editedStrategy.type === 'infinity_grid' 
-                          ? `${priceRangeLower}+ USDT`
-                          : `${priceRangeLower} - ${priceRangeUpper} USDT`
+                          ? `${configurationState.price_floor}+ USDT`
+                          : `${configurationState.price_floor} - ${configurationState.price_ceiling} USDT`
                         }
                       </span>
                     </div>
                     <div>
                       <span className="text-gray-400">Grids:</span>
-                      <span className="text-white ml-2">{numberOfGrids}</span>
+                      <span className="text-white ml-2">{configurationState.grid_count}</span>
                     </div>
                     <div>
                       <span className="text-gray-400">Investment:</span>
                       <span className="text-white ml-2">{formatCurrency(currentAllocatedCapital)}</span>
                     </div>
-                    {triggerPrice && (
+                    {configurationState.trigger_price && (
                       <div>
                         <span className="text-gray-400">Trigger:</span>
-                        <span className="text-white ml-2">{triggerPrice} USDT</span>
+                        <span className="text-white ml-2">{configurationState.trigger_price} USDT</span>
                       </div>
                     )}
-                    {takeProfit && (
+                    {configurationState.take_profit && (
                       <div>
                         <span className="text-gray-400">Take Profit:</span>
-                        <span className="text-green-400 ml-2">{takeProfit} USDT</span>
+                        <span className="text-green-400 ml-2">{configurationState.take_profit} USDT</span>
                       </div>
                     )}
-                    {stopLoss && (
+                    {configurationState.stop_loss && (
                       <div>
                         <span className="text-gray-400">Stop Loss:</span>
-                        <span className="text-red-400 ml-2">{stopLoss} USDT</span>
+                        <span className="text-red-400 ml-2">{configurationState.stop_loss} USDT</span>
                       </div>
                     )}
                   </>
@@ -682,14 +954,9 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {Object.entries(configurationState)
                   .filter(([key]) => {
-                    // Exclude grid bot specific fields that are handled separately
-                    if (isGridBot) {
-                      return !['price_range_lower', 'price_range_upper', 'number_of_grids', 
-                              'total_investment', 'allocated_capital', 'trigger_price', 
-                              'take_profit', 'stop_loss', 'grid_mode'].includes(key);
-                    }
-                    // Exclude allocated_capital for all strategies (handled by slider)
-                    return key !== 'allocated_capital';
+                    // Exclude fields that are now universal or handled by specific UI elements
+                    const universalFields = ['symbol', 'allocated_capital', 'price_range_lower', 'price_range_upper', 'number_of_grids', 'total_investment', 'trigger_price', 'take_profit', 'stop_loss', 'grid_mode'];
+                    return !universalFields.includes(key);
                   })
                   .map(([key, value]) => (
                     <div key={key} className={
