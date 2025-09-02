@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
+from dotenv import load_dotenv
 import uvicorn
+
+# Load environment variables from .env file
+load_dotenv()
 
 if __name__ == "__main__":
     uvicorn.run(
