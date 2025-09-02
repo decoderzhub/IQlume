@@ -65,24 +65,74 @@ export interface TradingStrategy {
   skill_level: 'beginner' | 'moderate' | 'advanced';
   min_capital: number;
   is_active: boolean;
-  configuration: {
-    // Common fields
-    symbol?: string;
-    allocated_capital?: number;
-    
-    // Grid bot specific fields
-    price_range_lower?: number;
-    price_range_upper?: number;
-    number_of_grids?: number;
-    total_investment?: number;
-    trigger_price?: number;
-    take_profit?: number;
-    stop_loss?: number;
-    grid_mode?: 'arithmetic' | 'geometric';
-    
-    // Other strategy specific fields
-    [key: string]: any;
+
+  // Universal Bot Fields
+  account_id?: string; // Map to Alpaca / broker account
+  asset_class?: 'equity' | 'options' | 'crypto' | 'futures' | 'forex';
+  base_symbol?: string; // e.g., AAPL or BTC-USD; if options, base underlying symbol
+  quote_currency?: string; // USD, USDT, etc.
+  time_horizon?: 'intraday' | 'swing' | 'long_term';
+  automation_level?: 'fully_auto' | 'semi_auto' | 'manual';
+
+  capital_allocation?: {
+    mode: 'fixed_amount_usd' | 'percent_of_portfolio';
+    value: number; // USD amount or percentage
+    max_positions?: number; // cap
+    max_exposure_usd?: number; // cap
   };
+
+  position_sizing?: {
+    mode: 'fixed_units' | 'percent_equity' | 'volatility_target';
+    value: number; // units, percentage, or target volatility
+  };
+
+  trade_window?: {
+    enabled: boolean;
+    start_time?: string; // "HH:MM"
+    end_time?: string; // "HH:MM"
+    days_of_week?: number[]; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  };
+
+  order_execution?: {
+    order_type_default: 'market' | 'limit' | 'limit_if_touched';
+    limit_tolerance_percent?: number; // how far from mid/ask acceptable
+    allow_partial_fill: boolean;
+    combo_execution: 'atomic' | 'legged'; // prefer atomic when broker supports combos
+  };
+
+  risk_controls?: {
+    take_profit_percent?: number;
+    take_profit_usd?: number;
+    stop_loss_percent?: number;
+    stop_loss_usd?: number;
+    max_daily_loss_usd?: number;
+    max_drawdown_percent?: number;
+    pause_on_event_flags?: string[]; // e.g., ['earnings', 'FOMC']
+  };
+
+  data_filters?: {
+    min_liquidity?: number; // volume / open interest
+    max_bid_ask_spread_pct?: number;
+    iv_rank_threshold?: number; // options
+    min_open_interest?: number;
+  };
+
+  notifications?: {
+    email_alerts: boolean;
+    push_notifications: boolean;
+    webhook_url?: string;
+  };
+
+  backtest_mode?: 'paper' | 'sim' | 'live';
+  backtest_params?: {
+    slippage?: number;
+    commission?: number;
+  };
+  telemetry_id?: string;
+
+  // Strategy-specific configuration (only parameters unique to the strategy type)
+  configuration: Record<string, any>;
+
   performance?: {
     total_return: number;
     win_rate: number;
