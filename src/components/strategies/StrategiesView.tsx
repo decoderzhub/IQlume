@@ -11,114 +11,6 @@ import { TradingStrategy } from '../../types';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
 
-const mockStrategies: TradingStrategy[] = [
-  {
-    id: '1',
-    name: 'BTC/USDT Spot Grid',
-    type: 'spot_grid',
-    description: 'Automated grid trading on Bitcoin within $40K-$50K range',
-    risk_level: 'low',
-    min_capital: 2000,
-    is_active: true,
-    configuration: {
-      symbol: 'BTC/USDT',
-      price_range_lower: 40000,
-      price_range_upper: 50000,
-      number_of_grids: 25,
-      grid_spacing_percent: 1.0,
-      mode: 'customize',
-    },
-    performance: {
-      total_return: 0.08,
-      win_rate: 0.78,
-      max_drawdown: 0.05,
-      sharpe_ratio: 1.4,
-      total_trades: 156,
-      avg_trade_duration: 2,
-    },
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-15T10:30:00Z',
-  },
-  {
-    id: '2',
-    name: 'ETH DCA Strategy',
-    type: 'dca',
-    description: 'Daily dollar-cost averaging into Ethereum',
-    risk_level: 'low',
-    min_capital: 500,
-    is_active: true,
-    configuration: {
-      symbol: 'ETH/USDT',
-      investment_amount_per_interval: 50,
-      frequency: 'daily',
-      investment_target_percent: 25,
-    },
-    performance: {
-      total_return: 0.15,
-      win_rate: 0.92,
-      max_drawdown: 0.08,
-      sharpe_ratio: 1.6,
-      total_trades: 45,
-      avg_trade_duration: 1,
-    },
-    created_at: '2024-01-05T00:00:00Z',
-    updated_at: '2024-01-14T15:20:00Z',
-  },
-  {
-    id: '3',
-    name: 'Multi-Asset Rebalance',
-    type: 'smart_rebalance',
-    description: 'Maintains 50% BTC, 30% ETH, 20% USDT allocation',
-    risk_level: 'medium',
-    min_capital: 5000,
-    is_active: false,
-    configuration: {
-      assets: [
-        { symbol: 'BTC', allocation: 50 },
-        { symbol: 'ETH', allocation: 30 },
-        { symbol: 'USDT', allocation: 20 },
-      ],
-      trigger_type: 'threshold',
-      threshold_deviation_percent: 5,
-    },
-    performance: {
-      total_return: 0.12,
-      win_rate: 0.88,
-      max_drawdown: 0.06,
-      sharpe_ratio: 1.8,
-      total_trades: 12,
-      avg_trade_duration: 7,
-    },
-    created_at: '2024-01-10T00:00:00Z',
-    updated_at: '2024-01-15T09:45:00Z',
-  },
-  {
-    id: '4',
-    name: 'SOL Infinity Grid',
-    type: 'infinity_grid',
-    description: 'Trending market grid bot for Solana with no upper limit',
-    risk_level: 'high',
-    min_capital: 1500,
-    is_active: false,
-    configuration: {
-      symbol: 'SOL/USDT',
-      lowest_price: 80,
-      profit_per_grid_percent: 1.5,
-      mode: 'customize',
-    },
-    performance: {
-      total_return: 0.24,
-      win_rate: 0.72,
-      max_drawdown: 0.15,
-      sharpe_ratio: 1.3,
-      total_trades: 89,
-      avg_trade_duration: 3,
-    },
-    created_at: '2024-01-12T00:00:00Z',
-    updated_at: '2024-01-15T11:30:00Z',
-  },
-];
-
 export function StrategiesView() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRisk, setFilterRisk] = useState<'all' | 'low' | 'medium' | 'high'>('all');
@@ -141,41 +33,31 @@ export function StrategiesView() {
       }
 
       try {
-        console.log('Loading strategies for user:', user.id);
-        
-        const { data, error } = await supabase
-          .from('trading_strategies')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('No valid session found. Please log in again.');
+        }
 
-        if (error) {
-          console.error('Error loading strategies:', error);
-          // Fallback to mock data if database fails
-          setStrategies(mockStrategies);
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch strategies: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setStrategies(data);
         } else {
-          console.log('Loaded strategies from database:', data);
-          // Transform database data to match TradingStrategy interface
-          const transformedStrategies: TradingStrategy[] = data.map(strategy => ({
-            id: strategy.id,
-            name: strategy.name,
-            type: strategy.type,
-            description: strategy.description,
-            risk_level: strategy.risk_level,
-            min_capital: strategy.min_capital,
-            is_active: strategy.is_active,
-            configuration: strategy.configuration,
-            performance: strategy.performance,
-            created_at: strategy.created_at,
-            updated_at: strategy.updated_at,
-          }));
-          
-          setStrategies(transformedStrategies);
+          console.error('API response is not an array:', data);
+          setStrategies([]);
         }
       } catch (error) {
         console.error('Unexpected error loading strategies:', error);
-        // Fallback to mock data
-        setStrategies(mockStrategies);
       } finally {
         setLoading(false);
       }
@@ -208,26 +90,32 @@ export function StrategiesView() {
     ));
 
     // Persist to database
-    const updateDatabase = async () => {
+    const updateStrategyStatus = async () => {
       try {
-        const { error } = await supabase
-          .from('trading_strategies')
-          .update({ 
-            is_active: newActiveStatus,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', strategyId)
-          .eq('user_id', user.id);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('No valid session found. Please log in again.');
+        }
 
-        if (error) {
-          console.error('Error updating strategy active status:', error);
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${strategyId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ is_active: newActiveStatus }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Error updating strategy active status:', errorText);
           // Revert local state on error
           setStrategies(prev => prev.map(s => 
             s.id === strategyId 
               ? { ...s, is_active: !newActiveStatus }
               : s
           ));
-          alert(`Failed to ${newActiveStatus ? 'start' : 'pause'} strategy: ${error.message}`);
+          alert(`Failed to ${newActiveStatus ? 'start' : 'pause'} strategy.`);
         } else {
           console.log(`Strategy ${newActiveStatus ? 'started' : 'paused'} successfully`);
         }
@@ -242,8 +130,8 @@ export function StrategiesView() {
         alert('An unexpected error occurred while updating the strategy');
       }
     };
-
-    updateDatabase();
+    
+    updateStrategyStatus();
   };
 
   const handleViewDetails = (strategy: TradingStrategy) => {
@@ -264,58 +152,32 @@ export function StrategiesView() {
     }
 
     try {
-      console.log('Saving strategy to database:', strategyData);
-      
-      // Insert strategy into Supabase
-      const { data, error } = await supabase
-        .from('trading_strategies')
-        .insert([
-          {
-            user_id: user.id,
-            name: strategyData.name,
-            type: strategyData.type,
-            description: strategyData.description,
-            risk_level: strategyData.risk_level,
-            min_capital: strategyData.min_capital,
-            is_active: strategyData.is_active,
-            configuration: strategyData.configuration,
-            performance: strategyData.performance || null,
-          }
-        ])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error saving strategy:', error);
-        alert(`Failed to save strategy: ${error.message}`);
-        return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No valid session found. Please log in again.');
       }
 
-      console.log('Strategy saved successfully:', data);
-      
-      // Add the new strategy to local state with the returned ID
-      const newStrategy: TradingStrategy = {
-        id: data.id,
-        name: data.name,
-        type: data.type,
-        description: data.description,
-        risk_level: data.risk_level,
-        min_capital: data.min_capital,
-        is_active: data.is_active,
-        configuration: data.configuration,
-        performance: data.performance,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      };
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(strategyData),
+      });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create strategy: ${response.status} ${errorText}`);
+      }
+
+      const newStrategy = await response.json();
+      
       setStrategies(prev => [...prev, newStrategy]);
       setShowCreateModal(false);
-      
-      // Show success message
       alert('Strategy created successfully!');
-      
     } catch (error) {
-      console.error('Unexpected error saving strategy:', error);
+      console.error('Error creating strategy:', error);
       alert('An unexpected error occurred while saving the strategy');
     }
   };
@@ -324,34 +186,30 @@ export function StrategiesView() {
     if (!user) {
       console.error('No user found');
       alert('You must be logged in to delete strategies');
-      return;
-    }
-
-    try {
-      console.log('Deleting strategy from database:', strategyId);
-      
-      // Delete strategy from Supabase
-      const { error } = await supabase
-        .from('trading_strategies')
-        .delete()
-        .eq('id', strategyId)
-        .eq('user_id', user.id); // Ensure user can only delete their own strategies
-
-      if (error) {
-        console.error('Error deleting strategy:', error);
-        alert(`Failed to delete strategy: ${error.message}`);
         return;
       }
 
-      console.log('Strategy deleted successfully');
-      
-      // Remove the strategy from local state
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No valid session found. Please log in again.');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${strategyId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete strategy: ${response.status} ${errorText}`);
+      }
+
       setStrategies(prev => prev.filter(strategy => strategy.id !== strategyId));
       setShowDetailsModal(false);
-      
-      // Show success message
       alert('Strategy deleted successfully!');
-      
     } catch (error) {
       console.error('Unexpected error deleting strategy:', error);
       alert('An unexpected error occurred while deleting the strategy');
@@ -524,28 +382,27 @@ export function StrategiesView() {
               s.id === updatedStrategy.id ? updatedStrategy : s
             ));
             
-            // Persist to database
-            const updateDatabase = async () => {
+            const updateStrategyInDB = async () => {
               if (!user) return;
               
               try {
-                const { error } = await supabase
-                  .from('trading_strategies')
-                  .update({
-                    name: updatedStrategy.name,
-                    description: updatedStrategy.description,
-                    risk_level: updatedStrategy.risk_level,
-                    min_capital: updatedStrategy.min_capital,
-                    is_active: updatedStrategy.is_active,
-                    configuration: updatedStrategy.configuration,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', updatedStrategy.id)
-                  .eq('user_id', user.id);
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.access_token) {
+                  throw new Error('No valid session found. Please log in again.');
+                }
 
-                if (error) {
-                  console.error('Error updating strategy:', error);
-                  alert(`Failed to save strategy changes: ${error.message}`);
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${updatedStrategy.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify(updatedStrategy),
+                });
+
+                if (!response.ok) {
+                  const errorText = await response.text();
+                  throw new Error(`Failed to save strategy changes: ${response.status} ${errorText}`);
                 } else {
                   console.log('Strategy updated successfully in database');
                 }
@@ -554,8 +411,8 @@ export function StrategiesView() {
                 alert('An unexpected error occurred while saving the strategy');
               }
             };
-
-            updateDatabase();
+            
+            updateStrategyInDB();
             setShowDetailsModal(false);
           }}
           onDelete={(strategyId) => {
@@ -575,28 +432,27 @@ export function StrategiesView() {
               s.id === updatedStrategy.id ? updatedStrategy : s
             ));
             
-            // Persist to database
-            const updateDatabase = async () => {
+            const updateStrategyInDB = async () => {
               if (!user) return;
               
               try {
-                const { error } = await supabase
-                  .from('trading_strategies')
-                  .update({
-                    name: updatedStrategy.name,
-                    description: updatedStrategy.description,
-                    risk_level: updatedStrategy.risk_level,
-                    min_capital: updatedStrategy.min_capital,
-                    is_active: updatedStrategy.is_active,
-                    configuration: updatedStrategy.configuration,
-                    performance: updatedStrategy.performance,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', updatedStrategy.id)
-                  .eq('user_id', user.id);
-                if (error) {
-                  console.error('Error updating strategy after backtest:', error);
-                  alert(`Failed to save strategy changes: ${error.message}`);
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.access_token) {
+                  throw new Error('No valid session found. Please log in again.');
+                }
+
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${updatedStrategy.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify(updatedStrategy),
+                });
+
+                if (!response.ok) {
+                  const errorText = await response.text();
+                  throw new Error(`Failed to save strategy changes after backtest: ${response.status} ${errorText}`);
                 } else {
                   console.log('Strategy updated successfully after backtest');
                 }
@@ -604,8 +460,8 @@ export function StrategiesView() {
                 console.error('Unexpected error updating strategy after backtest:', error);
                 alert('An unexpected error occurred while saving the strategy');
               }
-            };
-            updateDatabase();
+            };            
+            updateStrategyInDB();
             setShowBacktestModal(false);
           }}
         />
