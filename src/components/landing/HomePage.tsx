@@ -614,4 +614,6 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                 viewport={{ once: true }}
                 whileHover={{ scale: 1.02 }}
               >
-                <Card className="p-8 h-full bg-gray-800/80 backdrop-blur-xl border-gray-600 text
+                <Card className="p-8 h-full bg-gray-800/80 backdrop-blur-xl border-gray-600 text-center">
+                  <div className="text-6xl mb-4">{level.icon}</div>
+                  <div className={`w-full h-1 bg-gradient-to-r ${level.color} rounded-full mb-6`} />
