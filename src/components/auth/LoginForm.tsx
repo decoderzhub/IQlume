@@ -51,11 +51,7 @@ export function LoginForm() {
         <Card className="p-8">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              {/* Replace this div with your full logo image */}
-              {/* <img src="/path/to/your/logo.svg" alt="brokernomex" className="h-12" /> */}
-              <div className="text-3xl font-bold text-white">
-                broker<span className="text-blue-400">nomex</span>
-              </div>
+              <img src="/logo.png" alt="brokernomex" className="h-12" />
             </div>
             <p className="text-gray-400">
               {isLogin ? 'Welcome back' : 'Create your account'}

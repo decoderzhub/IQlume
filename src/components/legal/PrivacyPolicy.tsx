@@ -139,12 +139,7 @@ export function PrivacyPolicy() {
             </Button>
           </Link>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">N</span>
-            </div>
-            <span className="text-xl font-bold text-white">
-              broker<span className="text-blue-400">nomex</span>
-            </span>
+            <img src="/logo.png" alt="brokernomex" className="h-8" />
           </div>
         </div>
       </motion.header>

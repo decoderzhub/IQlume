@@ -149,11 +149,9 @@ export function Sidebar() {
                 initial="closed"
                 animate="open"
                 exit="closed"
-                className="text-xl font-bold text-white whitespace-nowrap mr-auto"
+                className="mr-auto"
               >
-              {/* <img src="/public/image.png" alt="brokernomex" className="h-10" />
- */}
-                broker<span className="text-blue-400">nomex</span>
+                <img src="/logo.png" alt="brokernomex" className="h-8" />
               </motion.h1>
             )}
           </AnimatePresence>
@@ -166,9 +164,7 @@ export function Sidebar() {
               className="flex flex-col items-center justify-center w-full hover:bg-gray-800 rounded-lg p-2 transition-colors group"
               title="Expand sidebar"
             >
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center text-white font-bold text-sm mb-1">
-                N
-              </div>
+              <img src="/logo.png" alt="brokernomex" className="w-8 h-8 rounded mb-1" />
               <Menu className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
             </motion.button>
           )}
@@ -288,14 +284,7 @@ export function Sidebar() {
                 animate="open"
                 className="flex items-center"
               >
-                {/* Replace this div with your full logo image */}
-                {/* <img src="/public/image.png" alt="brokernomex" className="h-10" /> */}
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded flex items-center justify-center text-white font-bold text-sm">
-                    N
-                  </div>
-                  <span className="text-white">broker<span className="text-blue-400">nomex</span></span>
-                </div>
+                <img src="/logo.png" alt="brokernomex" className="h-10" />
               </motion.div>
               
               <motion.button
