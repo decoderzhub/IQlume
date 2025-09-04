@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import { Send, Bot, User, Sparkles, TrendingUp, Brain, Play, Pause } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -205,6 +206,12 @@ export function AIDemoSection() {
 
   return (
     <section id="ai-demo" className="relative z-10 px-6 lg:px-12 py-20 bg-gray-900/60 backdrop-blur-sm">
+      <Helmet>
+        <meta name="description" content="Try BrokerNomex AI live demo. Experience how our AI assistant creates trading strategies, analyzes risks, and provides market insights in real-time." />
+        <meta property="og:title" content="Live AI Trading Assistant Demo - BrokerNomex" />
+        <meta property="og:description" content="Experience our AI assistant creating trading strategies and providing market insights in real-time." />
+        <meta name="keywords" content="AI trading demo, trading assistant, live demo, AI strategies, trading bot demo" />
+      </Helmet>
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 50 }}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import { Brain, Shield, Zap, BarChart3, Globe, Users } from 'lucide-react';
 import { Card } from '../ui/Card';
 
@@ -51,6 +52,11 @@ const features = [
 export function FeaturesSection() {
   return (
     <motion.section
+      <Helmet>
+        <meta name="description" content="Discover BrokerNomex's powerful trading features: AI-powered strategies, advanced risk management, automated execution, multi-asset trading, and professional analytics." />
+        <meta property="og:title" content="Trading Platform Features - BrokerNomex" />
+        <meta property="og:description" content="AI-powered strategies, risk management, automated execution, and professional analytics for traders of all levels." />
+      </Helmet>
       id="features"
       className="relative z-10 px-6 lg:px-12 py-20 bg-gray-900/40 backdrop-blur-sm"
     >

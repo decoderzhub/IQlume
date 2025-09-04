@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import { Star } from 'lucide-react';
 import { Card } from '../ui/Card';
 
@@ -30,6 +31,32 @@ const testimonials = [
 export function TestimonialsSection() {
   return (
     <section className="relative z-10 px-6 lg:px-12 py-20">
+      <Helmet>
+        <meta name="description" content="Read what our traders say about BrokerNomex. Real testimonials from beginners to professionals who've transformed their trading with our AI platform." />
+        <meta property="og:title" content="Trader Testimonials - BrokerNomex" />
+        <meta property="og:description" content="Real stories from traders who've transformed their trading with our AI-powered platform." />
+        
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "BrokerNomex",
+            "review": testimonials.map(testimonial => ({
+              "@type": "Review",
+              "author": {
+                "@type": "Person",
+                "name": testimonial.name
+              },
+              "reviewRating": {
+                "@type": "Rating",
+                "ratingValue": testimonial.rating,
+                "bestRating": 5
+              },
+              "reviewBody": testimonial.content
+            }))
+          })}
+        </script>
+      </Helmet>
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 50 }}

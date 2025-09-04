@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import { CheckCircle, Star } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -61,6 +62,47 @@ const pricingTiers = [
 export function PricingSection({ onGetStarted }: PricingSectionProps) {
   return (
     <section id="pricing" className="relative z-10 px-6 lg:px-12 py-20 bg-gray-900/40 backdrop-blur-sm">
+      <Helmet>
+        <meta name="description" content="Choose your BrokerNomex trading plan: Starter ($29/month), Pro ($99/month), or Performance ($299/month). 14-day free trial, no credit card required." />
+        <meta property="og:title" content="Trading Platform Pricing - BrokerNomex" />
+        <meta property="og:description" content="Flexible pricing plans for traders of all levels. Start free for 14 days, then choose the plan that fits your goals." />
+        <meta name="keywords" content="trading platform pricing, trading subscription, algorithmic trading cost, trading automation pricing" />
+        
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": "BrokerNomex Trading Platform",
+            "description": "AI-powered trading automation platform",
+            "offers": [
+              {
+                "@type": "Offer",
+                "name": "Starter Plan",
+                "price": "29",
+                "priceCurrency": "USD",
+                "billingIncrement": "P1M",
+                "description": "Perfect for beginners with up to $10K portfolio value"
+              },
+              {
+                "@type": "Offer",
+                "name": "Pro Plan", 
+                "price": "99",
+                "priceCurrency": "USD",
+                "billingIncrement": "P1M",
+                "description": "For serious traders with up to $100K portfolio value"
+              },
+              {
+                "@type": "Offer",
+                "name": "Performance Plan",
+                "price": "299", 
+                "priceCurrency": "USD",
+                "billingIncrement": "P1M",
+                "description": "For professionals with unlimited portfolio value"
+              }
+            ]
+          })}
+        </script>
+      </Helmet>
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
