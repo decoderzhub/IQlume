@@ -149,9 +149,10 @@ export function Sidebar() {
                 initial="closed"
                 animate="open"
                 exit="closed"
-                className="mr-auto"
+                className="mr-auto flex items-center gap-3"
               >
                 <img src="/logo.png" alt="brokernomex" className="h-10 w-auto" />
+                <span className="text-xl font-bold text-white">BrokerNomex</span>
               </motion.h1>
             )}
           </AnimatePresence>
@@ -282,9 +283,10 @@ export function Sidebar() {
                 variants={logoVariants}
                 initial="closed"
                 animate="open"
-                className="flex items-center"
+                className="flex items-center gap-3"
               >
                 <img src="/logo.png" alt="brokernomex" className="h-12 w-auto" />
+                <span className="text-2xl font-bold text-white">BrokerNomex</span>
               </motion.div>
               
               <motion.button

@@ -197,6 +197,7 @@ export function TermsOfService() {
           </Link>
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="brokernomex" className="h-10 w-auto" />
+            <span className="text-xl font-bold text-white">BrokerNomex</span>
           </div>
         </div>
       </motion.header>
