@@ -79,8 +79,9 @@ export function FibonacciBackground() {
     const fibonacci = generateFibonacci(20);
     const points: PulsePoint[] = [];
 
-    // Create random pulse points across the entire viewport
-    for (let i = 0; i < 25; i++) {
+    // Reduce pulse points for better performance
+    const maxPulsePoints = window.innerWidth < 768 ? 8 : 15; // Fewer on mobile
+    for (let i = 0; i < maxPulsePoints; i++) {
       const fibValue = fibonacci[i % fibonacci.length];
       
       // Use Fibonacci ratios for more natural positioning
@@ -97,22 +98,23 @@ export function FibonacciBackground() {
         x: Math.max(5, Math.min(95, baseX + randomOffsetX)),
         y: Math.max(5, Math.min(95, baseY + randomOffsetY)),
         size: Math.min(fibValue * 3, 80) + Math.random() * 20,
-        delay: (fibValue % 8) * 0.5 + Math.random() * 2,
-        duration: 3 + (fibValue % 5) + Math.random() * 3,
+        delay: (fibValue % 8) * 1.5 + Math.random() * 4, // Slower delays
+        duration: 6 + (fibValue % 5) + Math.random() * 6, // Longer durations
         fibIndex: i,
         opacity: 0.3 + (Math.random() * 0.4),
       });
     }
 
-    // Add more frequent smaller pulses
-    for (let i = 0; i < 15; i++) {
+    // Reduce mini pulses significantly
+    const maxMiniPulses = window.innerWidth < 768 ? 3 : 6;
+    for (let i = 0; i < maxMiniPulses; i++) {
       points.push({
         id: `mini-pulse-${i}`,
         x: Math.random() * 100,
         y: Math.random() * 100,
         size: 15 + Math.random() * 25,
-        delay: Math.random() * 10,
-        duration: 2 + Math.random() * 2,
+        delay: Math.random() * 20, // Much longer delays
+        duration: 4 + Math.random() * 4, // Slower animations
         fibIndex: i,
         opacity: 0.2 + Math.random() * 0.3,
       });
@@ -123,8 +125,9 @@ export function FibonacciBackground() {
     // Generate ECG pulse lines
     const ecgLines: ECGPulse[] = [];
     
-    // Create multiple ECG lines with random positioning and timing
-    for (let i = 0; i < 8; i++) {
+    // Reduce ECG lines for performance
+    const maxECGLines = window.innerWidth < 768 ? 2 : 4;
+    for (let i = 0; i < maxECGLines; i++) {
       const directions: ('horizontal' | 'vertical' | 'diagonal')[] = ['horizontal', 'vertical', 'diagonal'];
       const direction = directions[Math.floor(Math.random() * directions.length)];
       
@@ -133,8 +136,8 @@ export function FibonacciBackground() {
         startX: Math.random() * 100,
         startY: Math.random() * 100,
         direction,
-        delay: Math.random() * 15,
-        duration: 8 + Math.random() * 12,
+        delay: Math.random() * 30, // Much longer delays
+        duration: 15 + Math.random() * 20, // Slower animations
         amplitude: 20 + Math.random() * 40,
       });
     }
@@ -424,7 +427,7 @@ export function FibonacciBackground() {
               animate={{ 
                 pathLength: [0, 1, 0],
                 opacity: [0, 0.9, 0.6, 0.9, 0],
-                strokeWidth: [0.1, 0.3, 0.2, 0.3, 0.1],
+                strokeWidth: [0.05, 0.2, 0.15, 0.2, 0.05], // Thinner lines
               }}
               transition={{
                 duration: pulse.duration,
@@ -437,8 +440,8 @@ export function FibonacciBackground() {
           );
         })}
         
-        {/* Additional random ECG bursts */}
-        {[...Array(6)].map((_, i) => {
+        {/* Reduce additional ECG bursts */}
+        {[...Array(window.innerWidth < 768 ? 1 : 3)].map((_, i) => {
           const startX = Math.random() * 100;
           const startY = Math.random() * 100;
           const amplitude = 15 + Math.random() * 25;
@@ -448,7 +451,7 @@ export function FibonacciBackground() {
               key={`ecg-burst-${i}`}
               d={generateECGPath(startX, startY, 'horizontal', amplitude / 10)}
               stroke="url(#ecgPulseGradient)"
-              strokeWidth="0.15"
+              strokeWidth="0.1" // Thinner for better performance
               fill="none"
               filter="url(#ecgGlow)"
               initial={{ pathLength: 0, opacity: 0 }}
@@ -458,9 +461,9 @@ export function FibonacciBackground() {
                 strokeWidth: [0.1, 0.25, 0.1],
               }}
               transition={{
-                duration: 3 + Math.random() * 4,
+                duration: 6 + Math.random() * 8, // Slower animations
                 repeat: Infinity,
-                delay: i * 2.5 + Math.random() * 5,
+                delay: i * 5 + Math.random() * 10, // Longer delays
                 ease: "easeInOut"
               }}
             />
@@ -471,10 +474,10 @@ export function FibonacciBackground() {
       <motion.div 
         className="absolute inset-0 opacity-3"
         animate={{
-          opacity: [0.03, 0.08, 0.03],
+          opacity: [0.02, 0.05, 0.02], // Reduced opacity
         }}
         transition={{
-          duration: 6,
+          duration: 12, // Slower pulse
           repeat: Infinity,
           ease: "easeInOut"
         }}
@@ -489,7 +492,7 @@ export function FibonacciBackground() {
       </motion.div>
 
       {/* Large ambient pulses */}
-      {[...Array(6)].map((_, i) => {
+      {[...Array(window.innerWidth < 768 ? 2 : 4)].map((_, i) => { // Fewer on mobile
         const fibonacci = generateFibonacci(12);
         const fibValue = fibonacci[i + 4];
         return (
@@ -501,10 +504,10 @@ export function FibonacciBackground() {
               rotate: [0, 180, 360],
             }}
             transition={{
-              duration: 12 + (fibValue % 5),
+              duration: 20 + (fibValue % 8), // Much slower
               repeat: Infinity,
               ease: "easeInOut",
-              delay: i * 2,
+              delay: i * 4, // Longer delays between elements
             }}
             className="absolute rounded-full bg-gradient-to-br from-blue-500/10 via-purple-500/8 to-pink-500/6 blur-xl"
             style={{
