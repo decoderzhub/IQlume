@@ -9,6 +9,16 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ onGetStarted }: HeroSectionProps) {
+  const scrollToAIDemo = () => {
+    const aiDemoSection = document.getElementById('ai-demo');
+    if (aiDemoSection) {
+      aiDemoSection.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  };
+
   return (
     <motion.section
       className="relative z-10 px-6 lg:px-12 pt-20 pb-32"
@@ -70,6 +80,7 @@ export function HeroSection({ onGetStarted }: HeroSectionProps) {
               <Button
                 variant="outline"
                 size="lg"
+                onClick={scrollToAIDemo}
                 className="text-lg px-8 py-4 border-gray-600 text-white hover:bg-gray-800"
               >
                 <Play className="w-5 h-5 mr-2" />
