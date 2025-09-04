@@ -615,5 +615,23 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                 whileHover={{ scale: 1.02 }}
               >
                 <Card className="p-8 h-full bg-gray-800/80 backdrop-blur-xl border-gray-600 text-center">
-                  <div className="text-6xl mb-4">{level.icon}</div>
-                  <div className={`w-full h-1 bg-gradient-to-r ${level.color} rounded-full mb-6`} />
+                  <div className="text-6xl mb-6">{level.icon}</div>
+                  <h3 className="text-2xl font-bold text-white mb-4">{level.title}</h3>
+                  <p className="text-gray-300 mb-6">{level.description}</p>
+                  <div className="space-y-3">
+                    {level.features.map((feature, featureIndex) => (
+                      <div key={featureIndex} className="flex items-center justify-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <span className="text-gray-300">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
