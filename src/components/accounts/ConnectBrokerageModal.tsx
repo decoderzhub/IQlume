@@ -102,15 +102,37 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
                 {supportedBrokerages.map((brokerage) => (
                   <motion.div
                     key={brokerage.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setSelectedBrokerage(brokerage.id)}
-                    className="p-6 bg-gray-800/30 border border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 transition-all"
+                    whileHover={brokerage.id === 'alpaca' ? { scale: 1.02 } : {}}
+                    whileTap={brokerage.id === 'alpaca' ? { scale: 0.98 } : {}}
+                    onClick={brokerage.id === 'alpaca' ? () => setSelectedBrokerage(brokerage.id) : undefined}
+                    className={`p-6 border rounded-lg transition-all relative ${
+                      brokerage.id === 'alpaca'
+                        ? 'bg-gray-800/30 border-gray-700 cursor-pointer hover:border-blue-500'
+                        : 'bg-gray-800/10 border-gray-800 cursor-not-allowed opacity-60'
+                    }`}
                   >
+                    {brokerage.id !== 'alpaca' && (
+                      <div className="absolute top-2 right-2 px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded border border-yellow-500/30">
+                        Coming Soon
+                      </div>
+                    )}
                     <div className="text-center">
                       <div className="text-3xl mb-3">{brokerage.logo}</div>
-                      <h4 className="font-medium text-white mb-2">{brokerage.name}</h4>
-                      <p className="text-sm text-gray-400 capitalize">{brokerage.type}</p>
+                      <h4 className={`font-medium mb-2 ${
+                        brokerage.id === 'alpaca' ? 'text-white' : 'text-gray-500'
+                      }`}>
+                        {brokerage.name}
+                      </h4>
+                      <p className={`text-sm capitalize ${
+                        brokerage.id === 'alpaca' ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        {brokerage.type}
+                      </p>
+                      {brokerage.id === 'alpaca' && (
+                        <div className="mt-2 px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded border border-green-500/30">
+                          Available Now
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 ))}
