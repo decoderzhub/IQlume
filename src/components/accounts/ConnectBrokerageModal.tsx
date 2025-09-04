@@ -161,6 +161,38 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
                 <span>256-bit SSL encryption • SOC 2 Type II compliant</span>
               </div>
 
+              {/* Alpaca OAuth Disclosure */}
+              {selectedBrokerage === 'alpaca' && (
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6">
+                  <div className="flex items-start gap-3">
+                    <Shield className="w-6 h-6 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-blue-400 mb-3">Authorize brokernomex</h4>
+                      <p className="text-sm text-blue-300 leading-relaxed mb-4">
+                        By allowing <strong>brokernomex</strong> to access your Alpaca account, you are granting{' '}
+                        <strong>brokernomex</strong> access to your account information and authorization to place 
+                        transactions in your account at your direction.
+                      </p>
+                      <p className="text-sm text-blue-300 leading-relaxed mb-4">
+                        Alpaca does not warrant or guarantee that <strong>brokernomex</strong> will work as 
+                        advertised or expected.
+                      </p>
+                      <p className="text-sm text-blue-300 leading-relaxed">
+                        Before authorizing, learn more about{' '}
+                        <a 
+                          href="https://brokernomex.com/about" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 underline"
+                        >
+                          brokernomex
+                        </a>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <Button
                   variant="secondary"
