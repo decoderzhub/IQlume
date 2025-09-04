@@ -36,8 +36,8 @@ def get_supabase_client() -> Client:
     return create_client(supabase_url, supabase_key)
 
 async def get_alpaca_trading_client(
-    current_user = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    current_user,
+    supabase: Client
 ) -> TradingClient:
     """Get Alpaca trading client"""
     try:
