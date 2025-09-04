@@ -421,7 +421,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                   repeat: Infinity,
                   ease: "easeInOut"
                 }}
-                className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-2xl"
+                className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-2xl z-20"
               >
                 <Bot className="w-8 h-8 text-white" />
               </motion.div>
@@ -437,7 +437,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                   ease: "easeInOut",
                   delay: 1
                 }}
-                className="absolute -bottom-4 -left-4 w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-2xl"
+                className="absolute -bottom-4 -left-4 w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-2xl z-20"
               >
                 <TrendingUp className="w-6 h-6 text-white" />
               </motion.div>
