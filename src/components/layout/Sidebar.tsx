@@ -151,7 +151,7 @@ export function Sidebar() {
                 exit="closed"
                 className="mr-auto"
               >
-                <img src="/logo.png" alt="brokernomex" className="h-8" />
+                <img src="/logo.png" alt="brokernomex" className="h-10 w-auto" />
               </motion.h1>
             )}
           </AnimatePresence>
@@ -164,7 +164,7 @@ export function Sidebar() {
               className="flex flex-col items-center justify-center w-full hover:bg-gray-800 rounded-lg p-2 transition-colors group"
               title="Expand sidebar"
             >
-              <img src="/logo.png" alt="brokernomex" className="w-8 h-8 rounded mb-1" />
+              <img src="/logo.png" alt="brokernomex" className="w-10 h-10 rounded mb-1" />
               <Menu className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
             </motion.button>
           )}
@@ -284,7 +284,7 @@ export function Sidebar() {
                 animate="open"
                 className="flex items-center"
               >
-                <img src="/logo.png" alt="brokernomex" className="h-10" />
+                <img src="/logo.png" alt="brokernomex" className="h-12 w-auto" />
               </motion.div>
               
               <motion.button

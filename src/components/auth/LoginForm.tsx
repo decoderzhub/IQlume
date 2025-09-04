@@ -51,7 +51,7 @@ export function LoginForm() {
         <Card className="p-8">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <img src="/logo.png" alt="brokernomex" className="h-12" />
+              <img src="/logo.png" alt="brokernomex" className="h-16 w-auto" />
             </div>
             <p className="text-gray-400">
               {isLogin ? 'Welcome back' : 'Create your account'}

@@ -139,7 +139,7 @@ export function PrivacyPolicy() {
             </Button>
           </Link>
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="brokernomex" className="h-8" />
+            <img src="/logo.png" alt="brokernomex" className="h-10 w-auto" />
           </div>
         </div>
       </motion.header>

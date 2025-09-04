@@ -218,7 +218,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
           whileHover={{ scale: 1.05 }}
           className="flex items-center gap-3"
         >
-          <img src="/logo.png" alt="brokernomex" className="h-10" />
+          <img src="/logo.png" alt="brokernomex" className="h-12 w-auto" />
         </motion.div>
         
         <div className="flex items-center gap-6">
@@ -827,7 +827,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="flex items-center gap-3 mb-4 md:mb-0">
-              <img src="/logo.png" alt="brokernomex" className="h-8" />
+              <img src="/logo.png" alt="brokernomex" className="h-10 w-auto" />
             </div>
             
             <div className="flex items-center gap-8 text-sm text-gray-400">
