@@ -10,6 +10,7 @@ import { ExperienceLevelsSection } from './ExperienceLevelsSection';
 import { TestimonialsSection } from './TestimonialsSection';
 import { PricingSection } from './PricingSection';
 import { CTASection } from './CTASection';
+import { Footer } from './Footer';
 
 interface HomePageProps {
   onGetStarted: () => void;
@@ -64,6 +65,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
         <TestimonialsSection />
         <PricingSection onGetStarted={onGetStarted} />
         <CTASection onGetStarted={onGetStarted} />
+        <Footer />
       </div>
     </div>
   );
