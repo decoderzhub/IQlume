@@ -501,7 +501,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
       <motion.section
         id="features"
         style={{ y: featuresY }}
-        className="relative z-10 px-6 lg:px-12 py-20"
+        className="relative z-10 px-6 lg:px-12 py-20 bg-gray-900/40 backdrop-blur-sm"
       >
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -558,7 +558,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
       </motion.section>
 
       {/* Experience Levels Section */}
-      <section className="relative z-10 px-6 lg:px-12 py-20">
+      <section className="relative z-10 px-6 lg:px-12 py-20 bg-gray-800/20">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -570,7 +570,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
             <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
               Built for Every Trading Level
             </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-200 max-w-3xl mx-auto">
               Our platform adapts to your experience, providing the right tools and guidance at every stage
             </p>
           </motion.div>
@@ -610,10 +610,10 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                 viewport={{ once: true }}
                 whileHover={{ scale: 1.02 }}
               >
-                <Card className="p-8 h-full bg-gray-900/60 backdrop-blur-xl border-gray-700/50 text-center">
+                <Card className="p-8 h-full bg-gray-800/80 backdrop-blur-xl border-gray-600 text-center hover:border-blue-500/50 transition-all duration-300">
                   <div className="text-6xl mb-6">{level.icon}</div>
                   <h3 className="text-2xl font-bold text-white mb-2">{level.title}</h3>
-                  <p className="text-gray-300 mb-6">{level.description}</p>
+                  <p className="text-gray-200 mb-6">{level.description}</p>
                   
                   <div className="space-y-3">
                     {level.features.map((feature, featureIndex) => (
@@ -626,11 +626,11 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                         className="flex items-center gap-3"
                       >
                         <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                        <span className="text-gray-300">{feature}</span>
+                        <span className="text-gray-200">{feature}</span>
                       </motion.div>
                     ))}
                   </div>
-                  
+                <Card className="p-8 h-full bg-gray-800/80 backdrop-blur-xl border-gray-600 group hover:border-blue-500/50 transition-all duration-300">
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     className={`mt-8 w-full h-1 bg-gradient-to-r ${level.color} rounded-full`}
@@ -643,7 +643,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
       </section>
 
       {/* Testimonials */}
-      <section className="relative z-10 px-6 lg:px-12 py-20">
+      <section className="relative z-10 px-6 lg:px-12 py-20 bg-gray-900/30">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -667,14 +667,14 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                 viewport={{ once: true }}
                 whileHover={{ scale: 1.02 }}
               >
-                <Card className="p-8 h-full bg-gray-900/60 backdrop-blur-xl border-gray-700/50">
+                <Card className="p-8 h-full bg-gray-800/80 backdrop-blur-xl border-gray-600 hover:border-purple-500/50 transition-all duration-300">
                   <div className="flex items-center gap-1 mb-4">
                     {[...Array(testimonial.rating)].map((_, i) => (
                       <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
                     ))}
                   </div>
                   
-                  <p className="text-gray-300 mb-6 leading-relaxed">
+                  <p className="text-gray-200 mb-6 leading-relaxed">
                     "{testimonial.content}"
                   </p>
                   
@@ -693,7 +693,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="relative z-10 px-6 lg:px-12 py-20">
+      <section id="pricing" className="relative z-10 px-6 lg:px-12 py-20 bg-gray-800/20">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -705,7 +705,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
             <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
               Choose Your Trading Plan
             </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-200 max-w-3xl mx-auto">
               Start free, scale as you grow. All plans include our core features with increasing limits and capabilities.
             </p>
           </motion.div>
@@ -729,13 +729,13 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                   </div>
                 )}
                 
-                <Card className={`p-8 h-full ${tier.popular ? 'border-purple-500/50 bg-purple-500/5' : 'bg-gray-900/60'} backdrop-blur-xl`}>
+                <Card className={`p-8 h-full ${tier.popular ? 'border-purple-500 bg-purple-500/20 shadow-2xl shadow-purple-500/20' : 'bg-gray-800/80 border-gray-600'} backdrop-blur-xl hover:border-blue-500/50 transition-all duration-300`}>
                   <div className="text-center mb-8">
                     <h3 className="text-2xl font-bold text-white mb-2">{tier.name}</h3>
-                    <p className="text-gray-400 mb-4">{tier.description}</p>
+                    <p className="text-gray-300 mb-4">{tier.description}</p>
                     <div className="flex items-baseline justify-center gap-1">
                       <span className="text-4xl font-bold text-white">{tier.price}</span>
-                      <span className="text-gray-400">{tier.period}</span>
+                      <span className="text-gray-300">{tier.period}</span>
                     </div>
                   </div>
                   
@@ -750,7 +750,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                         className="flex items-center gap-3"
                       >
                         <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-                        <span className="text-gray-300">{feature}</span>
+                        <span className="text-gray-200">{feature}</span>
                       </motion.div>
                     ))}
                   </div>
