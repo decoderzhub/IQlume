@@ -19,6 +19,7 @@ export function AccountsView() {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedWalletForDeposit, setSelectedWalletForDeposit] = useState<CustodialWallet | null>(null);
+  const [loading, setLoading] = useState(true);
   
   const { 
     brokerageAccounts, 
@@ -29,6 +30,11 @@ export function AccountsView() {
     setCustodialWallets,
     updatePortfolioFromAccounts 
   } = useStore();
+
+  React.useEffect(() => {
+    // Simulate loading completion
+    setLoading(false);
+  }, []);
 
   const totalBrokerageValue = brokerageAccounts.reduce((sum, acc) => sum + acc.balance, 0);
   const totalBankValue = bankAccounts.reduce((sum, acc) => sum + acc.balance, 0);
