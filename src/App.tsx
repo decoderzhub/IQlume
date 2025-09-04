@@ -1,11 +1,14 @@
 import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HomePage } from './components/landing/HomePage';
 import { LoginForm } from './components/auth/LoginForm';
 import { MainApp } from './components/MainApp';
+import { PrivacyPolicy } from './components/legal/PrivacyPolicy';
+import { TermsOfService } from './components/legal/TermsOfService';
 import { useStore } from './store/useStore';
 import { auth } from './lib/supabase';
 
-function App() {
+function AppContent() {
   const { isAuthenticated, setUser, setLoading } = useStore();
   const [showLogin, setShowLogin] = React.useState(false);
 
@@ -38,6 +41,18 @@ function App() {
   }
 
   return <MainApp />;
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<AppContent />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-of-service" element={<TermsOfService />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;

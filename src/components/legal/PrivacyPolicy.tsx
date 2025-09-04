@@ -1,14 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Shield, ArrowLeft, Eye, Lock, Database, Globe, Mail, Phone } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 
-interface PrivacyPolicyProps {
-  onBack: () => void;
-}
-
-export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
+export function PrivacyPolicy() {
   const sections = [
     {
       title: "Information We Collect",
@@ -135,10 +132,12 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
         className="relative z-50 flex items-center justify-between p-6 lg:px-12 border-b border-gray-800"
       >
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack}>
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Back
-          </Button>
+          <Link to="/">
+            <Button variant="ghost">
+              <ArrowLeft className="w-5 h-5 mr-2" />
+              Back
+            </Button>
+          </Link>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">N</span>
