@@ -7,8 +7,9 @@ interface PulsePoint {
   y: number;
   size: number;
   delay: number;
-  direction: 'horizontal' | 'vertical';
+  duration: number;
   fibIndex: number;
+  opacity: number;
 }
 
 export function FibonacciBackground() {
@@ -24,34 +25,45 @@ export function FibonacciBackground() {
   };
 
   useEffect(() => {
-    const fibonacci = generateFibonacci(15);
+    const fibonacci = generateFibonacci(20);
     const points: PulsePoint[] = [];
 
-    // Create horizontal streaming points
-    for (let i = 0; i < 8; i++) {
+    // Create random pulse points across the entire viewport
+    for (let i = 0; i < 25; i++) {
       const fibValue = fibonacci[i % fibonacci.length];
+      
+      // Use Fibonacci ratios for more natural positioning
+      const goldenRatio = 1.618;
+      const baseX = (fibValue * goldenRatio) % 100;
+      const baseY = (fibValue * 0.618) % 100;
+      
+      // Add some randomness while keeping Fibonacci influence
+      const randomOffsetX = (Math.random() - 0.5) * 30;
+      const randomOffsetY = (Math.random() - 0.5) * 30;
+      
       points.push({
-        id: `h-${i}`,
-        x: -50, // Start off-screen left
-        y: (fibValue % 7) * 14 + 10, // Use Fibonacci to determine Y position
-        size: Math.min(fibValue * 2, 40), // Size based on Fibonacci value
-        delay: i * 0.8,
-        direction: 'horizontal',
+        id: `pulse-${i}`,
+        x: Math.max(5, Math.min(95, baseX + randomOffsetX)),
+        y: Math.max(5, Math.min(95, baseY + randomOffsetY)),
+        size: Math.min(fibValue * 3, 80) + Math.random() * 20,
+        delay: (fibValue % 8) * 0.5 + Math.random() * 2,
+        duration: 3 + (fibValue % 5) + Math.random() * 3,
         fibIndex: i,
+        opacity: 0.3 + (Math.random() * 0.4),
       });
     }
 
-    // Create vertical streaming points
-    for (let i = 0; i < 6; i++) {
-      const fibValue = fibonacci[i + 3];
+    // Add more frequent smaller pulses
+    for (let i = 0; i < 15; i++) {
       points.push({
-        id: `v-${i}`,
-        x: (fibValue % 9) * 11 + 15, // Use Fibonacci to determine X position
-        y: -50, // Start off-screen top
-        size: Math.min(fibValue * 1.5, 35),
-        delay: i * 1.2 + 2,
-        direction: 'vertical',
-        fibIndex: i + 3,
+        id: `mini-pulse-${i}`,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        size: 15 + Math.random() * 25,
+        delay: Math.random() * 10,
+        duration: 2 + Math.random() * 2,
+        fibIndex: i,
+        opacity: 0.2 + Math.random() * 0.3,
       });
     }
 
@@ -65,198 +77,166 @@ export function FibonacciBackground() {
       
       {/* Fibonacci spiral overlay */}
       <div className="absolute inset-0">
-        <svg className="w-full h-full opacity-10" viewBox="0 0 1000 1000">
+        <svg className="w-full h-full opacity-5" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
           <defs>
             <linearGradient id="spiralGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-              <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#ec4899" stopOpacity="0.1" />
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
+              <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#ec4899" stopOpacity="0.2" />
             </linearGradient>
           </defs>
-          <path
+          
+          {/* Multiple Fibonacci spirals */}
+          <motion.path
             d="M 500 500 Q 600 400 700 500 Q 600 700 400 600 Q 200 300 500 200 Q 900 100 800 600 Q 100 900 300 400"
             stroke="url(#spiralGradient)"
-            strokeWidth="2"
+            strokeWidth="1"
             fill="none"
-            className="animate-pulse"
+            animate={{
+              pathLength: [0, 1, 0],
+              opacity: [0.1, 0.3, 0.1],
+            }}
+            transition={{
+              duration: 15,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+          
+          <motion.path
+            d="M 200 200 Q 300 100 400 200 Q 300 400 100 300 Q -100 0 200 -100 Q 600 -200 500 300 Q -200 600 0 100"
+            stroke="url(#spiralGradient)"
+            strokeWidth="1"
+            fill="none"
+            animate={{
+              pathLength: [0, 1, 0],
+              opacity: [0.1, 0.2, 0.1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 5,
+            }}
           />
         </svg>
       </div>
 
-      {/* Animated pulse points */}
+      {/* Random pulse points with heartbeat effect */}
       {pulsePoints.map((point) => (
         <motion.div
           key={point.id}
           initial={{
-            x: point.direction === 'horizontal' ? point.x : point.x + '%',
-            y: point.direction === 'vertical' ? point.y : point.y + '%',
             scale: 0,
             opacity: 0,
           }}
           animate={{
-            x: point.direction === 'horizontal' ? '110vw' : point.x + '%',
-            y: point.direction === 'vertical' ? '110vh' : point.y + '%',
-            scale: [0, 1, 1.2, 1, 0.8, 1, 0],
-            opacity: [0, 0.8, 1, 0.9, 0.7, 0.5, 0],
+            scale: [0, 1, 1.4, 1, 1.2, 1, 0.8, 1, 0],
+            opacity: [0, point.opacity, point.opacity * 1.2, point.opacity, point.opacity * 0.8, point.opacity, point.opacity * 0.6, point.opacity, 0],
           }}
           transition={{
-            duration: point.direction === 'horizontal' ? 12 : 15,
+            duration: point.duration,
             delay: point.delay,
             repeat: Infinity,
             ease: "easeInOut",
-            times: [0, 0.1, 0.2, 0.4, 0.6, 0.8, 1],
+            times: [0, 0.1, 0.15, 0.25, 0.3, 0.5, 0.7, 0.85, 1],
           }}
           className="absolute"
           style={{
+            left: `${point.x}%`,
+            top: `${point.y}%`,
             width: point.size,
             height: point.size,
+            transform: 'translate(-50%, -50%)',
           }}
         >
-          {/* Heartbeat pulse effect */}
+          {/* Outer glow with heartbeat */}
           <motion.div
             animate={{
-              scale: [1, 1.4, 1, 1.2, 1],
-              opacity: [0.6, 1, 0.6, 0.8, 0.6],
+              scale: [1, 1.6, 1, 1.3, 1],
+              opacity: [0.4, 0.8, 0.4, 0.6, 0.4],
             }}
             transition={{
-              duration: 1.5,
+              duration: 1.2,
               repeat: Infinity,
               ease: "easeInOut",
               delay: point.fibIndex * 0.1,
             }}
-            className="w-full h-full rounded-full bg-gradient-to-br from-blue-500/40 via-purple-500/30 to-pink-500/20 shadow-2xl"
+            className="w-full h-full rounded-full bg-gradient-to-br from-blue-500/30 via-purple-500/25 to-pink-500/20"
             style={{
-              boxShadow: `0 0 ${point.size}px rgba(59, 130, 246, 0.4), 0 0 ${point.size * 2}px rgba(139, 92, 246, 0.2)`,
+              boxShadow: `0 0 ${point.size}px rgba(59, 130, 246, 0.3), 0 0 ${point.size * 2}px rgba(139, 92, 246, 0.15)`,
             }}
           />
           
-          {/* Inner core with stronger pulse */}
+          {/* Inner core with stronger heartbeat */}
           <motion.div
             animate={{
-              scale: [0.5, 1, 0.5, 0.8, 0.5],
-              opacity: [1, 0.8, 1, 0.9, 1],
+              scale: [0.6, 1.2, 0.6, 1, 0.6],
+              opacity: [0.8, 1, 0.8, 0.9, 0.8],
             }}
             transition={{
-              duration: 1,
+              duration: 0.8,
               repeat: Infinity,
               ease: "easeInOut",
               delay: point.fibIndex * 0.05,
             }}
-            className="absolute inset-2 rounded-full bg-gradient-to-br from-blue-400/60 via-purple-400/50 to-pink-400/40"
+            className="absolute inset-3 rounded-full bg-gradient-to-br from-blue-400/50 via-purple-400/40 to-pink-400/30"
           />
           
-          {/* Fibonacci number display (subtle) */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-white/20 text-xs font-bold">
-              {generateFibonacci(15)[point.fibIndex]}
-            </span>
-          </div>
+          {/* Center dot */}
+          <motion.div
+            animate={{
+              scale: [0.3, 0.8, 0.3, 0.6, 0.3],
+              opacity: [1, 0.7, 1, 0.8, 1],
+            }}
+            transition={{
+              duration: 0.6,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: point.fibIndex * 0.03,
+            }}
+            className="absolute inset-6 rounded-full bg-gradient-to-br from-blue-300/70 via-purple-300/60 to-pink-300/50"
+          />
         </motion.div>
       ))}
 
-      {/* Additional floating elements with Fibonacci positioning */}
-      {[...Array(8)].map((_, i) => {
-        const fibonacci = generateFibonacci(15);
-        const fibValue = fibonacci[i];
-        return (
-          <motion.div
-            key={`float-${i}`}
-            animate={{
-              y: [0, -30, 0],
-              x: [0, 15, 0],
-              rotate: [0, 180, 360],
-              scale: [1, 1.1, 1],
-            }}
-            transition={{
-              duration: 8 + (fibValue % 4),
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.5,
-            }}
-            className="absolute opacity-20"
-            style={{
-              left: `${(fibValue % 80) + 10}%`,
-              top: `${(fibValue % 60) + 20}%`,
-              width: Math.min(fibValue * 3, 60),
-              height: Math.min(fibValue * 3, 60),
-            }}
-          >
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500/30 to-purple-500/20 blur-sm" />
-          </motion.div>
-        );
-      })}
-
-      {/* Streaming lines with heartbeat effect */}
-      <svg className="absolute inset-0 w-full h-full opacity-30">
+      {/* Streaming connection lines between pulses */}
+      <svg className="absolute inset-0 w-full h-full opacity-20">
         <defs>
-          <linearGradient id="streamGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#3b82f6" stopOpacity="0" />
-            <stop offset="20%" stopColor="#3b82f6" stopOpacity="0.6" />
-            <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.8" />
-            <stop offset="80%" stopColor="#ec4899" stopOpacity="0.6" />
-            <stop offset="100%" stopColor="#ec4899" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="verticalStreamGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0" />
-            <stop offset="20%" stopColor="#3b82f6" stopOpacity="0.6" />
-            <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.8" />
-            <stop offset="80%" stopColor="#ec4899" stopOpacity="0.6" />
+            <stop offset="30%" stopColor="#3b82f6" stopOpacity="0.6" />
+            <stop offset="70%" stopColor="#8b5cf6" stopOpacity="0.8" />
             <stop offset="100%" stopColor="#ec4899" stopOpacity="0" />
           </linearGradient>
         </defs>
         
-        {/* Horizontal streaming lines */}
-        {[...Array(5)].map((_, i) => {
-          const fibonacci = generateFibonacci(10);
-          const yPos = (fibonacci[i] % 80) + 10;
+        {/* Random connecting lines that pulse */}
+        {[...Array(12)].map((_, i) => {
+          const fibonacci = generateFibonacci(15);
+          const x1 = (fibonacci[i] % 80) + 10;
+          const y1 = (fibonacci[i + 1] % 80) + 10;
+          const x2 = (fibonacci[i + 2] % 80) + 10;
+          const y2 = (fibonacci[i + 3] % 80) + 10;
+          
           return (
             <motion.line
-              key={`h-line-${i}`}
-              x1="-100"
-              y1={`${yPos}%`}
-              x2="100"
-              y2={`${yPos}%`}
-              stroke="url(#streamGradient)"
-              strokeWidth="2"
+              key={`connection-${i}`}
+              x1={`${x1}%`}
+              y1={`${y1}%`}
+              x2={`${x2}%`}
+              y2={`${y2}%`}
+              stroke="url(#connectionGradient)"
+              strokeWidth="1"
               initial={{ pathLength: 0, opacity: 0 }}
               animate={{ 
                 pathLength: [0, 1, 0],
-                opacity: [0, 0.8, 0],
-                x: ['-100%', '100%']
+                opacity: [0, 0.6, 0],
               }}
               transition={{
-                duration: 6,
+                duration: 4 + (fibonacci[i] % 3),
                 repeat: Infinity,
-                delay: i * 1.5,
-                ease: "easeInOut"
-              }}
-            />
-          );
-        })}
-        
-        {/* Vertical streaming lines */}
-        {[...Array(4)].map((_, i) => {
-          const fibonacci = generateFibonacci(10);
-          const xPos = (fibonacci[i + 2] % 80) + 10;
-          return (
-            <motion.line
-              key={`v-line-${i}`}
-              x1={`${xPos}%`}
-              y1="-100"
-              x2={`${xPos}%`}
-              y2="100"
-              stroke="url(#verticalStreamGradient)"
-              strokeWidth="2"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ 
-                pathLength: [0, 1, 0],
-                opacity: [0, 0.8, 0],
-                y: ['-100%', '100%']
-              }}
-              transition={{
-                duration: 8,
-                repeat: Infinity,
-                delay: i * 2 + 1,
+                delay: i * 0.8,
                 ease: "easeInOut"
               }}
             />
@@ -264,8 +244,18 @@ export function FibonacciBackground() {
         })}
       </svg>
 
-      {/* Fibonacci grid overlay */}
-      <div className="absolute inset-0 opacity-5">
+      {/* Fibonacci grid overlay with pulse */}
+      <motion.div 
+        className="absolute inset-0 opacity-3"
+        animate={{
+          opacity: [0.03, 0.08, 0.03],
+        }}
+        transition={{
+          duration: 6,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+      >
         <div className="w-full h-full" style={{
           backgroundImage: `
             linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px),
@@ -273,7 +263,36 @@ export function FibonacciBackground() {
           `,
           backgroundSize: '89px 55px', // Fibonacci numbers for grid spacing
         }} />
-      </div>
+      </motion.div>
+
+      {/* Large ambient pulses */}
+      {[...Array(6)].map((_, i) => {
+        const fibonacci = generateFibonacci(12);
+        const fibValue = fibonacci[i + 4];
+        return (
+          <motion.div
+            key={`ambient-${i}`}
+            animate={{
+              scale: [1, 1.3, 1],
+              opacity: [0.1, 0.3, 0.1],
+              rotate: [0, 180, 360],
+            }}
+            transition={{
+              duration: 12 + (fibValue % 5),
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: i * 2,
+            }}
+            className="absolute rounded-full bg-gradient-to-br from-blue-500/10 via-purple-500/8 to-pink-500/6 blur-xl"
+            style={{
+              left: `${(fibValue % 70) + 15}%`,
+              top: `${(fibValue % 60) + 20}%`,
+              width: Math.min(fibValue * 8, 300),
+              height: Math.min(fibValue * 8, 300),
+            }}
+          />
+        );
+      })}
     </div>
   );
 }

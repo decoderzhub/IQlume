@@ -40,29 +40,31 @@ export function HomePage({ onGetStarted }: HomePageProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900/20 to-purple-900/20 overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden">
       {/* Fibonacci Heartbeat Background */}
       <FibonacciBackground />
 
-      <Navigation onGetStarted={onGetStarted} />
+      <div className="relative z-10">
+        <Navigation onGetStarted={onGetStarted} />
       
-      <motion.div style={{ y: heroY }}>
-        <HeroSection onGetStarted={onGetStarted} />
-      </motion.div>
+        <motion.div style={{ y: heroY }}>
+          <HeroSection onGetStarted={onGetStarted} />
+        </motion.div>
       
-      <motion.div style={{ y: statsY }}>
-        <StatsSection />
-      </motion.div>
+        <motion.div style={{ y: statsY }}>
+          <StatsSection />
+        </motion.div>
       
-      <motion.div style={{ y: featuresY }}>
-        <FeaturesSection />
-      </motion.div>
+        <motion.div style={{ y: featuresY }}>
+          <FeaturesSection />
+        </motion.div>
       
-      <AIDemoSection />
-      <ExperienceLevelsSection />
-      <TestimonialsSection />
-      <PricingSection onGetStarted={onGetStarted} />
-      <CTASection onGetStarted={onGetStarted} />
+        <AIDemoSection />
+        <ExperienceLevelsSection />
+        <TestimonialsSection />
+        <PricingSection onGetStarted={onGetStarted} />
+        <CTASection onGetStarted={onGetStarted} />
+      </div>
     </div>
   );
 }
