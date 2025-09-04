@@ -32,7 +32,7 @@ export function Navigation({ onGetStarted }: NavigationProps) {
         <motion.a
           whileHover={{ scale: 1.05 }}
           href="#pricing"
-          className="hidden md:block text-white-300 hover:text-white transition-colors"
+          className="hidden md:block text-purple-300 hover:text-white transition-colors"
         >
           Pricing
         </motion.a>
