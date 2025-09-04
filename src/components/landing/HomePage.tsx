@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { PrivacyPolicy } from '../legal/PrivacyPolicy';
+import { TermsOfService } from '../legal/TermsOfService';
 import { 
   TrendingUp, 
   Shield, 
@@ -34,6 +36,8 @@ interface HomePageProps {
 export function HomePage({ onGetStarted }: HomePageProps) {
   const { scrollY } = useScroll();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showTermsOfService, setShowTermsOfService] = useState(false);
   
   // Parallax transforms
   const heroY = useTransform(scrollY, [0, 500], [0, -150]);
@@ -175,6 +179,15 @@ export function HomePage({ onGetStarted }: HomePageProps) {
       color: 'from-yellow-500 to-orange-500'
     }
   ];
+
+  // Show legal pages
+  if (showPrivacyPolicy) {
+    return <PrivacyPolicy onBack={() => setShowPrivacyPolicy(false)} />;
+  }
+
+  if (showTermsOfService) {
+    return <TermsOfService onBack={() => setShowTermsOfService(false)} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900/20 to-purple-900/20 overflow-hidden">
@@ -840,8 +853,18 @@ export function HomePage({ onGetStarted }: HomePageProps) {
             </div>
             
             <div className="flex items-center gap-8 text-sm text-gray-400">
-              <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
+              <button 
+                onClick={() => setShowPrivacyPolicy(true)}
+                className="hover:text-white transition-colors"
+              >
+                Privacy Policy
+              </button>
+              <button 
+                onClick={() => setShowTermsOfService(true)}
+                className="hover:text-white transition-colors"
+              >
+                Terms of Service
+              </button>
               <a href="#" className="hover:text-white transition-colors">Support</a>
             </div>
           </div>
