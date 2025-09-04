@@ -37,6 +37,11 @@ export function HomePage({ onGetStarted }: HomePageProps) {
   const { scrollY } = useScroll();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   
+  // Ensure page starts at top
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
   // Parallax transforms
   const heroY = useTransform(scrollY, [0, 500], [0, -150]);
   const featuresY = useTransform(scrollY, [200, 800], [0, -100]);
@@ -226,10 +231,10 @@ export function HomePage({ onGetStarted }: HomePageProps) {
         <div className="flex items-center gap-6">
           <motion.a
             whileHover={{ scale: 1.05 }}
-            href="#features"
+            href="#ai-demo"
             className="hidden md:block text-gray-300 hover:text-white transition-colors"
           >
-            Features
+            AI Demo
           </motion.a>
           <motion.a
             whileHover={{ scale: 1.05 }}

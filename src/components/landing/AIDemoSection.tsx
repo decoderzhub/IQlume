@@ -204,7 +204,7 @@ export function AIDemoSection() {
   };
 
   return (
-    <section className="relative z-10 px-6 lg:px-12 py-20 bg-gray-900/60 backdrop-blur-sm">
+    <section id="ai-demo" className="relative z-10 px-6 lg:px-12 py-20 bg-gray-900/60 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
