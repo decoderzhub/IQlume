@@ -148,6 +148,24 @@ export function AccountsView() {
           </Button>
         </div>
         
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="flex items-center gap-2 text-gray-400">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>Loading accounts...</span>
+            </div>
+          </div>
+        ) : brokerageAccounts.length === 0 ? (
+          <div className="text-center py-8">
+            <Wallet className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <h4 className="text-lg font-medium text-white mb-2">No Connected Accounts</h4>
+            <p className="text-gray-400 mb-4">Connect your first brokerage account to start trading</p>
+            <Button onClick={() => setShowBrokerageModal(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Connect Brokerage
+            </Button>
+          </div>
+        ) : (
         <div className="space-y-4">
           {brokerageAccounts.map((account) => (
             <div key={account.id} className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
@@ -169,6 +187,7 @@ export function AccountsView() {
             </div>
           ))}
         </div>
+        )}
       </Card>
 
       {/* Bank Accounts */}

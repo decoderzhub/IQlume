@@ -6,6 +6,8 @@ from supabase import create_client, Client
 from alpaca.trading.client import TradingClient
 from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
 from alpaca.data.live import StockDataStream, CryptoDataStream
+from datetime import datetime, timezone, timedelta
+import httpx
 from plaid.api import plaid_api
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUser
@@ -33,15 +35,95 @@ def get_supabase_client() -> Client:
     
     return create_client(supabase_url, supabase_key)
 
-def get_alpaca_trading_client() -> TradingClient:
+async def get_alpaca_trading_client(
+    current_user = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client)
+) -> TradingClient:
     """Get Alpaca trading client"""
-    api_key = os.getenv("ALPACA_API_KEY")
-    secret_key = os.getenv("ALPACA_SECRET_KEY")
+    try:
+        # First try to get OAuth token from database
+        resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage_name", "alpaca").eq("is_connected", True).execute()
+        
+        if resp.data and len(resp.data) > 0:
+            account = resp.data[0]
+            access_token = account.get("access_token")
+            refresh_token = account.get("refresh_token")
+            expires_at = account.get("expires_at")
+            
+            # Check if token is expired
+            if expires_at:
+                expiry_time = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) >= expiry_time and refresh_token:
+                    # Refresh the token
+                    access_token = await refresh_alpaca_token(account["id"], refresh_token, supabase)
+            
+            if access_token:
+                # Use OAuth token
+                return TradingClient(api_key=access_token, secret_key="", paper=True, oauth_token=access_token)
+        
+        # Fallback to API key method
+        api_key = os.getenv("ALPACA_API_KEY")
+        secret_key = os.getenv("ALPACA_SECRET_KEY")
+        
+        if not api_key or not secret_key:
+            raise HTTPException(
+                status_code=500, 
+                detail="No Alpaca connection found. Please connect your Alpaca account or configure API credentials."
+            )
+        
+        return TradingClient(api_key, secret_key, paper=True)
+        
+    except Exception as e:
+        logger.error(f"Error creating Alpaca trading client: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create Alpaca client: {str(e)}")
+
+async def refresh_alpaca_token(account_id: str, refresh_token: str, supabase: Client) -> Optional[str]:
+    """Refresh Alpaca OAuth token"""
+    try:
+        client_id = os.getenv("ALPACA_CLIENT_ID")
+        client_secret = os.getenv("ALPACA_CLIENT_SECRET")
+        
+        if not client_id or not client_secret:
+            logger.error("Alpaca OAuth configuration missing for token refresh")
+            return None
+        
+        token_data = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+            "client_secret": client_secret
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.alpaca.markets/oauth/token",
+                data=token_data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+        
+        if response.status_code == 200:
+            token_data = response.json()
+            new_access_token = token_data.get("access_token")
+            new_refresh_token = token_data.get("refresh_token", refresh_token)
+            expires_in = token_data.get("expires_in", 3600)
+            
+            # Update database
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+            supabase.table("brokerage_accounts").update({
+                "access_token": new_access_token,
+                "refresh_token": new_refresh_token,
+                "expires_at": expires_at.isoformat()
+            }).eq("id", account_id).execute()
+            
+            return new_access_token
+        else:
+            logger.error(f"Token refresh failed: {response.status_code} {response.text}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error refreshing token: {e}")
+        return None
     
-    if not api_key or not secret_key:
-        raise HTTPException(status_code=500, detail="Alpaca API credentials missing")
-    
-    return TradingClient(api_key, secret_key, paper=True)
 
 def get_alpaca_stock_data_client() -> StockHistoricalDataClient:
     """Get Alpaca stock data client"""

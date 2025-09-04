@@ -31,10 +31,11 @@ logger = logging.getLogger(__name__)
 async def get_portfolio(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
-    trading_client: TradingClient = Depends(get_alpaca_trading_client),
+    supabase: Client = Depends(get_supabase_client),
 ):
     """Get portfolio information"""
     try:
+        trading_client = await get_alpaca_trading_client(current_user, supabase)
         account = trading_client.get_account()
         positions = trading_client.get_all_positions()
 
@@ -105,10 +106,11 @@ async def get_trades(
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
-    trading_client: TradingClient = Depends(get_alpaca_trading_client),
+    supabase: Client = Depends(get_supabase_client),
 ):
     """Get user's trade history"""
     try:
+        trading_client = await get_alpaca_trading_client(current_user, supabase)
         # Convert YYYY-MM-DD to UTC-aware datetimes (RFC3339)
         start_dt = None
         end_dt = None
@@ -202,10 +204,11 @@ async def execute_trade(
     trade_data: Dict[str, Any],
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
-    trading_client: TradingClient = Depends(get_alpaca_trading_client),
+    supabase: Client = Depends(get_supabase_client),
 ):
     """Execute a trade"""
     try:
+        trading_client = await get_alpaca_trading_client(current_user, supabase)
         symbol = trade_data.get("symbol")
         side = trade_data.get("side")  # "buy" | "sell"
         quantity = trade_data.get("quantity")

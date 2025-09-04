@@ -5,6 +5,8 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { BrokerageAccount } from '../../types';
 import { supportedBrokerages } from '../../lib/plaid';
+import { supabase } from '../../lib/supabase';
+import { useStore } from '../../store/useStore';
 
 interface ConnectBrokerageModalProps {
   onClose: () => void;
@@ -15,27 +17,58 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
   const [selectedBrokerage, setSelectedBrokerage] = useState<string | null>(null);
   const [accountName, setAccountName] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  const { user } = useStore();
 
   const handleConnect = async () => {
     if (!selectedBrokerage || !accountName) return;
 
     setIsConnecting(true);
     
-    // Simulate OAuth connection process
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const brokerage = supportedBrokerages.find(b => b.id === selectedBrokerage);
-    if (brokerage) {
-      onConnect({
-        user_id: '1',
-        brokerage: selectedBrokerage as any,
-        account_name: accountName,
-        account_type: brokerage.type as any,
-        balance: Math.random() * 100000 + 10000, // Mock balance
-        is_connected: true,
-        last_sync: new Date().toISOString(),
-        oauth_token: 'mock_oauth_token_' + Date.now(),
-      });
+    try {
+      if (selectedBrokerage === 'alpaca') {
+        // Get OAuth URL from backend
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
+          throw new Error('No valid session found. Please log in again.');
+        }
+
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/alpaca/oauth/authorize`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to get OAuth URL: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Redirect to Alpaca OAuth
+        window.location.href = data.oauth_url;
+      } else {
+        // For other brokerages, use the existing mock flow
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const brokerage = supportedBrokerages.find(b => b.id === selectedBrokerage);
+        if (brokerage) {
+          onConnect({
+            user_id: user?.id || '1',
+            brokerage: selectedBrokerage as any,
+            account_name: accountName,
+            account_type: brokerage.type as any,
+            balance: Math.random() * 100000 + 10000,
+            is_connected: true,
+            last_sync: new Date().toISOString(),
+            oauth_token: 'mock_oauth_token_' + Date.now(),
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error connecting brokerage:', error);
+      alert('Failed to connect brokerage account. Please try again.');
     }
     
     setIsConnecting(false);
