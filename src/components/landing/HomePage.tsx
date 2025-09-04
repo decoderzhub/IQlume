@@ -546,7 +546,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                     <h3 className="text-xl font-bold text-white mb-4 group-hover:text-blue-400 transition-colors">
                       {feature.title}
                     </h3>
-                    <p className="text-gray-300 leading-relaxed">
+                    <p className="text-white leading-relaxed">
                       {feature.description}
                     </p>
                   </Card>
@@ -570,7 +570,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
             <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
               Built for Every Trading Level
             </h2>
-            <p className="text-xl text-gray-200 max-w-3xl mx-auto">
+            <p className="text-xl text-white max-w-3xl mx-auto">
               Our platform adapts to your experience, providing the right tools and guidance at every stage
             </p>
           </motion.div>
@@ -613,7 +613,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                 <Card className="p-8 h-full bg-gray-800/80 backdrop-blur-xl border-gray-600 text-center hover:border-blue-500/50 transition-all duration-300">
                   <div className="text-6xl mb-6">{level.icon}</div>
                   <h3 className="text-2xl font-bold text-white mb-2">{level.title}</h3>
-                  <p className="text-gray-200 mb-6">{level.description}</p>
+                  <p className="text-white mb-6">{level.description}</p>
                   
                   <div className="space-y-3">
                     {level.features.map((feature, featureIndex) => (
@@ -626,7 +626,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                         className="flex items-center gap-3"
                       >
                         <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                        <span className="text-gray-200">{feature}</span>
+                        <span className="text-white">{feature}</span>
                       </motion.div>
                     ))}
                   </div>
@@ -674,7 +674,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                     ))}
                   </div>
                   
-                  <p className="text-gray-200 mb-6 leading-relaxed">
+                  <p className="text-white mb-6">
                     "{testimonial.content}"
                   </p>
                   
@@ -705,7 +705,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
             <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
               Choose Your Trading Plan
             </h2>
-            <p className="text-xl text-gray-200 max-w-3xl mx-auto">
+            <p className="text-xl text-white max-w-3xl mx-auto">
               Start free, scale as you grow. All plans include our core features with increasing limits and capabilities.
             </p>
           </motion.div>
@@ -732,7 +732,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                 <Card className={`p-8 h-full ${tier.popular ? 'border-purple-500 bg-purple-500/20 shadow-2xl shadow-purple-500/20' : 'bg-gray-800/80 border-gray-600'} backdrop-blur-xl hover:border-blue-500/50 transition-all duration-300`}>
                   <div className="text-center mb-8">
                     <h3 className="text-2xl font-bold text-white mb-2">{tier.name}</h3>
-                    <p className="text-gray-300 mb-4">{tier.description}</p>
+                    <p className="text-white mb-4">{tier.description}</p>
                     <div className="flex items-baseline justify-center gap-1">
                       <span className="text-4xl font-bold text-white">{tier.price}</span>
                       <span className="text-gray-300">{tier.period}</span>
@@ -750,7 +750,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                         className="flex items-center gap-3"
                       >
                         <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-                        <span className="text-gray-200">{feature}</span>
+                        <span className="text-white">{feature}</span>
                       </motion.div>
                     ))}
                   </div>
@@ -797,7 +797,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
               <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
                 Ready to Transform Your Trading?
               </h2>
-              <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+              <p className="text-xl text-white mb-8 max-w-2xl mx-auto">
                 Join thousands of traders who have already discovered the power of AI-driven trading automation.
               </p>
               
