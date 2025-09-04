@@ -84,7 +84,7 @@ export function Footer() {
               </div>
               <div className="flex items-center gap-3 text-gray-400">
                 <MapPin className="w-4 h-4" />
-                <span>San Francisco, CA</span>
+                <span>Casper, Wyoming</span>
               </div>
             </motion.div>
           </div>
