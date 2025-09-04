@@ -630,7 +630,7 @@ export function HomePage({ onGetStarted }: HomePageProps) {
                       </motion.div>
                     ))}
                   </div>
-                <Card className="p-8 h-full bg-gray-800/80 backdrop-blur-xl border-gray-600 group hover:border-blue-500/50 transition-all duration-300">
+                  
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     className={`mt-8 w-full h-1 bg-gradient-to-r ${level.color} rounded-full`}
