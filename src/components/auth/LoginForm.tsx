@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { auth } from '../../lib/supabase';
 import { useStore } from '../../store/useStore';
 
-export function LoginForm() {
+interface LoginFormProps {
+  onBack?: () => void;
+}
+
+export function LoginForm({ onBack }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -50,6 +54,18 @@ export function LoginForm() {
       >
         <Card className="p-8">
           <div className="text-center mb-8">
+            {onBack && (
+              <div className="flex justify-start mb-4">
+                <Button
+                  variant="ghost"
+                  onClick={onBack}
+                  className="text-gray-400 hover:text-white p-2"
+                >
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  Back to Home
+                </Button>
+              </div>
+            )}
             <div className="flex justify-center mb-4">
               <div className="flex flex-col items-center gap-3">
                 <img src="/logo.png" alt="brokernomex" className="h-16 w-auto" />

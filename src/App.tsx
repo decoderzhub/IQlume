@@ -37,7 +37,7 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
-    return <LoginForm />;
+    return <LoginForm onBack={() => setShowLogin(false)} />;
   }
 
   return <MainApp />;
