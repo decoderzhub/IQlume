@@ -12,8 +12,18 @@ interface PulsePoint {
   opacity: number;
 }
 
+interface ECGPulse {
+  id: string;
+  startX: number;
+  startY: number;
+  direction: 'horizontal' | 'vertical' | 'diagonal';
+  delay: number;
+  duration: number;
+  amplitude: number;
+}
 export function FibonacciBackground() {
   const [pulsePoints, setPulsePoints] = useState<PulsePoint[]>([]);
+  const [ecgPulses, setEcgPulses] = useState<ECGPulse[]>([]);
 
   // Generate Fibonacci sequence
   const generateFibonacci = (n: number): number[] => {
@@ -24,6 +34,47 @@ export function FibonacciBackground() {
     return fib;
   };
 
+  // Generate ECG pulse path data
+  const generateECGPath = (startX: number, startY: number, direction: string, amplitude: number): string => {
+    const segments = [];
+    let currentX = startX;
+    let currentY = startY;
+    
+    // ECG pattern: flat, small up, flat, big spike up, big spike down, small up, flat
+    const ecgPattern = [
+      { dx: 20, dy: 0 },      // flat
+      { dx: 5, dy: -amplitude * 0.3 },   // small up
+      { dx: 10, dy: 0 },      // flat
+      { dx: 3, dy: -amplitude },          // big spike up
+      { dx: 6, dy: amplitude * 2 },       // big spike down
+      { dx: 3, dy: -amplitude * 0.7 },    // recovery up
+      { dx: 5, dy: amplitude * 0.2 },     // small down
+      { dx: 30, dy: 0 },      // flat
+    ];
+    
+    segments.push(`M ${currentX} ${currentY}`);
+    
+    // Repeat pattern multiple times across the screen
+    const repetitions = direction === 'horizontal' ? 15 : direction === 'vertical' ? 10 : 8;
+    
+    for (let rep = 0; rep < repetitions; rep++) {
+      for (const segment of ecgPattern) {
+        if (direction === 'horizontal') {
+          currentX += segment.dx;
+          currentY += segment.dy;
+        } else if (direction === 'vertical') {
+          currentX += segment.dy;
+          currentY += segment.dx;
+        } else { // diagonal
+          currentX += segment.dx * 0.7;
+          currentY += segment.dx * 0.7 + segment.dy;
+        }
+        segments.push(`L ${currentX} ${currentY}`);
+      }
+    }
+    
+    return segments.join(' ');
+  };
   useEffect(() => {
     const fibonacci = generateFibonacci(20);
     const points: PulsePoint[] = [];
@@ -68,6 +119,27 @@ export function FibonacciBackground() {
     }
 
     setPulsePoints(points);
+
+    // Generate ECG pulse lines
+    const ecgLines: ECGPulse[] = [];
+    
+    // Create multiple ECG lines with random positioning and timing
+    for (let i = 0; i < 8; i++) {
+      const directions: ('horizontal' | 'vertical' | 'diagonal')[] = ['horizontal', 'vertical', 'diagonal'];
+      const direction = directions[Math.floor(Math.random() * directions.length)];
+      
+      ecgLines.push({
+        id: `ecg-${i}`,
+        startX: Math.random() * 100,
+        startY: Math.random() * 100,
+        direction,
+        delay: Math.random() * 15,
+        duration: 8 + Math.random() * 12,
+        amplitude: 20 + Math.random() * 40,
+      });
+    }
+    
+    setEcgPulses(ecgLines);
   }, []);
 
   return (
@@ -75,6 +147,63 @@ export function FibonacciBackground() {
       {/* Base gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-blue-900/20 to-purple-900/20" />
       
+      {/* ECG/EKG Pulse Lines */}
+      <svg className="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="ecgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8" />
+            <stop offset="30%" stopColor="#6366f1" stopOpacity="0.9" />
+            <stop offset="70%" stopColor="#8b5cf6" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.8" />
+          </linearGradient>
+          <linearGradient id="ecgGradientReverse" x1="100%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stopColor="#a855f7" stopOpacity="0.8" />
+            <stop offset="30%" stopColor="#8b5cf6" stopOpacity="0.9" />
+            <stop offset="70%" stopColor="#6366f1" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.8" />
+          </linearGradient>
+          <filter id="ecgGlow">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        
+        {ecgPulses.map((pulse, index) => {
+          const pathData = generateECGPath(pulse.startX, pulse.startY, pulse.direction, pulse.amplitude);
+          
+          return (
+            <motion.path
+              key={pulse.id}
+              d={pathData}
+              stroke={index % 2 === 0 ? "url(#ecgGradient)" : "url(#ecgGradientReverse)"}
+              strokeWidth="0.3"
+              fill="none"
+              filter="url(#ecgGlow)"
+              initial={{ 
+                pathLength: 0, 
+                opacity: 0,
+                strokeDasharray: "2 4"
+              }}
+              animate={{ 
+                pathLength: [0, 1, 0],
+                opacity: [0, 0.8, 0.4, 0.8, 0],
+                strokeDashoffset: [0, -20, -40],
+              }}
+              transition={{
+                duration: pulse.duration,
+                repeat: Infinity,
+                delay: pulse.delay,
+                ease: "easeInOut",
+                times: [0, 0.3, 0.6, 0.8, 1]
+              }}
+            />
+          );
+        })}
+      </svg>
+
       {/* Fibonacci spiral overlay */}
       <div className="absolute inset-0">
         <svg className="w-full h-full opacity-5" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
@@ -244,6 +373,100 @@ export function FibonacciBackground() {
         })}
       </svg>
 
+      {/* ECG/EKG Pulse Lines */}
+      <svg className="absolute inset-0 w-full h-full opacity-60" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="ecgPulseGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0" />
+            <stop offset="20%" stopColor="#3b82f6" stopOpacity="0.8" />
+            <stop offset="50%" stopColor="#8b5cf6" stopOpacity="1" />
+            <stop offset="80%" stopColor="#a855f7" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="ecgPulseGradientVertical" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0" />
+            <stop offset="20%" stopColor="#3b82f6" stopOpacity="0.8" />
+            <stop offset="50%" stopColor="#8b5cf6" stopOpacity="1" />
+            <stop offset="80%" stopColor="#a855f7" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
+          </linearGradient>
+          <filter id="ecgGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        
+        {ecgPulses.map((pulse, index) => {
+          const viewBoxWidth = 100;
+          const viewBoxHeight = 100;
+          const pathData = generateECGPath(
+            pulse.startX, 
+            pulse.startY, 
+            pulse.direction, 
+            pulse.amplitude / 10 // Scale for viewBox
+          );
+          
+          return (
+            <motion.path
+              key={pulse.id}
+              d={pathData}
+              stroke={pulse.direction === 'vertical' ? "url(#ecgPulseGradientVertical)" : "url(#ecgPulseGradient)"}
+              strokeWidth="0.2"
+              fill="none"
+              filter="url(#ecgGlow)"
+              initial={{ 
+                pathLength: 0, 
+                opacity: 0,
+              }}
+              animate={{ 
+                pathLength: [0, 1, 0],
+                opacity: [0, 0.9, 0.6, 0.9, 0],
+                strokeWidth: [0.1, 0.3, 0.2, 0.3, 0.1],
+              }}
+              transition={{
+                duration: pulse.duration,
+                repeat: Infinity,
+                delay: pulse.delay,
+                ease: "easeInOut",
+                times: [0, 0.3, 0.6, 0.8, 1]
+              }}
+            />
+          );
+        })}
+        
+        {/* Additional random ECG bursts */}
+        {[...Array(6)].map((_, i) => {
+          const startX = Math.random() * 100;
+          const startY = Math.random() * 100;
+          const amplitude = 15 + Math.random() * 25;
+          
+          return (
+            <motion.path
+              key={`ecg-burst-${i}`}
+              d={generateECGPath(startX, startY, 'horizontal', amplitude / 10)}
+              stroke="url(#ecgPulseGradient)"
+              strokeWidth="0.15"
+              fill="none"
+              filter="url(#ecgGlow)"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ 
+                pathLength: [0, 1],
+                opacity: [0, 0.7, 0],
+                strokeWidth: [0.1, 0.25, 0.1],
+              }}
+              transition={{
+                duration: 3 + Math.random() * 4,
+                repeat: Infinity,
+                delay: i * 2.5 + Math.random() * 5,
+                ease: "easeInOut"
+              }}
+            />
+          );
+        })}
+      </svg>
       {/* Fibonacci grid overlay with pulse */}
       <motion.div 
         className="absolute inset-0 opacity-3"
