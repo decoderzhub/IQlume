@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { HomePage } from './components/landing/HomePage';
 import { LoginForm } from './components/auth/LoginForm';
 import { MainApp } from './components/MainApp';
 import { useStore } from './store/useStore';
@@ -6,6 +7,7 @@ import { auth } from './lib/supabase';
 
 function App() {
   const { isAuthenticated, setUser, setLoading } = useStore();
+  const [showLogin, setShowLogin] = React.useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -26,6 +28,10 @@ function App() {
 
     checkAuth();
   }, [setUser, setLoading]);
+
+  if (!isAuthenticated && !showLogin) {
+    return <HomePage onGetStarted={() => setShowLogin(true)} />;
+  }
 
   if (!isAuthenticated) {
     return <LoginForm />;
