@@ -25,14 +25,14 @@ export function Navigation({ onGetStarted }: NavigationProps) {
         <motion.a
           whileHover={{ scale: 1.05 }}
           href="#ai-demo"
-          className="hidden md:block text-purple-500 hover:text-white transition-colors"
+          className="hidden md:block text-white-300 hover:text-purple transition-colors"
         >
           AI Demo
         </motion.a>
         <motion.a
           whileHover={{ scale: 1.05 }}
           href="#pricing"
-          className="hidden md:block text-purple-500 hover:text-white transition-colors"
+          className="hidden md:block text-white-300 hover:text-purple transition-colors"
         >
           Pricing
         </motion.a>
