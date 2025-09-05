@@ -25,7 +25,7 @@ interface StrategyCardProps {
 }
 
 export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, isComingSoon = false }: StrategyCardProps) {
-  const getRiskColor = (level: TradingStrategy['risk_level']) => {
+  const getRiskColor = (level: 'low' | 'medium' | 'high') => {
     switch (level) {
       case 'low': return 'text-green-400 bg-green-400/10 border-green-400/20';
       case 'medium': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';
@@ -34,7 +34,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, is
     }
   };
 
-  const getStrategyTypeLabel = (type: TradingStrategy['type']) => {
+  const getStrategyTypeLabel = (type: string) => {
     switch (type) {
       case 'long_call': return 'Long Call';
       case 'long_straddle': return 'Long Straddle';
@@ -73,7 +73,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, is
   const isPositiveReturn = (performance?.total_return || 0) >= 0;
 
   return (
-    <Card hoverable className={cn("p-6 h-full relative", isComingSoon && "opacity-50 pointer-events-none")}>
+    <Card hoverable className={cn("p-6 h-full relative", isComingSoon && "opacity-50 pointer-events-none select-none")}>
       {isComingSoon && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 z-10 rounded-xl">
           <span className="text-white text-xl font-bold bg-blue-600 px-4 py-2 rounded-lg shadow-lg">

@@ -67,11 +67,14 @@ export function StrategiesView() {
     loadStrategies();
   }, [user]);
   // Filter strategies based on initial launch types
-  
-  const initialLaunchStrategies = strategies.filter(s => INITIAL_LAUNCH_STRATEGY_TYPES.includes(s.type));
-  const activeStrategies = initialLaunchStrategies.filter(s => s.is_active).length;
-  const totalReturn = initialLaunchStrategies.reduce((sum, s) => sum + (s.performance?.total_return || 0), 0) / initialLaunchStrategies.length;
-  const avgWinRate = initialLaunchStrategies.reduce((sum, s) => sum + (s.performance?.win_rate || 0), 0) / initialLaunchStrategies.length;
+
+  // Calculate KPIs only for initial launch strategies
+  const initialLaunchStrategiesForKPIs = strategies.filter(s => INITIAL_LAUNCH_STRATEGY_TYPES.includes(s.type));
+  const activeStrategies = initialLaunchStrategiesForKPIs.filter(s => s.is_active).length;
+  const totalReturn = initialLaunchStrategiesForKPIs.length > 0 ?
+    initialLaunchStrategiesForKPIs.reduce((sum, s) => sum + (s.performance?.total_return || 0), 0) / initialLaunchStrategiesForKPIs.length : 0;
+  const avgWinRate = initialLaunchStrategiesForKPIs.length > 0 ?
+    initialLaunchStrategiesForKPIs.reduce((sum, s) => sum + (s.performance?.win_rate || 0), 0) / initialLaunchStrategiesForKPIs.length : 0;
 
   const displayStrategies = strategies.filter(strategy => {
     const matchesSearch = strategy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -347,7 +350,7 @@ export function StrategiesView() {
               onToggle={() => handleToggleStrategy(strategy.id)}
               onViewDetails={() => handleViewDetails(strategy)}
               onBacktest={() => handleBacktest(strategy)}
-              isComingSoon={!INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type)}
+              isComingSoon={!INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any)}
             />
           </motion.div>
         ))}
