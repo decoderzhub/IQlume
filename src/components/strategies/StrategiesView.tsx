@@ -67,14 +67,19 @@ export function StrategiesView() {
     loadStrategies();
   }, [user]);
   // Filter strategies based on initial launch types
-  const filteredStrategies = strategies.filter(strategy => INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type)).filter(strategy => {
+  
+  const initialLaunchStrategies = strategies.filter(s => INITIAL_LAUNCH_STRATEGY_TYPES.includes(s.type));
+  const activeStrategies = initialLaunchStrategies.filter(s => s.is_active).length;
+  const totalReturn = initialLaunchStrategies.reduce((sum, s) => sum + (s.performance?.total_return || 0), 0) / initialLaunchStrategies.length;
+  const avgWinRate = initialLaunchStrategies.reduce((sum, s) => sum + (s.performance?.win_rate || 0), 0) / initialLaunchStrategies.length;
+
+  const displayStrategies = strategies.filter(strategy => {
     const matchesSearch = strategy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          strategy.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRisk = filterRisk === 'all' || strategy.risk_level === filterRisk;
     const matchesStatus = filterStatus === 'all' || 
                          (filterStatus === 'active' && strategy.is_active) ||
                          (filterStatus === 'inactive' && !strategy.is_active);
-    
     return matchesSearch && matchesRisk && matchesStatus;
   });
 
@@ -218,9 +223,6 @@ export function StrategiesView() {
     }
   };
 
-  const activeStrategies = strategies.filter(s => s.is_active).length;
-  const totalReturn = strategies.reduce((sum, s) => sum + (s.performance?.total_return || 0), 0) / strategies.length;
-  const avgWinRate = strategies.reduce((sum, s) => sum + (s.performance?.win_rate || 0), 0) / strategies.length;
 
   return (
     <motion.div
@@ -332,8 +334,8 @@ export function StrategiesView() {
       </Card>
 
       {/* Strategies Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredStrategies.map((strategy, index) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {displayStrategies.map((strategy, index) => (
           <motion.div
             key={strategy.id}
             initial={{ opacity: 0, y: 20 }}
@@ -345,12 +347,13 @@ export function StrategiesView() {
               onToggle={() => handleToggleStrategy(strategy.id)}
               onViewDetails={() => handleViewDetails(strategy)}
               onBacktest={() => handleBacktest(strategy)}
+              isComingSoon={!INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type)}
             />
           </motion.div>
         ))}
       </div>
 
-      {filteredStrategies.length === 0 && (
+      {displayStrategies.length === 0 && (
         <Card className="p-12 text-center">
           <TrendingUp className="w-12 h-12 text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-white mb-2">No strategies found</h3>

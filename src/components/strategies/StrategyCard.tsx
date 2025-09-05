@@ -21,9 +21,10 @@ interface StrategyCardProps {
   onToggle: () => void;
   onViewDetails: () => void;
   onBacktest: () => void;
+  isComingSoon?: boolean;
 }
 
-export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: StrategyCardProps) {
+export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, isComingSoon = false }: StrategyCardProps) {
   const getRiskColor = (level: TradingStrategy['risk_level']) => {
     switch (level) {
       case 'low': return 'text-green-400 bg-green-400/10 border-green-400/20';
@@ -72,7 +73,15 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: 
   const isPositiveReturn = (performance?.total_return || 0) >= 0;
 
   return (
-    <Card hoverable className="p-6 h-full">
+    <Card hoverable className={cn("p-6 h-full relative", isComingSoon && "opacity-50 pointer-events-none")}>
+      {isComingSoon && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 z-10 rounded-xl">
+          <span className="text-white text-xl font-bold bg-blue-600 px-4 py-2 rounded-lg shadow-lg">
+            Coming Soon
+          </span>
+        </div>
+      )}
+
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
@@ -153,6 +162,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: 
           variant={strategy.is_active ? 'secondary' : 'primary'}
           size="sm"
           onClick={onToggle}
+          disabled={isComingSoon}
           className="flex-1"
         >
           {strategy.is_active ? (
@@ -171,12 +181,14 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: 
         <Button
           variant="ghost"
           size="sm"
+          disabled={isComingSoon}
           onClick={onViewDetails}
         >
           <Settings className="w-4 h-4" />
         </Button>
 
         <Button
+          disabled={isComingSoon}
           variant="ghost"
           size="sm"
           onClick={onBacktest}
