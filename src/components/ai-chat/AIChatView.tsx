@@ -13,6 +13,7 @@ import { useChatSessions } from './hooks/useChatSessions';
 import { useStrategyCreation } from './hooks/useStrategyCreation';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
+import { INITIAL_LAUNCH_STRATEGY_TYPES } from '../../lib/constants';
 import { TradingStrategy } from '../../types';
 
 interface ChatMessage {
@@ -33,21 +34,27 @@ const suggestedQuestions = [
   "What's the best strategy for a beginner with $10,000?",
   "How do covered calls work and what are the risks?",
   "Should I use a grid bot or DCA for crypto?",
+  "What's the difference between iron condor and straddle?", // Keep for general knowledge
   "What's the difference between iron condor and straddle?",
   "How do I manage risk in options trading?",
   "What allocation should I use for a balanced portfolio?",
 ];
 
-const actionablePrompts = [
-  "Create a covered calls strategy for AAPL with $30K capital and conservative risk",
-  "Build me a DCA bot for ETH with $100 weekly investments",
-  "Design a smart rebalance portfolio with my current holdings",
-  "Set up an iron condor strategy for SPY with 45 DTE",
-  "Create a grid bot for BTC between $40K-$50K price range",
-  "Build a wheel strategy for high dividend stocks with $25K",
-  "Design a momentum strategy for tech stocks with stop losses",
-  "Create a pairs trading strategy for correlated assets",
+const allActionablePrompts = [
+  { prompt: "Create a covered calls strategy for AAPL with $30K capital and conservative risk", type: "covered_calls" },
+  { prompt: "Build me a DCA bot for ETH with $100 weekly investments", type: "dca" },
+  { prompt: "Design a smart rebalance portfolio with my current holdings", type: "smart_rebalance" },
+  { prompt: "Set up an iron condor strategy for SPY with 45 DTE", type: "iron_condor" }, // Phase 4
+  { prompt: "Create a grid bot for BTC between $40K-$50K price range", type: "spot_grid" },
+  { prompt: "Build a wheel strategy for high dividend stocks with $25K", type: "wheel" },
+  { prompt: "Design a momentum strategy for tech stocks with stop losses", type: "momentum_breakout" }, // Phase 2
+  { prompt: "Create a pairs trading strategy for correlated assets", type: "pairs_trading" }, // Phase 2
+  { prompt: "Set up a cash-secured put strategy for MSFT with $10K capital", type: "short_put" },
 ];
+
+const actionablePrompts = allActionablePrompts
+  .filter(p => INITIAL_LAUNCH_STRATEGY_TYPES.includes(p.type))
+  .map(p => p.prompt);
 
 export function AIChatView() {
   const [inputMessage, setInputMessage] = useState('');

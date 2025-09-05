@@ -10,6 +10,7 @@ import { BacktestModal } from './BacktestModal';
 import { TradingStrategy } from '../../types';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
+import { INITIAL_LAUNCH_STRATEGY_TYPES } from '../../lib/constants';
 
 export function StrategiesView() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,7 +66,8 @@ export function StrategiesView() {
 
     loadStrategies();
   }, [user]);
-  const filteredStrategies = strategies.filter(strategy => {
+  // Filter strategies based on initial launch types
+  const filteredStrategies = strategies.filter(strategy => INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type)).filter(strategy => {
     const matchesSearch = strategy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          strategy.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRisk = filterRisk === 'all' || strategy.risk_level === filterRisk;
