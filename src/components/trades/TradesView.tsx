@@ -30,53 +30,9 @@ interface TradeStats {
   avg_trade_duration: number;
 }
 
-// Mock brokerage accounts for demo
-const mockBrokerageAccounts = [
-  {
-    id: '1',
-    user_id: '1',
-    brokerage: 'alpaca' as const,
-    account_name: 'Alpaca Paper Trading',
-    account_type: 'stocks' as const,
-    balance: 85420.50,
-    is_connected: true,
-    last_sync: '2024-01-15T10:30:00Z',
-  },
-  {
-    id: '2',
-    user_id: '1',
-    brokerage: 'schwab' as const,
-    account_name: 'Charles Schwab Brokerage',
-    account_type: 'stocks' as const,
-    balance: 125420.50,
-    is_connected: true,
-    last_sync: '2024-01-15T10:25:00Z',
-  },
-  {
-    id: '3',
-    user_id: '1',
-    brokerage: 'coinbase' as const,
-    account_name: 'Coinbase Pro',
-    account_type: 'crypto' as const,
-    balance: 45000.00,
-    is_connected: true,
-    last_sync: '2024-01-15T10:20:00Z',
-  },
-  {
-    id: '4',
-    user_id: '1',
-    brokerage: 'binance' as const,
-    account_name: 'Binance Trading',
-    account_type: 'crypto' as const,
-    balance: 32500.00,
-    is_connected: false,
-    last_sync: '2024-01-14T15:30:00Z',
-  },
-];
-
 // Generate mock trades for a specific account
 const generateMockTradesForAccount = (accountId: string): Trade[] => {
-  const account = mockBrokerageAccounts.find(acc => acc.id === accountId);
+  const account = useStore.getState().brokerageAccounts.find(acc => acc.id === accountId);
   if (!account) return [];
 
   const symbols = account.account_type === 'crypto' 
@@ -133,9 +89,21 @@ export function TradesView() {
   const [filterType, setFilterType] = useState<'all' | 'buy' | 'sell'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'executed' | 'pending' | 'failed'>('all');
   const [dateRange, setDateRange] = useState<'all' | '1d' | '7d' | '30d' | '90d'>('30d');
-  const { user } = useStore();
+  const { user, brokerageAccounts } = useStore();
 
-  const selectedAccount = mockBrokerageAccounts.find(acc => acc.id === selectedAccountId);
+  const selectedAccount = brokerageAccounts.find(acc => acc.id === selectedAccountId);
+
+  // Set default selected account to first connected account
+  useEffect(() => {
+    if (brokerageAccounts.length > 0 && !selectedAccountId) {
+      const firstConnectedAccount = brokerageAccounts.find(acc => acc.is_connected);
+      if (firstConnectedAccount) {
+        setSelectedAccountId(firstConnectedAccount.id);
+      } else {
+        setSelectedAccountId(brokerageAccounts[0].id);
+      }
+    }
+  }, [brokerageAccounts, selectedAccountId]);
 
   const loadTradesForAccount = (accountId: string) => {
     setLoading(true);
@@ -260,7 +228,7 @@ export function TradesView() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {mockBrokerageAccounts.map((account) => (
+          {brokerageAccounts.map((account) => (
             <motion.div
               key={account.id}
               whileHover={{ scale: 1.02 }}
@@ -290,6 +258,23 @@ export function TradesView() {
           ))}
         </div>
       </Card>
+
+      {/* Show message if no accounts are connected */}
+      {brokerageAccounts.length === 0 && (
+        <Card className="p-8 text-center">
+          <div className="text-gray-400 mb-4">
+            <Building className="w-12 h-12 mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Brokerage Accounts Connected</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Connect a brokerage account from the Accounts section to view your trade history.
+            </p>
+            <Button onClick={() => window.location.href = '#/accounts'}>
+              <Plus className="w-4 h-4 mr-2" />
+              Go to Accounts
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Selected Account Info */}
       {selectedAccount && (
