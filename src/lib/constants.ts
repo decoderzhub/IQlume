@@ -1,4 +1,3 @@
-```typescript
 export const INITIAL_LAUNCH_STRATEGY_TYPES = [
   'wheel',
   'covered_calls',
@@ -9,5 +8,3 @@ export const INITIAL_LAUNCH_STRATEGY_TYPES = [
   'futures_grid',
   'infinity_grid',
 ];
-
-```
