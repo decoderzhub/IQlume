@@ -11,6 +11,7 @@ import { BrokerageAccount, BankAccount, CustodialWallet } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { DepositFundsModal } from './DepositFundsModal';
 import { useStore } from '../../store/useStore';
+import { supabase } from '../../lib/supabase';
 
 export function AccountsView() {
   const [showBrokerageModal, setShowBrokerageModal] = useState(false);
@@ -20,8 +21,10 @@ export function AccountsView() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedWalletForDeposit, setSelectedWalletForDeposit] = useState<CustodialWallet | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const { 
+    user,
     brokerageAccounts, 
     bankAccounts, 
     custodialWallets, 
@@ -32,9 +35,98 @@ export function AccountsView() {
   } = useStore();
 
   React.useEffect(() => {
-    // Simulate loading completion
-    setLoading(false);
-  }, []);
+    const fetchBrokerageAccounts = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setError(null);
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
+          throw new Error('No valid session found. Please log in again.');
+        }
+
+        // Fetch connected Alpaca accounts
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/alpaca/accounts`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch brokerage accounts: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        const accounts = data.accounts || [];
+        
+        // Transform backend data to frontend format
+        const transformedAccounts: BrokerageAccount[] = accounts.map((account: any) => ({
+          id: account.id,
+          user_id: account.user_id,
+          brokerage: account.brokerage,
+          account_name: account.account_name,
+          account_type: account.account_type,
+          balance: account.balance,
+          is_connected: account.is_connected,
+          last_sync: account.last_sync,
+          oauth_token: account.oauth_token,
+          account_number: account.account_number,
+          routing_number: account.routing_number,
+        }));
+
+        setBrokerageAccounts(transformedAccounts);
+        
+        // Initialize mock bank accounts and custodial wallets for now
+        // TODO: Replace with real API calls when those endpoints are ready
+        const mockBankAccounts: BankAccount[] = [
+          {
+            id: '1',
+            user_id: user.id,
+            bank_name: 'Chase',
+            account_name: 'Chase Checking',
+            account_type: 'checking',
+            account_number_masked: '****1234',
+            routing_number: '021000021',
+            balance: 15420.50,
+            is_verified: true,
+            plaid_account_id: 'plaid_123',
+            plaid_access_token: 'access_token_123',
+            last_sync: new Date().toISOString(),
+          },
+        ];
+
+        const mockCustodialWallets: CustodialWallet[] = [
+          {
+            id: '1',
+            user_id: user.id,
+            wallet_name: 'High-Yield Treasury Wallet',
+            balance_usd: 25000.00,
+            balance_treasuries: 75000.00,
+            apy: 0.0485,
+            is_fdic_insured: true,
+            created_at: '2024-01-01T00:00:00Z',
+          },
+        ];
+
+        setBankAccounts(mockBankAccounts);
+        setCustodialWallets(mockCustodialWallets);
+        updatePortfolioFromAccounts();
+        
+      } catch (error) {
+        console.error('Error fetching brokerage accounts:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load accounts');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBrokerageAccounts();
+  }, [user, setBrokerageAccounts, setBankAccounts, setCustodialWallets, updatePortfolioFromAccounts]);
 
   const totalBrokerageValue = brokerageAccounts.reduce((sum, acc) => sum + acc.balance, 0);
   const totalBankValue = bankAccounts.reduce((sum, acc) => sum + acc.balance, 0);
@@ -81,6 +173,20 @@ export function AccountsView() {
       transition={{ duration: 0.3 }}
       className="space-y-8"
     >
+      {error && (
+        <Card className="p-6 bg-red-500/10 border-red-500/20">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-sm">!</span>
+            </div>
+            <div>
+              <h3 className="font-medium text-red-400">Error Loading Accounts</h3>
+              <p className="text-sm text-red-300">{error}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="p-6">
