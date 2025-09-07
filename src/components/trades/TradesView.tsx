@@ -22,6 +22,7 @@ import { Button } from '../ui/Button';
 import { Trade } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
+import { supabase } from '../../lib/supabase';
 
 interface TradeStats {
   total_trades: number;
@@ -30,54 +31,6 @@ interface TradeStats {
   avg_trade_duration: number;
 }
 
-// Generate mock trades for a specific account
-const generateMockTradesForAccount = (accountId: string): Trade[] => {
-  const account = useStore.getState().brokerageAccounts.find(acc => acc.id === accountId);
-  if (!account) return [];
-
-  const symbols = account.account_type === 'crypto' 
-    ? ['BTC', 'ETH', 'ADA', 'SOL', 'MATIC', 'DOT']
-    : ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'SPY', 'QQQ'];
-
-  const trades: Trade[] = [];
-  const tradeCount = Math.floor(Math.random() * 30) + 20; // 20-50 trades
-
-  for (let i = 0; i < tradeCount; i++) {
-    const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-    const type = Math.random() > 0.5 ? 'buy' : 'sell';
-    const quantity = account.account_type === 'crypto' 
-      ? Math.random() * 10 + 0.1 
-      : Math.floor(Math.random() * 100) + 1;
-    
-    const basePrice = account.account_type === 'crypto'
-      ? symbol === 'BTC' ? 43000 : symbol === 'ETH' ? 2600 : Math.random() * 100 + 1
-      : Math.random() * 300 + 50;
-    
-    const price = basePrice * (0.9 + Math.random() * 0.2); // ±10% variation
-    const profitLoss = type === 'sell' ? (Math.random() - 0.3) * quantity * price * 0.1 : 0;
-    
-    const daysAgo = Math.floor(Math.random() * 90);
-    const timestamp = new Date();
-    timestamp.setDate(timestamp.getDate() - daysAgo);
-    
-    const statuses: Trade['status'][] = ['executed', 'executed', 'executed', 'pending', 'failed'];
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-
-    trades.push({
-      id: `${accountId}-${i}`,
-      strategy_id: Math.random() > 0.7 ? 'manual' : `strategy-${Math.floor(Math.random() * 5) + 1}`,
-      symbol: symbol,
-      type: type,
-      quantity: parseFloat(quantity.toFixed(account.account_type === 'crypto' ? 4 : 0)),
-      price: parseFloat(price.toFixed(2)),
-      timestamp: timestamp.toISOString(),
-      profit_loss: parseFloat(profitLoss.toFixed(2)),
-      status: status,
-    });
-  }
-
-  return trades.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-};
 
 export function TradesView() {
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -105,45 +58,73 @@ export function TradesView() {
     }
   }, [brokerageAccounts, selectedAccountId]);
 
-  const loadTradesForAccount = (accountId: string) => {
+  const loadTradesForAccount = async (accountId: string) => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
-    // Simulate loading delay
-    setTimeout(() => {
-      const accountTrades = generateMockTradesForAccount(accountId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
       
-      // Apply date range filter
-      let filteredTrades = accountTrades;
+      if (!session?.access_token) {
+        throw new Error('No valid session found. Please log in again.');
+      }
+
+      // Build query parameters for date range filtering
+      const params = new URLSearchParams();
+      params.append('limit', '100');
+      
       if (dateRange !== 'all') {
         const days = dateRange === '1d' ? 1 : dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - days);
-        filteredTrades = accountTrades.filter(trade => new Date(trade.timestamp) >= cutoffDate);
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - days);
+        
+        params.append('start_date', startDate.toISOString().split('T')[0]);
+        params.append('end_date', endDate.toISOString().split('T')[0]);
       }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/trades?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch trades: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
       
-      setTrades(filteredTrades);
-      
-      // Calculate stats
-      const executedTrades = filteredTrades.filter(t => t.status === 'executed');
-      const totalProfitLoss = executedTrades.reduce((sum, t) => sum + t.profit_loss, 0);
-      const winningTrades = executedTrades.filter(t => t.profit_loss > 0).length;
-      const winRate = executedTrades.length > 0 ? winningTrades / executedTrades.length : 0;
-      
-      setStats({
-        total_trades: filteredTrades.length,
-        total_profit_loss: totalProfitLoss,
-        win_rate: winRate,
-        avg_trade_duration: 2.5, // Mock average
+      // Set trades and stats from API response
+      setTrades(data.trades || []);
+      setStats(data.stats || {
+        total_trades: 0,
+        total_profit_loss: 0,
+        win_rate: 0,
+        avg_trade_duration: 0,
       });
       
+    } catch (error) {
+      console.error('Error fetching trades:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load trades');
+      setTrades([]);
+      setStats(null);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   useEffect(() => {
-    loadTradesForAccount(selectedAccountId);
-  }, [selectedAccountId, dateRange]);
+    if (selectedAccountId && user) {
+      loadTradesForAccount(selectedAccountId);
+    }
+  }, [selectedAccountId, dateRange, user]);
 
   const filteredTrades = trades.filter(trade => {
     const matchesSearch = trade.symbol.toLowerCase().includes(searchTerm.toLowerCase());
@@ -182,7 +163,7 @@ export function TradesView() {
       >
         <div className="flex items-center gap-3 text-gray-400">
           <RefreshCw className="w-6 h-6 animate-spin" />
-          <span>Loading trades...</span>
+          <span>Loading trades from Alpaca...</span>
         </div>
       </motion.div>
     );
@@ -287,6 +268,11 @@ export function TradesView() {
                 <p className="text-sm text-gray-400 capitalize">
                   {selectedAccount.brokerage} • {selectedAccount.account_type} • {formatCurrency(selectedAccount.balance)}
                 </p>
+                {selectedAccount.account_number && (
+                  <p className="text-xs text-gray-500">
+                    Account: {selectedAccount.account_number}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -421,7 +407,7 @@ export function TradesView() {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-white">
-            Trade History - {selectedAccount?.account_name}
+            Trade History{selectedAccount ? ` - ${selectedAccount.account_name}` : ''}
           </h3>
           <div className="text-sm text-gray-400">
             Showing {filteredTrades.length} of {trades.length} trades
@@ -436,7 +422,7 @@ export function TradesView() {
               {searchTerm || filterType !== 'all' || filterStatus !== 'all'
                 ? 'Try adjusting your filters or search terms.'
                 : selectedAccount?.is_connected 
-                  ? 'No trades found for this account. Start trading to see your history here.'
+                  ? 'No trades found for this account in the selected time period.'
                   : 'This account is not connected. Please reconnect to view trade history.'
               }
             </p>
