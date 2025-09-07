@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Wallet, CreditCard, Building, Shield, TrendingUp, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import { Trash2, AlertTriangle } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { ConnectBrokerageModal } from './ConnectBrokerageModal';
@@ -22,6 +23,7 @@ export function AccountsView() {
   const [selectedWalletForDeposit, setSelectedWalletForDeposit] = useState<CustodialWallet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [disconnectingAccountId, setDisconnectingAccountId] = useState<string | null>(null);
   
   const { 
     user,
@@ -181,6 +183,59 @@ export function AccountsView() {
     setSelectedWalletForDeposit(null);
   };
 
+  const handleDisconnectBrokerage = async (accountId: string, accountName: string) => {
+    if (!user) {
+      alert('You must be logged in to disconnect accounts');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to disconnect "${accountName}"?\n\n` +
+      'This will:\n' +
+      '• Remove the account from your dashboard\n' +
+      '• Stop all automated trading strategies using this account\n' +
+      '• Revoke brokernomex\'s access to your Alpaca account\n\n' +
+      'You can reconnect the account later if needed.'
+    );
+
+    if (!confirmed) return;
+
+    setDisconnectingAccountId(accountId);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found. Please log in again.');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/alpaca/accounts/${accountId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to disconnect account: ${response.status} ${errorText}`);
+      }
+
+      // Remove from local state
+      const updatedAccounts = brokerageAccounts.filter(acc => acc.id !== accountId);
+      setBrokerageAccounts(updatedAccounts);
+      updatePortfolioFromAccounts();
+      
+      alert(`"${accountName}" has been disconnected successfully.`);
+      
+    } catch (error) {
+      console.error('Error disconnecting brokerage account:', error);
+      alert(`Failed to disconnect account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setDisconnectingAccountId(null);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -295,27 +350,84 @@ export function AccountsView() {
         ) : (
         <div className="space-y-4">
           {brokerageAccounts.map((account) => (
-            <div key={account.id} className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+            <div key={account.id} className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
               <div className="flex items-center gap-4">
                 <div className={`w-3 h-3 rounded-full ${account.is_connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                <div className="text-2xl">
+                  {account.brokerage === 'alpaca' && '🦙'}
+                  {account.brokerage === 'schwab' && '🏦'}
+                  {account.brokerage === 'coinbase' && '₿'}
+                  {account.brokerage === 'binance' && '🟡'}
+                  {!['alpaca', 'schwab', 'coinbase', 'binance'].includes(account.brokerage) && '📊'}
+                </div>
                 <div>
                   <p className="font-medium text-white">{account.account_name}</p>
                   <p className="text-sm text-gray-400 capitalize">
                     {account.brokerage} • {account.account_type}
                   </p>
+                  {account.account_number && (
+                    <p className="text-xs text-gray-500">
+                      Account: {account.account_number}
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-medium text-white">{formatCurrency(account.balance)}</p>
-                <p className="text-sm text-gray-400">
-                  Last sync: {formatDate(account.last_sync)}
-                </p>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="font-medium text-white">{formatCurrency(account.balance)}</p>
+                  <p className="text-sm text-gray-400">
+                    Last sync: {formatDate(account.last_sync)}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {account.is_connected ? 'Connected' : 'Disconnected'}
+                  </p>
+                </div>
+                
+                {/* Disconnect Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDisconnectBrokerage(account.id, account.account_name)}
+                  disabled={disconnectingAccountId === account.id}
+                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20"
+                  title="Disconnect account"
+                >
+                  {disconnectingAccountId === account.id ? (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </Button>
               </div>
             </div>
           ))}
         </div>
         )}
       </Card>
+
+      {/* Disconnect Account Warning */}
+      {brokerageAccounts.some(acc => acc.brokerage === 'alpaca') && (
+        <Card className="p-6 bg-yellow-500/10 border border-yellow-500/20">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-medium text-yellow-400 mb-2">Account Management</h4>
+              <p className="text-sm text-yellow-300 leading-relaxed">
+                You can disconnect any connected brokerage account using the trash icon. This will:
+              </p>
+              <ul className="text-sm text-yellow-300 mt-2 space-y-1">
+                <li>• Remove the account from your brokernomex dashboard</li>
+                <li>• Stop all automated strategies using that account</li>
+                <li>• Revoke brokernomex's access to your brokerage account</li>
+                <li>• Preserve your trading history for record-keeping</li>
+              </ul>
+              <p className="text-sm text-yellow-300 mt-2">
+                You can always reconnect the same account later if needed.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Bank Accounts */}
       <Card className="p-6">
