@@ -171,7 +171,7 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
                     <ul className="text-sm text-yellow-300 space-y-1">
                       <li>• Your credentials are never stored on our servers</li>
                       <li>• We use OAuth 2.0 for secure authentication</li>
-                      <li>• You can revoke access at any time from your brokerage settings</li>
+                      <li>• You can revoke access at any time from your brokerage account settings</li>
                       <li>• All data is encrypted in transit and at rest</li>
                     </ul>
                   </div>
