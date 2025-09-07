@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Settings, TrendingUp } from 'lucide-react';
+import { Play, Pause, Settings, TrendingUp, Plus } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { useStore } from '../../store/useStore';
 
 export function TradingStrategies() {
-  const { user } = useStore();
+  const { user, setActiveView } = useStore();
   const [strategies, setStrategies] = React.useState<TradingStrategy[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -70,9 +70,9 @@ export function TradingStrategies() {
     <Card className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-white">Active Strategies</h3>
-        <Button size="sm">
+        <Button size="sm" onClick={() => setActiveView('strategies')}>
           <TrendingUp className="w-4 h-4 mr-2" />
-          New Strategy
+          View All
         </Button>
       </div>
 

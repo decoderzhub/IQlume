@@ -12,8 +12,63 @@ export function PortfolioOverview() {
   const [marketData, setMarketData] = React.useState<any>(null);
   const [historicalData, setHistoricalData] = React.useState<any>({});
   const [loading, setLoading] = React.useState(false);
+  const [accountsLoading, setAccountsLoading] = React.useState(true);
   
   const isPositive = (portfolio?.day_change || 0) >= 0;
+
+  // Load brokerage accounts on component mount
+  React.useEffect(() => {
+    const loadBrokerageAccounts = async () => {
+      if (!user) {
+        setAccountsLoading(false);
+        return;
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
+          setAccountsLoading(false);
+          return;
+        }
+
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/alpaca/accounts`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const accounts = data.accounts || [];
+          
+          // Transform backend data to frontend format
+          const transformedAccounts = accounts.map((account: any) => ({
+            id: account.id,
+            user_id: account.user_id,
+            brokerage: account.brokerage,
+            account_name: account.account_name,
+            account_type: account.account_type,
+            balance: account.balance,
+            is_connected: account.is_connected,
+            last_sync: account.last_sync,
+            oauth_token: account.oauth_token,
+            account_number: account.account_number,
+            routing_number: account.routing_number,
+          }));
+
+          useStore.getState().setBrokerageAccounts(transformedAccounts);
+          useStore.getState().updatePortfolioFromAccounts();
+        }
+      } catch (error) {
+        console.error('Error loading brokerage accounts in dashboard:', error);
+      } finally {
+        setAccountsLoading(false);
+      }
+    };
+
+    loadBrokerageAccounts();
+  }, [user]);
 
   // Generate mock historical data for charts (in production, this would come from your API)
   const generateMockHistoricalData = (currentPrice: number, symbol: string) => {
@@ -355,25 +410,58 @@ export function PortfolioOverview() {
 
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Connected Accounts</h3>
-        <div className="space-y-4">
-          {brokerageAccounts.map((account) => (
-            <div key={account.id} className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
-              <div className="flex items-center gap-4">
-                <div className={`w-3 h-3 rounded-full ${account.is_connected ? 'bg-green-500' : 'bg-red-500'}`} />
-                <div>
-                  <p className="font-medium text-white">{account.account_name}</p>
-                  <p className="text-sm text-gray-400 capitalize">
-                    {account.brokerage} • {account.account_type}
+        
+        {accountsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="flex items-center gap-2 text-gray-400">
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <span>Loading accounts...</span>
+            </div>
+          </div>
+        ) : brokerageAccounts.length === 0 ? (
+          <div className="text-center py-8">
+            <Wallet className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <h4 className="text-lg font-medium text-white mb-2">No Connected Accounts</h4>
+            <p className="text-gray-400 mb-4">Connect your first brokerage account to start trading</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {brokerageAccounts.map((account) => (
+              <div key={account.id} className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className={`w-3 h-3 rounded-full ${account.is_connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <div className="text-2xl">
+                    {account.brokerage === 'alpaca' && '🦙'}
+                    {account.brokerage === 'schwab' && '🏦'}
+                    {account.brokerage === 'coinbase' && '₿'}
+                    {account.brokerage === 'binance' && '🟡'}
+                    {!['alpaca', 'schwab', 'coinbase', 'binance'].includes(account.brokerage) && '📊'}
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">{account.account_name}</p>
+                    <p className="text-sm text-gray-400 capitalize">
+                      {account.brokerage} • {account.account_type}
+                    </p>
+                    {account.account_number && (
+                      <p className="text-xs text-gray-500">
+                        Account: {account.account_number}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium text-white">{formatCurrency(account.balance)}</p>
+                  <p className="text-sm text-gray-400">
+                    Last sync: {account.last_sync ? new Date(account.last_sync).toLocaleString() : 'Never'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {account.is_connected ? 'Connected' : 'Disconnected'}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-medium text-white">{formatCurrency(account.balance)}</p>
-                <p className="text-sm text-gray-400">Last sync: just now</p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         
         {/* Show custodial wallets as available capital */}
         {custodialWallets.length > 0 && (
