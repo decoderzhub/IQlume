@@ -73,6 +73,7 @@ def _base_for_env(env: str) -> str:
 
 @router.get("/oauth/authorize")
 async def get_alpaca_oauth_url(
+    account_name: str = Query(..., description="Custom account nickname"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
 ):
@@ -97,6 +98,7 @@ async def get_alpaca_oauth_url(
         state = secrets.token_urlsafe(32)
         oauth_states[state] = {
             "user_id": current_user.id,
+            "account_name": account_name,
             "env": env,
             "created_at": _now_ts(),
         }
@@ -158,6 +160,7 @@ async def alpaca_oauth_callback(
             pass
 
         user_id: str = state_obj["user_id"]
+        account_name: str = state_obj.get("account_name", "Alpaca Trading Account")
         env: str = state_obj.get("env", "paper")
         base_url = _base_for_env(env)
 
@@ -246,7 +249,7 @@ async def alpaca_oauth_callback(
         account_record = {
             "user_id": user_id,
             "brokerage": "alpaca",
-            "account_name": f"Alpaca {account_status.title() if account_status else 'Trading'} Account",
+            "account_name": account_name,
             "account_type": "stocks",
             "balance": portfolio_value,
             "is_connected": True,
