@@ -40,7 +40,14 @@ BASE_PAPER = "https://paper-api.alpaca.markets"
 oauth_states: Dict[str, Dict[str, Any]] = {}
 OAUTH_STATE_TTL_SECS = 10 * 60  # 10 min
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+# Get frontend URL from environment, with proper fallback for local development
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+if not FRONTEND_URL:
+    # Auto-detect local development URL
+    FRONTEND_URL = "http://localhost:5173"
+    logger.info(f"[alpaca] Using default frontend URL for local development: {FRONTEND_URL}")
+else:
+    logger.info(f"[alpaca] Using configured frontend URL: {FRONTEND_URL}")
 
 
 def _now_ts() -> int:
