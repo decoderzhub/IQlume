@@ -35,6 +35,21 @@ export function AccountsView() {
   } = useStore();
 
   React.useEffect(() => {
+    // Check for OAuth callback status in URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const message = urlParams.get('message');
+    
+    if (status === 'success' && message) {
+      alert(decodeURIComponent(message));
+      // Clean up URL params
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (status === 'error' && message) {
+      alert(`Error: ${decodeURIComponent(message)}`);
+      // Clean up URL params
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     const fetchBrokerageAccounts = async () => {
       if (!user) {
         setLoading(false);
