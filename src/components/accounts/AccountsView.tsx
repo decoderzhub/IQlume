@@ -98,40 +98,9 @@ export function AccountsView() {
 
         setBrokerageAccounts(transformedAccounts);
         
-        // Initialize mock bank accounts and custodial wallets for now
-        // TODO: Replace with real API calls when those endpoints are ready
-        const mockBankAccounts: BankAccount[] = [
-          {
-            id: '1',
-            user_id: user.id,
-            bank_name: 'Chase',
-            account_name: 'Chase Checking',
-            account_type: 'checking',
-            account_number_masked: '****1234',
-            routing_number: '021000021',
-            balance: 15420.50,
-            is_verified: true,
-            plaid_account_id: 'plaid_123',
-            plaid_access_token: 'access_token_123',
-            last_sync: new Date().toISOString(),
-          },
-        ];
-
-        const mockCustodialWallets: CustodialWallet[] = [
-          {
-            id: '1',
-            user_id: user.id,
-            wallet_name: 'High-Yield Treasury Wallet',
-            balance_usd: 25000.00,
-            balance_treasuries: 75000.00,
-            apy: 0.0485,
-            is_fdic_insured: true,
-            created_at: '2024-01-01T00:00:00Z',
-          },
-        ];
-
-        setBankAccounts(mockBankAccounts);
-        setCustodialWallets(mockCustodialWallets);
+        // Clear dummy data - these features are coming soon
+        setBankAccounts([]);
+        setCustodialWallets([]);
         updatePortfolioFromAccounts();
         
       } catch (error) {
@@ -306,17 +275,17 @@ export function AccountsView() {
           <Plus className="w-4 h-4 mr-2" />
           Connect Brokerage
         </Button>
-        <Button variant="secondary" onClick={() => setShowBankModal(true)}>
+        <Button variant="secondary" disabled className="opacity-50 cursor-not-allowed">
           <Building className="w-4 h-4 mr-2" />
-          Link Bank Account
+          Link Bank Account (Coming Soon)
         </Button>
-        <Button variant="secondary" onClick={() => setShowWalletModal(true)}>
+        <Button variant="secondary" disabled className="opacity-50 cursor-not-allowed">
           <Shield className="w-4 h-4 mr-2" />
-          Create Custodial Wallet
+          Create Custodial Wallet (Coming Soon)
         </Button>
-        <Button variant="secondary" onClick={() => setShowTransferModal(true)}>
+        <Button variant="secondary" disabled className="opacity-50 cursor-not-allowed">
           <ArrowRightLeft className="w-4 h-4 mr-2" />
-          Transfer Assets
+          Transfer Assets (Coming Soon)
         </Button>
       </div>
 
@@ -433,32 +402,23 @@ export function AccountsView() {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-white">Bank Accounts</h3>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Shield className="w-4 h-4" />
-            Secured by Plaid
+          <div className="flex items-center gap-2 text-sm text-yellow-400">
+            <AlertTriangle className="w-4 h-4" />
+            Coming Soon
           </div>
         </div>
         
-        <div className="space-y-4">
-          {bankAccounts.map((account) => (
-            <div key={account.id} className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
-              <div className="flex items-center gap-4">
-                <div className={`w-3 h-3 rounded-full ${account.is_verified ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                <div>
-                  <p className="font-medium text-white">{account.account_name}</p>
-                  <p className="text-sm text-gray-400">
-                    {account.bank_name} • {account.account_number_masked}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-medium text-white">{formatCurrency(account.balance)}</p>
-                <p className="text-sm text-gray-400">
-                  {account.is_verified ? 'Verified' : 'Pending verification'}
-                </p>
-              </div>
-            </div>
-          ))}
+        <div className="text-center py-12">
+          <Building className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <h4 className="text-xl font-medium text-white mb-2">Bank Account Integration</h4>
+          <p className="text-gray-400 mb-4 max-w-md mx-auto">
+            Connect your bank accounts for seamless funding and withdrawals. 
+            This feature will be available in the next release.
+          </p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-yellow-400 text-sm font-medium">
+            <Shield className="w-4 h-4" />
+            Secured by Plaid • Coming Soon
+          </div>
         </div>
       </Card>
 
@@ -466,53 +426,29 @@ export function AccountsView() {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-white">Custodial Wallets</h3>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Shield className="w-4 h-4" />
-            FDIC Insured
+          <div className="flex items-center gap-2 text-sm text-yellow-400">
+            <AlertTriangle className="w-4 h-4" />
+            Coming Soon
           </div>
         </div>
         
-        <div className="space-y-4">
-          {custodialWallets.map((wallet) => (
-            <div key={wallet.id} className="p-4 bg-gray-800/50 rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-medium text-white">{wallet.wallet_name}</p>
-                  <p className="text-sm text-gray-400">
-                    APY: {(wallet.apy * 100).toFixed(2)}% • FDIC Insured
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium text-white">
-                    {formatCurrency(wallet.balance_usd + wallet.balance_treasuries)}
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedWalletForDeposit(wallet);
-                      setShowDepositModal(true);
-                    }}
-                    className="mt-2"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Deposit
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-400">USD Balance:</span>
-                  <span className="text-white ml-2">{formatCurrency(wallet.balance_usd)}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400">Treasury Balance:</span>
-                  <span className="text-white ml-2">{formatCurrency(wallet.balance_treasuries)}</span>
-                </div>
-              </div>
+        <div className="text-center py-12">
+          <Shield className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <h4 className="text-xl font-medium text-white mb-2">High-Yield Custodial Wallets</h4>
+          <p className="text-gray-400 mb-4 max-w-md mx-auto">
+            Earn competitive yields on your cash reserves with FDIC-insured custodial wallets. 
+            Perfect for parking funds between trades.
+          </p>
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-full text-yellow-400 text-sm font-medium">
+              <TrendingUp className="w-4 h-4" />
+              Up to 4.85% APY • Coming Soon
             </div>
-          ))}
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 text-sm font-medium ml-2">
+              <Shield className="w-4 h-4" />
+              FDIC Insured
+            </div>
+          </div>
         </div>
       </Card>
 
