@@ -42,7 +42,7 @@ async def get_alpaca_trading_client(
     """Get Alpaca trading client"""
     try:
         # First try to get OAuth token from database
-        resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage_name", "alpaca").eq("is_connected", True).execute()
+        resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
         
         if resp.data and len(resp.data) > 0:
             account = resp.data[0]
