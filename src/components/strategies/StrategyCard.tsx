@@ -14,7 +14,7 @@ import {
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
-import { formatCurrency, formatPercent } from '../../lib/utils';
+import { formatCurrency, formatPercent, cn } from '../../lib/utils';
 
 interface StrategyCardProps {
   strategy: TradingStrategy;
