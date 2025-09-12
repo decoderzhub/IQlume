@@ -287,12 +287,16 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     setSelectedStrategy(strategy);
     setStep('configure');
     
-    // Default values for all fields in TradingStrategy interface
-    const defaultUniversalConfig: Partial<TradingStrategy> = {
+    // Check if push notifications are supported and granted
+    const pushNotificationsDefault = typeof window !== 'undefined' && 
+      'Notification' in window && 
+      Notification.permission === 'granted';
+
+    // Base configuration for all strategies
+    const baseConfig: any = {
       description: '',
       is_active: false,
       account_id: '',
-      asset_class: 'equity',
       quote_currency: 'USD',
       capital_allocation: {
         mode: 'fixed_amount_usd',
@@ -333,77 +337,113 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       },
       notifications: {
         email_alerts: true,
-        push_notifications: false,
+        push_notifications: pushNotificationsDefault,
         webhook_url: '',
       },
       backtest_mode: 'paper',
       backtest_params: {
         slippage: 0.001,
         commission: 0.005,
-      }, 
-      // These fields are removed from UI but kept in default config for schema compatibility
-      skill_level: 'beginner',
-      time_horizon: 'long_term',
-      automation_level: 'manual',
-      configuration: {}, // Strategy-specific config will go here
+      },
     };
 
-    // Set default configuration based on strategy type
-    const defaultConfig: any = {
-      symbol: 'AAPL',
-      allocated_capital: strategy.min_capital,
-      ...defaultUniversalConfig, // Merge universal defaults
-    };
+    // Strategy-specific configuration
+    let defaultConfig: any = {};
 
     switch (strategy.type) {
+      case 'smart_rebalance':
+        defaultConfig = {
+          ...baseConfig,
+          assets: [
+            { symbol: 'BTC', allocation: 50 },
+            { symbol: 'ETH', allocation: 50 }
+          ],
+          trigger_type: 'threshold',
+          threshold_deviation_percent: 5,
+          rebalance_frequency: 'weekly'
+        };
+        break;
       case 'covered_calls':
-        defaultConfig.strike_delta = 0.30;
-        defaultConfig.expiration_days = 30;
-        defaultConfig.minimum_premium = 200;
-        defaultConfig.profit_target = 50;
+        defaultConfig = {
+          ...baseConfig,
+          symbol: 'AAPL',
+          allocated_capital: strategy.min_capital,
+          strike_delta: 0.30,
+          expiration_days: 30,
+          minimum_premium: 200,
+          profit_target: 50,
+        };
         break;
       case 'wheel':
-        defaultConfig.put_strike_delta = -0.30;
-        defaultConfig.call_strike_delta = 0.30;
-        defaultConfig.expiration_days = 30;
-        defaultConfig.minimum_premium = 150;
+        defaultConfig = {
+          ...baseConfig,
+          symbol: 'AAPL',
+          allocated_capital: strategy.min_capital,
+          put_strike_delta: -0.30,
+          call_strike_delta: 0.30,
+          expiration_days: 30,
+          minimum_premium: 150,
+        };
         break;
       case 'short_put':
-        defaultConfig.strike_delta = -0.30;
-        defaultConfig.expiration_days = 30;
-        defaultConfig.minimum_premium = 150;
+        defaultConfig = {
+          ...baseConfig,
+          symbol: 'AAPL',
+          allocated_capital: strategy.min_capital,
+          strike_delta: -0.30,
+          expiration_days: 30,
+          minimum_premium: 150,
+        };
         break;
       case 'spot_grid':
-        defaultConfig.price_range_lower = 0;
-        defaultConfig.price_range_upper = 0;
-        defaultConfig.number_of_grids = 20;
-        defaultConfig.grid_mode = 'arithmetic';
+        defaultConfig = {
+          ...baseConfig,
+          symbol: 'BTC',
+          allocated_capital: strategy.min_capital,
+          price_range_lower: 0,
+          price_range_upper: 0,
+          number_of_grids: 20,
+          grid_mode: 'arithmetic',
+        };
         break;
       case 'futures_grid':
-        defaultConfig.price_range_lower = 0;
-        defaultConfig.price_range_upper = 0;
-        defaultConfig.number_of_grids = 25;
-        defaultConfig.leverage = 3;
-        defaultConfig.direction = 'long';
+        defaultConfig = {
+          ...baseConfig,
+          symbol: 'BTC',
+          allocated_capital: strategy.min_capital,
+          price_range_lower: 0,
+          price_range_upper: 0,
+          number_of_grids: 25,
+          leverage: 3,
+          direction: 'long',
+        };
         break;
       case 'infinity_grid':
-        defaultConfig.price_range_lower = 0;
-        defaultConfig.number_of_grids = 30;
-        defaultConfig.grid_mode = 'geometric';
+        defaultConfig = {
+          ...baseConfig,
+          symbol: 'BTC',
+          allocated_capital: strategy.min_capital,
+          price_range_lower: 0,
+          number_of_grids: 30,
+          grid_mode: 'geometric',
+        };
         break;
       case 'dca':
-        defaultConfig.investment_amount_per_interval = 50;
-        defaultConfig.frequency = 'daily';
-        defaultConfig.investment_target_percent = 25;
+        defaultConfig = {
+          ...baseConfig,
+          symbol: 'BTC',
+          allocated_capital: strategy.min_capital,
+          investment_amount_per_interval: 50,
+          frequency: 'daily',
+          investment_target_percent: 25,
+        };
         break;
-      case 'smart_rebalance':
-        defaultConfig.assets = [{ symbol: 'BTC', allocation: 50 }, { symbol: 'ETH', allocation: 50 }];
-        defaultConfig.trigger_type = 'threshold';
-        defaultConfig.threshold_deviation_percent = 5;
-        defaultConfig.rebalance_frequency = 'weekly';
-        // Remove base_symbol as it's handled by assets array
-        delete defaultConfig.base_symbol;
-        delete defaultConfig.symbol; // Remove the general symbol field
+      default:
+        defaultConfig = {
+          ...baseConfig,
+          symbol: 'AAPL',
+          allocated_capital: strategy.min_capital,
+        };
         break;
     }
 
@@ -633,8 +673,122 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
 
         {/* Basic Configuration */}
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {!['smart_rebalance'].includes(selectedStrategy.type) && (
+          {/* Smart Rebalance specific configuration - at the top */}
+          {selectedStrategy.type === 'smart_rebalance' && (
+            <>
+              <h3 className="text-lg font-semibold text-white mb-4">Portfolio Assets</h3>
+              <div className="space-y-4">
+                {(strategyConfig.assets || []).map((asset: { symbol: string; allocation: number }, index: number) => (
+                  <div key={index} className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-lg">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-300 mb-1">Symbol</label>
+                      <input
+                        type="text"
+                        value={asset.symbol}
+                        onChange={(e) => {
+                          const newAssets = [...(strategyConfig.assets || [])];
+                          newAssets[index].symbol = e.target.value.toUpperCase();
+                          setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
+                        }}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
+                        placeholder="e.g., BTC, ETH"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-300 mb-1">Allocation (%)</label>
+                      <input
+                        type="number"
+                        value={asset.allocation}
+                        onChange={(e) => {
+                          const newAssets = [...(strategyConfig.assets || [])];
+                          newAssets[index].allocation = Number(e.target.value);
+                          setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
+                        }}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
+                        min="0"
+                        max="100"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newAssets = (strategyConfig.assets || []).filter((_: any, i: number) => i !== index);
+                        setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
+                      }}
+                      className="text-red-400 hover:bg-red-500/10"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  onClick={() => setStrategyConfig(prev => ({ ...prev, assets: [...(prev.assets || []), { symbol: '', allocation: 0 }] }))}
+                  className="w-full"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Asset
+                </Button>
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-sm text-blue-300 flex items-center gap-2">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  Total allocation should ideally sum to 100%.
+                </div>
+              </div>
+              
+              <h3 className="text-lg font-semibold text-white mb-4">Rebalancing Triggers</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Trigger Type
+                  </label>
+                  <select
+                    value={strategyConfig.trigger_type || 'threshold'}
+                    onChange={(e) => setStrategyConfig(prev => ({ ...prev, trigger_type: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="threshold">Threshold Deviation</option>
+                    <option value="time">Time-based</option>
+                  </select>
+                </div>
+                {strategyConfig.trigger_type === 'threshold' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Threshold Deviation (%)
+                    </label>
+                    <input
+                      type="number"
+                      value={strategyConfig.threshold_deviation_percent || 0}
+                      onChange={(e) => setStrategyConfig(prev => ({ ...prev, threshold_deviation_percent: Number(e.target.value) }))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      min="1"
+                      max="20"
+                    />
+                  </div>
+                )}
+                {strategyConfig.trigger_type === 'time' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Rebalance Frequency
+                    </label>
+                    <select
+                      value={strategyConfig.rebalance_frequency || 'weekly'}
+                      onChange={(e) => setStrategyConfig(prev => ({ ...prev, rebalance_frequency: e.target.value }))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Configuration for other strategies */}
+          {selectedStrategy.type !== 'smart_rebalance' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Symbol
@@ -647,7 +801,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 placeholder="e.g., AAPL, BTC"
               />
             </div>
-            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -665,10 +818,11 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 />
               </div>
             </div>
-          </div>
+            </div>
+          )}
 
           {/* Strategy-specific configuration */}
-          {selectedStrategy.type === 'covered_calls' && (
+          {selectedStrategy.type === 'covered_calls' && selectedStrategy.type !== 'smart_rebalance' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -700,7 +854,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
           )}
 
-          {selectedStrategy.type === 'spot_grid' && (
+          {selectedStrategy.type === 'spot_grid' && selectedStrategy.type !== 'smart_rebalance' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -731,7 +885,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
           )}
 
-          {selectedStrategy.type === 'dca' && (
+          {selectedStrategy.type === 'dca' && selectedStrategy.type !== 'smart_rebalance' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -766,11 +920,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
           )}
 
-          {/* Universal Bot Fields */}
-          {!['smart_rebalance'].includes(selectedStrategy.type) && (
-          <>
-          <h3 className="text-lg font-semibold text-white mb-4 mt-8">Universal Bot Fields</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Description field for all strategies */}
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Description
@@ -784,10 +935,10 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               />
             </div>
           </div>
-          </>
-          )}
 
           {/* Capital Allocation */}
+          {selectedStrategy.type !== 'smart_rebalance' && (
+          <>
           <h3 className="text-lg font-semibold text-white mb-4 mt-8">Capital Allocation</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -815,6 +966,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               />
             </div>
           </div>
+          </>
+          )}
 
           {/* Risk Controls */}
           <h3 className="text-lg font-semibold text-white mb-4 mt-8">Risk Controls</h3>
@@ -897,118 +1050,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
           </div>
 
-          {/* Smart Rebalance Specific Fields */}
-          {selectedStrategy.type === 'smart_rebalance' && (
-            <>
-              <h3 className="text-lg font-semibold text-white mb-4 mt-8">Smart Rebalance Assets</h3>
-              <div className="space-y-4">
-                {(strategyConfig.assets || []).map((asset: { symbol: string; allocation: number }, index: number) => (
-                  <div key={index} className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-lg">
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-300 mb-1">Symbol</label>
-                      <input
-                        type="text"
-                        value={asset.symbol}
-                        onChange={(e) => {
-                          const newAssets = [...(strategyConfig.assets || [])];
-                          newAssets[index].symbol = e.target.value.toUpperCase();
-                          setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
-                        }}
-                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
-                        placeholder="e.g., BTC, ETH"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-300 mb-1">Allocation (%)</label>
-                      <input
-                        type="number"
-                        value={asset.allocation}
-                        onChange={(e) => {
-                          const newAssets = [...(strategyConfig.assets || [])];
-                          newAssets[index].allocation = Number(e.target.value);
-                          setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
-                        }}
-                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
-                        min="0"
-                        max="100"
-                      />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const newAssets = (strategyConfig.assets || []).filter((_: any, i: number) => i !== index);
-                        setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
-                      }}
-                      className="text-red-400 hover:bg-red-500/10"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  onClick={() => setStrategyConfig(prev => ({ ...prev, assets: [...(prev.assets || []), { symbol: '', allocation: 0 }] }))}
-                  className="w-full"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Asset
-                </Button>
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-sm text-blue-300 flex items-center gap-2">
-                  <Info className="w-4 h-4 flex-shrink-0" />
-                  Total allocation should ideally sum to 100%.
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-4 mt-8">Rebalancing Triggers</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Trigger Type
-                  </label>
-                  <select
-                    value={strategyConfig.trigger_type || 'threshold'}
-                    onChange={(e) => setStrategyConfig(prev => ({ ...prev, trigger_type: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="threshold">Threshold Deviation</option>
-                    <option value="time">Time-based</option>
-                  </select>
-                </div>
-                {strategyConfig.trigger_type === 'threshold' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Threshold Deviation (%)
-                    </label>
-                    <input
-                      type="number"
-                      value={strategyConfig.threshold_deviation_percent || 0}
-                      onChange={(e) => setStrategyConfig(prev => ({ ...prev, threshold_deviation_percent: Number(e.target.value) }))}
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                      min="1"
-                      max="20"
-                    />
-                  </div>
-                )}
-                {strategyConfig.trigger_type === 'time' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Rebalance Frequency
-                    </label>
-                    <select
-                      value={strategyConfig.rebalance_frequency || 'weekly'}
-                      onChange={(e) => setStrategyConfig(prev => ({ ...prev, rebalance_frequency: e.target.value }))}
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
           {/* Risk Warning */}
           <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
             <div className="flex items-start gap-3">
@@ -1057,7 +1098,11 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={!strategyConfig.symbol || !strategyConfig.allocated_capital}
+                disabled={
+                  selectedStrategy.type === 'smart_rebalance' 
+                    ? !(strategyConfig.assets && strategyConfig.assets.length > 0)
+                    : (!strategyConfig.symbol || !strategyConfig.allocated_capital)
+                }
                 className="flex-1"
               >
                 Create Strategy
