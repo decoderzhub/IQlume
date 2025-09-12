@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, TrendingUp, Shield, DollarSign, Target, Clock, AlertTriangle } from 'lucide-react';
+import { X, TrendingUp, Shield, DollarSign, Target, Clock, AlertTriangle, Plus, Minus, Info } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
@@ -287,10 +287,72 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     setSelectedStrategy(strategy);
     setStep('configure');
     
+    // Default values for all fields in TradingStrategy interface
+    const defaultUniversalConfig: Partial<TradingStrategy> = {
+      description: '',
+      skill_level: 'beginner',
+      is_active: false,
+      account_id: '',
+      asset_class: 'equity',
+      base_symbol: '',
+      quote_currency: 'USD',
+      time_horizon: 'long_term',
+      automation_level: 'manual',
+      capital_allocation: {
+        mode: 'fixed_amount_usd',
+        value: strategy.min_capital,
+        max_positions: 1,
+        max_exposure_usd: strategy.min_capital,
+      },
+      position_sizing: {
+        mode: 'fixed_units',
+        value: 1,
+      },
+      trade_window: {
+        enabled: false,
+        start_time: '09:30',
+        end_time: '16:00',
+        days_of_week: [1, 2, 3, 4, 5], // Mon-Fri
+      },
+      order_execution: {
+        order_type_default: 'market',
+        limit_tolerance_percent: 0.1,
+        allow_partial_fill: false,
+        combo_execution: 'atomic',
+      },
+      risk_controls: {
+        take_profit_percent: 0,
+        take_profit_usd: 0,
+        stop_loss_percent: 0,
+        stop_loss_usd: 0,
+        max_daily_loss_usd: 0,
+        max_drawdown_percent: 0,
+        pause_on_event_flags: [],
+      },
+      data_filters: {
+        min_liquidity: 0,
+        max_bid_ask_spread_pct: 0,
+        iv_rank_threshold: 0,
+        min_open_interest: 0,
+      },
+      notifications: {
+        email_alerts: true,
+        push_notifications: false,
+        webhook_url: '',
+      },
+      backtest_mode: 'paper',
+      backtest_params: {
+        slippage: 0.001,
+        commission: 0.005,
+      },
+      configuration: {}, // Strategy-specific config will go here
+    };
+
     // Set default configuration based on strategy type
     const defaultConfig: any = {
       symbol: 'AAPL',
       allocated_capital: strategy.min_capital,
+      ...defaultUniversalConfig, // Merge universal defaults
     };
 
     switch (strategy.type) {
@@ -335,14 +397,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         defaultConfig.investment_target_percent = 25;
         break;
       case 'smart_rebalance':
-        defaultConfig.assets = [
-          { symbol: 'BTC', allocation: 40 },
-          { symbol: 'ETH', allocation: 30 },
-          { symbol: 'USDT', allocation: 30 },
-        ];
+        defaultConfig.assets = [{ symbol: 'BTC', allocation: 50 }, { symbol: 'ETH', allocation: 50 }];
         defaultConfig.trigger_type = 'threshold';
-        defaultConfig.threshold_deviation_percent = 5;
-        defaultConfig.rebalance_frequency = 'weekly';
         break;
     }
 
@@ -702,18 +758,268 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               </div>
             </div>
           )}
-        </div>
 
-        {/* Risk Warning */}
-        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+          {/* Universal Bot Fields */}
+          <h3 className="text-lg font-semibold text-white mb-4 mt-8">Universal Bot Fields</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h4 className="font-medium text-yellow-400 mb-2">Risk Disclosure</h4>
-              <p className="text-sm text-yellow-300">
-                All trading involves risk of loss. Past performance does not guarantee future results. 
-                Please ensure you understand the strategy before activating it.
-              </p>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Description
+              </label>
+              <textarea
+                value={strategyConfig.description || ''}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="A brief description of your strategy"
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Skill Level
+              </label>
+              <select
+                value={strategyConfig.skill_level || 'beginner'}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, skill_level: e.target.value }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="beginner">Beginner</option>
+                <option value="moderate">Moderate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Asset Class
+              </label>
+              <select
+                value={strategyConfig.asset_class || 'equity'}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, asset_class: e.target.value }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="equity">Equity</option>
+                <option value="options">Options</option>
+                <option value="crypto">Crypto</option>
+                <option value="futures">Futures</option>
+                <option value="forex">Forex</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Time Horizon
+              </label>
+              <select
+                value={strategyConfig.time_horizon || 'long_term'}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, time_horizon: e.target.value }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="intraday">Intraday</option>
+                <option value="swing">Swing</option>
+                <option value="long_term">Long Term</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Automation Level
+              </label>
+              <select
+                value={strategyConfig.automation_level || 'manual'}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, automation_level: e.target.value }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="fully_auto">Fully Automated</option>
+                <option value="semi_auto">Semi-Automated</option>
+                <option value="manual">Manual</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Capital Allocation */}
+          <h3 className="text-lg font-semibold text-white mb-4 mt-8">Capital Allocation</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Allocation Mode
+              </label>
+              <select
+                value={strategyConfig.capital_allocation?.mode || 'fixed_amount_usd'}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, capital_allocation: { ...prev.capital_allocation, mode: e.target.value } }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="fixed_amount_usd">Fixed Amount (USD)</option>
+                <option value="percent_of_portfolio">Percent of Portfolio</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Allocation Value
+              </label>
+              <input
+                type="number"
+                value={strategyConfig.capital_allocation?.value || 0}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, capital_allocation: { ...prev.capital_allocation, value: Number(e.target.value) } }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+              />
+            </div>
+          </div>
+
+          {/* Risk Controls */}
+          <h3 className="text-lg font-semibold text-white mb-4 mt-8">Risk Controls</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Stop Loss Percent (%)
+              </label>
+              <input
+                type="number"
+                value={strategyConfig.risk_controls?.stop_loss_percent || 0}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, risk_controls: { ...prev.risk_controls, stop_loss_percent: Number(e.target.value) } }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Take Profit Percent (%)
+              </label>
+              <input
+                type="number"
+                value={strategyConfig.risk_controls?.take_profit_percent || 0}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, risk_controls: { ...prev.risk_controls, take_profit_percent: Number(e.target.value) } }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+              />
+            </div>
+          </div>
+
+          {/* Notifications */}
+          <h3 className="text-lg font-semibold text-white mb-4 mt-8">Notifications</h3>
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-gray-300">
+              <input
+                type="checkbox"
+                checked={strategyConfig.notifications?.email_alerts || false}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, notifications: { ...prev.notifications, email_alerts: e.target.checked } }))}
+                className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500"
+              />
+              Email Alerts
+            </label>
+            <label className="flex items-center gap-2 text-gray-300">
+              <input
+                type="checkbox"
+                checked={strategyConfig.notifications?.push_notifications || false}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, notifications: { ...prev.notifications, push_notifications: e.target.checked } }))}
+                className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500"
+              />
+              Push Notifications
+            </label>
+          </div>
+
+          {/* Backtesting Parameters */}
+          <h3 className="text-lg font-semibold text-white mb-4 mt-8">Backtesting Parameters</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Backtest Mode
+              </label>
+              <select
+                value={strategyConfig.backtest_mode || 'paper'}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, backtest_mode: e.target.value }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="paper">Paper Trading</option>
+                <option value="sim">Simulation</option>
+                <option value="live">Live</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Slippage
+              </label>
+              <input
+                type="number"
+                value={strategyConfig.backtest_params?.slippage || 0}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, backtest_params: { ...prev.backtest_params, slippage: Number(e.target.value) } }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                step="0.0001"
+              />
+            </div>
+          </div>
+
+          {/* Smart Rebalance Specific Fields */}
+          {selectedStrategy.type === 'smart_rebalance' && (
+            <>
+              <h3 className="text-lg font-semibold text-white mb-4 mt-8">Smart Rebalance Assets</h3>
+              <div className="space-y-4">
+                {(strategyConfig.assets || []).map((asset: { symbol: string; allocation: number }, index: number) => (
+                  <div key={index} className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-lg">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-300 mb-1">Symbol</label>
+                      <input
+                        type="text"
+                        value={asset.symbol}
+                        onChange={(e) => {
+                          const newAssets = [...strategyConfig.assets];
+                          newAssets[index].symbol = e.target.value.toUpperCase();
+                          setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
+                        }}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
+                        placeholder="e.g., BTC, ETH"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-300 mb-1">Allocation (%)</label>
+                      <input
+                        type="number"
+                        value={asset.allocation}
+                        onChange={(e) => {
+                          const newAssets = [...strategyConfig.assets];
+                          newAssets[index].allocation = Number(e.target.value);
+                          setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
+                        }}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
+                        min="0"
+                        max="100"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newAssets = strategyConfig.assets.filter((_: any, i: number) => i !== index);
+                        setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
+                      }}
+                      className="text-red-400 hover:bg-red-500/10"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  onClick={() => setStrategyConfig(prev => ({ ...prev, assets: [...prev.assets, { symbol: '', allocation: 0 }] }))}
+                  className="w-full"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Asset
+                </Button>
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-sm text-blue-300 flex items-center gap-2">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  Total allocation should ideally sum to 100%.
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Risk Warning */}
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-yellow-400 mb-2">Risk Disclosure</h4>
+                <p className="text-sm text-yellow-300">
+                  All trading involves risk of loss. Past performance does not guarantee future results. 
+                  Please ensure you understand the strategy before activating it.
+                </p>
+              </div>
             </div>
           </div>
         </div>
