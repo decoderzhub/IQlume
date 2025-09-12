@@ -290,14 +290,10 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     // Default values for all fields in TradingStrategy interface
     const defaultUniversalConfig: Partial<TradingStrategy> = {
       description: '',
-      skill_level: 'beginner',
       is_active: false,
       account_id: '',
       asset_class: 'equity',
-      base_symbol: '',
       quote_currency: 'USD',
-      time_horizon: 'long_term',
-      automation_level: 'manual',
       capital_allocation: {
         mode: 'fixed_amount_usd',
         value: strategy.min_capital,
@@ -344,7 +340,11 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       backtest_params: {
         slippage: 0.001,
         commission: 0.005,
-      },
+      }, 
+      // These fields are removed from UI but kept in default config for schema compatibility
+      skill_level: 'beginner',
+      time_horizon: 'long_term',
+      automation_level: 'manual',
       configuration: {}, // Strategy-specific config will go here
     };
 
@@ -399,6 +399,11 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       case 'smart_rebalance':
         defaultConfig.assets = [{ symbol: 'BTC', allocation: 50 }, { symbol: 'ETH', allocation: 50 }];
         defaultConfig.trigger_type = 'threshold';
+        defaultConfig.threshold_deviation_percent = 5;
+        defaultConfig.rebalance_frequency = 'weekly';
+        // Remove base_symbol as it's handled by assets array
+        delete defaultConfig.base_symbol;
+        delete defaultConfig.symbol; // Remove the general symbol field
         break;
     }
 
@@ -629,6 +634,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         {/* Basic Configuration */}
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {!['smart_rebalance'].includes(selectedStrategy.type) && (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Symbol
@@ -641,6 +647,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 placeholder="e.g., AAPL, BTC"
               />
             </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -760,6 +767,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           )}
 
           {/* Universal Bot Fields */}
+          {!['smart_rebalance'].includes(selectedStrategy.type) && (
+          <>
           <h3 className="text-lg font-semibold text-white mb-4 mt-8">Universal Bot Fields</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -774,65 +783,9 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 rows={3}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Skill Level
-              </label>
-              <select
-                value={strategyConfig.skill_level || 'beginner'}
-                onChange={(e) => setStrategyConfig(prev => ({ ...prev, skill_level: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="beginner">Beginner</option>
-                <option value="moderate">Moderate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Asset Class
-              </label>
-              <select
-                value={strategyConfig.asset_class || 'equity'}
-                onChange={(e) => setStrategyConfig(prev => ({ ...prev, asset_class: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="equity">Equity</option>
-                <option value="options">Options</option>
-                <option value="crypto">Crypto</option>
-                <option value="futures">Futures</option>
-                <option value="forex">Forex</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Time Horizon
-              </label>
-              <select
-                value={strategyConfig.time_horizon || 'long_term'}
-                onChange={(e) => setStrategyConfig(prev => ({ ...prev, time_horizon: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="intraday">Intraday</option>
-                <option value="swing">Swing</option>
-                <option value="long_term">Long Term</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Automation Level
-              </label>
-              <select
-                value={strategyConfig.automation_level || 'manual'}
-                onChange={(e) => setStrategyConfig(prev => ({ ...prev, automation_level: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="fully_auto">Fully Automated</option>
-                <option value="semi_auto">Semi-Automated</option>
-                <option value="manual">Manual</option>
-              </select>
-            </div>
           </div>
+          </>
+          )}
 
           {/* Capital Allocation */}
           <h3 className="text-lg font-semibold text-white mb-4 mt-8">Capital Allocation</h3>
@@ -957,7 +910,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                         type="text"
                         value={asset.symbol}
                         onChange={(e) => {
-                          const newAssets = [...strategyConfig.assets];
+                          const newAssets = [...(strategyConfig.assets || [])];
                           newAssets[index].symbol = e.target.value.toUpperCase();
                           setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
                         }}
@@ -971,7 +924,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                         type="number"
                         value={asset.allocation}
                         onChange={(e) => {
-                          const newAssets = [...strategyConfig.assets];
+                          const newAssets = [...(strategyConfig.assets || [])];
                           newAssets[index].allocation = Number(e.target.value);
                           setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
                         }}
@@ -984,7 +937,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        const newAssets = strategyConfig.assets.filter((_: any, i: number) => i !== index);
+                        const newAssets = (strategyConfig.assets || []).filter((_: any, i: number) => i !== index);
                         setStrategyConfig(prev => ({ ...prev, assets: newAssets }));
                       }}
                       className="text-red-400 hover:bg-red-500/10"
@@ -995,7 +948,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 ))}
                 <Button
                   variant="outline"
-                  onClick={() => setStrategyConfig(prev => ({ ...prev, assets: [...prev.assets, { symbol: '', allocation: 0 }] }))}
+                  onClick={() => setStrategyConfig(prev => ({ ...prev, assets: [...(prev.assets || []), { symbol: '', allocation: 0 }] }))}
                   className="w-full"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -1005,6 +958,53 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   <Info className="w-4 h-4 flex-shrink-0" />
                   Total allocation should ideally sum to 100%.
                 </div>
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-4 mt-8">Rebalancing Triggers</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Trigger Type
+                  </label>
+                  <select
+                    value={strategyConfig.trigger_type || 'threshold'}
+                    onChange={(e) => setStrategyConfig(prev => ({ ...prev, trigger_type: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="threshold">Threshold Deviation</option>
+                    <option value="time">Time-based</option>
+                  </select>
+                </div>
+                {strategyConfig.trigger_type === 'threshold' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Threshold Deviation (%)
+                    </label>
+                    <input
+                      type="number"
+                      value={strategyConfig.threshold_deviation_percent || 0}
+                      onChange={(e) => setStrategyConfig(prev => ({ ...prev, threshold_deviation_percent: Number(e.target.value) }))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      min="1"
+                      max="20"
+                    />
+                  </div>
+                )}
+                {strategyConfig.trigger_type === 'time' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Rebalance Frequency
+                    </label>
+                    <select
+                      value={strategyConfig.rebalance_frequency || 'weekly'}
+                      onChange={(e) => setStrategyConfig(prev => ({ ...prev, rebalance_frequency: e.target.value }))}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                )}
               </div>
             </>
           )}
