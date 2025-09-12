@@ -62,7 +62,7 @@ export interface TradingStrategy {
   type: 'covered_calls' | 'straddle' | 'iron_condor' | 'wheel' | 'spot_grid' | 'futures_grid' | 'infinity_grid' | 'smart_rebalance' | 'dca' | 'orb' | 'long_call' | 'long_straddle' | 'long_condor' | 'iron_butterfly' | 'short_call' | 'short_straddle' | 'long_butterfly' | 'short_put' | 'short_strangle' | 'short_put_vertical' | 'option_collar' | 'short_call_vertical' | 'broken_wing_butterfly' | 'mean_reversion' | 'momentum_breakout' | 'pairs_trading' | 'scalping' | 'swing_trading' | 'arbitrage' | 'news_based_trading';
   description?: string;
   risk_level: 'low' | 'medium' | 'high';
-  skill_level: 'beginner' | 'moderate' | 'advanced';
+  skill_level?: 'beginner' | 'moderate' | 'advanced';
   min_capital: number;
   is_active: boolean;
 
