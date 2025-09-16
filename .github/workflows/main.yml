@@ -52,7 +52,7 @@ jobs:
           script: |
             set -e
             cd /srv/brokernomex
-            docker login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+            docker login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GH_TOKEN }}"
             docker compose pull backend
             docker compose up -d backend
             docker image prune -f
