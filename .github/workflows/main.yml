@@ -2,7 +2,7 @@ name: Deploy Backend
 
 on:
   push:
-    branches: [ "main" ]          # change if you deploy from another branch
+    branches: [ "main" ]
     paths:
       - "backend/**"
   workflow_dispatch:
@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write             # allow pushing to GHCR
+      packages: write
 
     env:
-      IMAGE_NAME: ghcr.io/${{ github.repository }}/backend
+      IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/iqlume-backend
       IMAGE_TAG: ${{ github.sha }}
 
     steps:
@@ -39,8 +39,8 @@ jobs:
           context: ./backend
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_REPO }}:latest
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -48,11 +48,11 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          port: ${{ secrets.SSH_PORT }}
           script: |
-            set -e
+            set -euo pipefail
             cd /srv/brokernomex
-            docker login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GH_TOKEN }}"
+            echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             docker compose pull backend
             docker compose up -d backend
             docker image prune -f
@@ -63,6 +63,8 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          port: ${{ secrets.SSH_PORT }}
           script: |
-            curl -fsS https://api.handler.brokernomex/health || (docker logs $(docker compose ps -q backend) | tail -n 200 && exit 1)
+            set -e
+            curl -fsSL --retry 5 --retry-connrefused --retry-delay 2 https://api.handler.brokernomex.com/health \
+              || (docker logs $(docker compose ps -q backend) | tail -n 200 && exit 1)
