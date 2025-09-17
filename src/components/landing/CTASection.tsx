@@ -61,7 +61,7 @@ export function CTASection({ onGetStarted }: CTASectionProps) {
             </div>
             
             <p className="text-sm text-gray-300 mt-6">
-              No credit card required • 14-day free trial • Cancel anytime
+              No credit card required • 30-day free trial • Cancel anytime
             </p>
           </Card>
         </motion.div>

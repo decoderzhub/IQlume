@@ -51,8 +51,8 @@ export function SettingsView() {
   };
 
   const subscriptionTiers = {
-    starter: { name: 'Starter', color: 'text-blue-400', price: '$29/month' },
-    pro: { name: 'Pro', color: 'text-purple-400', price: '$99/month' },
+    starter: { name: 'Starter', color: 'text-green-400', price: 'Free (30-day trial)' },
+    pro: { name: 'Pro', color: 'text-purple-400', price: '$49/month' },
     elite: { name: 'Elite', color: 'text-yellow-400', price: '$149/month' },
   };
 

@@ -4,12 +4,14 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 
 
 export const subscriptionTiers = {
   starter: {
-    name: 'Starter', 
-    price: 19,
-    priceId: 'price_starter_monthly',
+    name: 'Starter',
+    price: 0,
+    priceId: null, // No Stripe price ID for free tier
+    trialDays: 30,
     features: [
       'Limited bots for activation',
       'DCA and Smart Rebalance strategies',
+      '30-day free trial',
       'Email support',
       'Mobile app access',
     ],
@@ -18,24 +20,28 @@ export const subscriptionTiers = {
     name: 'Pro',
     price: 49,
     priceId: 'price_pro_monthly',
+    trialDays: 14,
     features: [
       'Wheel, Covered Calls, Cash-Secured Puts',
       'Basic grid trading (spot grid)',
       'Priority support',
       'Basic analytics',
       'Risk management tools',
+      '14-day free trial',
     ],
   },
   elite: {
     name: 'Elite',
     price: 149,
     priceId: 'price_elite_monthly',
+    trialDays: 14,
     features: [
       'All grids (spot/futures/infinity)',
       'Advanced options strategies',
       'Advanced analytics & backtesting',
       'Priority support',
       'API access',
+      '14-day free trial',
     ],
   },
 };

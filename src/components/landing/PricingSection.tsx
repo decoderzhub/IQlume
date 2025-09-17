@@ -12,17 +12,19 @@ interface PricingSectionProps {
 const pricingTiers = [
   {
     name: 'Starter',
-    price: '$19',
+    price: 'Free',
     period: '/month',
-    description: 'Get started with automation',
+    description: 'Get started with 30-day free trial',
     features: [
       'Limited bots for activation',
       'DCA and Smart Rebalance strategies',
+      '30-day free trial',
       'Email support',
       'Mobile app access'
     ],
     popular: false,
-    color: 'from-blue-500 to-blue-600'
+    color: 'from-green-500 to-emerald-500',
+    isFree: true
   },
   {
     name: 'Pro',
@@ -34,10 +36,12 @@ const pricingTiers = [
       'Basic grid trading (spot grid)',
       'Priority support',
       'Basic analytics',
-      'Risk management tools'
+      'Risk management tools',
+      '14-day free trial'
     ],
     popular: true,
-    color: 'from-purple-500 to-purple-600'
+    color: 'from-purple-500 to-purple-600',
+    isFree: false
   },
   {
     name: 'Elite',
@@ -49,10 +53,12 @@ const pricingTiers = [
       'Advanced options strategies',
       'Advanced analytics & backtesting',
       'Priority support',
-      'API access'
+      'API access',
+      '14-day free trial'
     ],
     popular: false,
-    color: 'from-yellow-500 to-orange-500'
+    color: 'from-yellow-500 to-orange-500',
+    isFree: false
   }
 ];
 
@@ -145,8 +151,17 @@ export function PricingSection({ onGetStarted }: PricingSectionProps) {
                 <p className="text-white mb-6">{tier.description}</p>
                 
                 <div className="mb-8">
-                  <span className="text-4xl lg:text-5xl font-bold text-white">{tier.price}</span>
-                  <span className="text-gray-400">{tier.period}</span>
+                  {tier.isFree ? (
+                    <div>
+                      <span className="text-4xl lg:text-5xl font-bold text-green-400">Free</span>
+                      <div className="text-sm text-gray-400 mt-2">30-day trial</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-4xl lg:text-5xl font-bold text-white">{tier.price}</span>
+                      <span className="text-gray-400">{tier.period}</span>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-4 mb-8">
@@ -161,12 +176,14 @@ export function PricingSection({ onGetStarted }: PricingSectionProps) {
                 <Button
                   onClick={onGetStarted}
                   className={`w-full ${
-                    tier.popular 
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700' 
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+                    tier.isFree
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                      : tier.popular 
+                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700' 
+                        : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
                   }`}
                 >
-                  Get Started
+                  {tier.isFree ? 'Start Free Trial' : 'Get Started'}
                 </Button>
               </Card>
             </motion.div>

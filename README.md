@@ -106,11 +106,13 @@ The frontend will be available at `http://localhost:5173` and the API at `http:/
 
 ## 💰 Subscription Tiers
 
-### Starter ($19/month)
+### Starter (Free)
+- 30-day free trial
 - Limited bots for activation
 - DCA and Smart Rebalance strategies
 - Email support
 - Mobile app access
+- Paywall after trial expires
 
 ### Pro ($49/month)
 - Wheel, Covered Calls, Cash-Secured Puts
@@ -118,6 +120,7 @@ The frontend will be available at `http://localhost:5173` and the API at `http:/
 - Priority support
 - Basic analytics
 - Risk management tools
+- 14-day free trial
 
 ### Elite ($149/month)
 - All grids (spot/futures/infinity)
@@ -125,6 +128,7 @@ The frontend will be available at `http://localhost:5173` and the API at `http:/
 - Advanced analytics & backtesting
 - Priority support
 - API access
+- 14-day free trial
 
 ## 🔮 Roadmap
 

@@ -96,11 +96,11 @@ export function HeroSection({ onGetStarted }: HeroSectionProps) {
             >
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-400" />
-                <span>No minimum deposit</span>
+                <span>30-day free trial</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-400" />
-                <span>Free 14-day trial</span>
+                <span>No credit card required</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-400" />
