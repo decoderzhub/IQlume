@@ -58,9 +58,9 @@ export function HeroSection({ onGetStarted }: HeroSectionProps) {
               transition={{ delay: 0.6 }}
               className="text-xl text-white mb-8 leading-relaxed"
             >
-              Whether you're a complete beginner or seasoned trader, our AI-powered platform 
-              makes sophisticated trading strategies accessible to everyone. Start with $100 
-              or $100M - we scale with you.
+              From beginners to professionals, our AI-powered platform makes sophisticated 
+              trading strategies accessible to everyone. Start with simple automation or 
+              scale to institutional-grade tools.
             </motion.p>
             
             <motion.div

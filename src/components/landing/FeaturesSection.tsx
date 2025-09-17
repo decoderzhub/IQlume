@@ -43,7 +43,7 @@ const features = [
   {
     icon: Users,
     title: 'For Every Level',
-    description: 'From complete beginners to professional traders, our platform adapts to your experience.',
+    description: 'Product-led growth for retail traders, sales-assisted for RIAs and institutions.',
     color: 'from-teal-500 to-blue-500',
     delay: 0.6
   }

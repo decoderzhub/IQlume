@@ -4,7 +4,8 @@ import { X, TrendingUp, Shield, DollarSign, Target, Clock, AlertTriangle, Plus, 
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
-import { INITIAL_LAUNCH_STRATEGY_TYPES } from '../../lib/constants';
+import { INITIAL_LAUNCH_STRATEGY_TYPES, STRATEGY_TIERS, SubscriptionTier } from '../../lib/constants';
+import { useStore } from '../../store/useStore';
 
 interface CreateStrategyModalProps {
   onClose: () => void;
@@ -24,25 +25,25 @@ const strategyCategories = [
         type: 'spot_grid',
         name: 'Spot Grid Bot',
         description: 'Automates buy-low/sell-high trades within a defined price range',
-        risk_level: 'low' as const,
+        risk_level: 'medium' as const,
         min_capital: 1000,
-        available: true,
+        tier: 'pro' as SubscriptionTier,
       },
       {
         type: 'futures_grid',
         name: 'Futures Grid Bot',
         description: 'Grid trading on futures market with leverage support',
-        risk_level: 'medium' as const,
+        risk_level: 'high' as const,
         min_capital: 2000,
-        available: true,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'infinity_grid',
         name: 'Infinity Grid Bot',
         description: 'Grid trading without upper price limit for trending markets',
-        risk_level: 'medium' as const,
+        risk_level: 'high' as const,
         min_capital: 1500,
-        available: true,
+        tier: 'elite' as SubscriptionTier,
       },
     ]
   },
@@ -59,7 +60,7 @@ const strategyCategories = [
         description: 'Automatically invests at fixed intervals to minimize volatility risk',
         risk_level: 'low' as const,
         min_capital: 500,
-        available: true,
+        tier: 'starter' as SubscriptionTier,
       },
       {
         type: 'smart_rebalance',
@@ -67,7 +68,7 @@ const strategyCategories = [
         description: 'Maintains target allocations through automatic rebalancing',
         risk_level: 'low' as const,
         min_capital: 5000,
-        available: true,
+        tier: 'starter' as SubscriptionTier,
       },
     ]
   },
@@ -84,7 +85,7 @@ const strategyCategories = [
         description: 'Generate income by selling call options on owned stocks',
         risk_level: 'low' as const,
         min_capital: 15000,
-        available: true,
+        tier: 'pro' as SubscriptionTier,
       },
       {
         type: 'wheel',
@@ -92,7 +93,7 @@ const strategyCategories = [
         description: 'Systematic approach combining cash-secured puts and covered calls',
         risk_level: 'low' as const,
         min_capital: 20000,
-        available: true,
+        tier: 'pro' as SubscriptionTier,
       },
       {
         type: 'short_put',
@@ -100,7 +101,7 @@ const strategyCategories = [
         description: 'Income generation with potential stock acquisition',
         risk_level: 'medium' as const,
         min_capital: 15000,
-        available: true,
+        tier: 'pro' as SubscriptionTier,
       },
     ]
   }
@@ -121,7 +122,7 @@ const comingSoonCategories = [
         description: 'Profit from low volatility with defined risk spreads',
         risk_level: 'medium' as const,
         min_capital: 5000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'straddle',
@@ -129,7 +130,7 @@ const comingSoonCategories = [
         description: 'Profit from high volatility in either direction',
         risk_level: 'medium' as const,
         min_capital: 8000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'long_call',
@@ -137,7 +138,7 @@ const comingSoonCategories = [
         description: 'Bullish momentum play using long call options',
         risk_level: 'medium' as const,
         min_capital: 5000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'short_call',
@@ -145,7 +146,7 @@ const comingSoonCategories = [
         description: 'High-risk premium collection strategy',
         risk_level: 'high' as const,
         min_capital: 15000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'short_straddle',
@@ -153,7 +154,7 @@ const comingSoonCategories = [
         description: 'Ultra-high risk volatility selling strategy',
         risk_level: 'high' as const,
         min_capital: 20000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
     ]
   },
@@ -170,7 +171,7 @@ const comingSoonCategories = [
         description: 'Precision targeting strategy using butterfly spreads',
         risk_level: 'low' as const,
         min_capital: 2500,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'iron_butterfly',
@@ -178,7 +179,7 @@ const comingSoonCategories = [
         description: 'Low volatility income strategy using iron butterfly',
         risk_level: 'medium' as const,
         min_capital: 4000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'broken_wing_butterfly',
@@ -186,7 +187,7 @@ const comingSoonCategories = [
         description: 'Asymmetric spread strategy with directional bias',
         risk_level: 'medium' as const,
         min_capital: 3500,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'option_collar',
@@ -194,7 +195,7 @@ const comingSoonCategories = [
         description: 'Protective strategy to limit downside while capping upside',
         risk_level: 'low' as const,
         min_capital: 25000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
     ]
   },
@@ -211,7 +212,7 @@ const comingSoonCategories = [
         description: 'Contrarian strategy that profits from price reversions',
         risk_level: 'medium' as const,
         min_capital: 7500,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'momentum_breakout',
@@ -219,7 +220,7 @@ const comingSoonCategories = [
         description: 'Trend following strategy that captures momentum breakouts',
         risk_level: 'medium' as const,
         min_capital: 6000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'pairs_trading',
@@ -227,7 +228,7 @@ const comingSoonCategories = [
         description: 'Market neutral strategy trading correlated pairs',
         risk_level: 'low' as const,
         min_capital: 10000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'scalping',
@@ -235,7 +236,7 @@ const comingSoonCategories = [
         description: 'High frequency scalping strategy for quick profits',
         risk_level: 'high' as const,
         min_capital: 15000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'swing_trading',
@@ -243,7 +244,7 @@ const comingSoonCategories = [
         description: 'Multi-day swing trading strategy capturing intermediate moves',
         risk_level: 'medium' as const,
         min_capital: 8000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'arbitrage',
@@ -251,7 +252,7 @@ const comingSoonCategories = [
         description: 'Cross-exchange arbitrage strategy exploiting price differences',
         risk_level: 'low' as const,
         min_capital: 12000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
       {
         type: 'news_based_trading',
@@ -259,23 +260,32 @@ const comingSoonCategories = [
         description: 'Event-driven strategy that trades based on news sentiment',
         risk_level: 'high' as const,
         min_capital: 10000,
-        available: false,
+        tier: 'elite' as SubscriptionTier,
       },
     ]
   }
 ];
 
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
+  const { user } = useStore();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
   const [step, setStep] = useState<'category' | 'strategy' | 'configure'>('category');
   const [strategyConfig, setStrategyConfig] = useState<any>({});
 
-  // Filter categories to only show those with available strategies
+  const userTier = user?.subscription_tier || 'starter';
+  const tierOrder = { starter: 0, pro: 1, elite: 2 };
+  
+  // Check if user has access to a strategy
+  const hasAccessToStrategy = (strategy: any) => {
+    const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
+    const hasAccess = tierOrder[userTier] >= tierOrder[strategy.tier];
+    return isImplemented && hasAccess;
+  };
+  
+  // Filter categories to show those with strategies user can access
   const availableCategories = strategyCategories.filter(category => 
-    category.strategies.some(strategy => 
-      INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any)
-    )
+    category.strategies.some(strategy => hasAccessToStrategy(strategy))
   );
 
   const handleCategorySelect = (categoryId: string) => {
@@ -485,7 +495,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {availableCategories.map((category) => {
           const availableStrategies = category.strategies.filter(strategy => 
-            INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any)
+            hasAccessToStrategy(strategy)
           );
           const riskCounts = availableStrategies.reduce((acc, strategy) => {
             acc[strategy.risk_level] = (acc[strategy.risk_level] || 0) + 1;
@@ -576,9 +586,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     const category = availableCategories.find(c => c.id === selectedCategory);
     if (!category) return null;
 
-    const availableStrategies = category.strategies.filter(strategy => 
-      INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any)
-    );
+    // Show all strategies but with different visual states
+    const allStrategies = category.strategies;
 
     return (
       <div className="space-y-6">
@@ -593,14 +602,34 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-          {availableStrategies.map((strategy) => (
+          {allStrategies.map((strategy) => {
+            const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
+            const hasAccess = tierOrder[userTier] >= tierOrder[strategy.tier];
+            const canSelect = isImplemented && hasAccess;
+            
+            return (
             <motion.div
               key={strategy.type}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
-              onClick={() => handleStrategySelect(strategy)}
-              className="p-6 bg-gray-800/30 border border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 transition-all"
+              onClick={canSelect ? () => handleStrategySelect(strategy) : undefined}
+              className={`p-6 border rounded-lg transition-all relative ${
+                canSelect 
+                  ? 'bg-gray-800/30 border-gray-700 cursor-pointer hover:border-blue-500'
+                  : 'bg-gray-800/10 border-gray-800 cursor-not-allowed opacity-60'
+              }`}
             >
+              {!isImplemented && (
+                <div className="absolute top-3 right-3 px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded border border-blue-500/30">
+                  Coming Soon
+                </div>
+              )}
+              {isImplemented && !hasAccess && (
+                <div className="absolute top-3 right-3 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30">
+                  {strategy.tier.charAt(0).toUpperCase() + strategy.tier.slice(1)} Only
+                </div>
+              )}
+              
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h4 className="font-semibold text-white mb-2">{strategy.name}</h4>
@@ -618,12 +647,19 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                     Min Capital: ${strategy.min_capital.toLocaleString()}
                   </span>
                 </div>
-                <div className="px-3 py-1 bg-green-500/10 text-green-400 text-xs rounded border border-green-500/20">
-                  Available Now
+                <div className={`px-3 py-1 text-xs rounded border ${
+                  canSelect 
+                    ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                    : !isImplemented
+                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                      : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                }`}>
+                  {canSelect ? 'Available Now' : !isImplemented ? 'Coming Soon' : `${strategy.tier.charAt(0).toUpperCase() + strategy.tier.slice(1)} Plan`}
                 </div>
               </div>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );

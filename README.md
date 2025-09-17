@@ -106,25 +106,28 @@ The frontend will be available at `http://localhost:5173` and the API at `http:/
 
 ## 💰 Subscription Tiers
 
-### Starter ($29/month)
-- Up to $10K portfolio value
-- Basic strategies (covered calls, CSP)
+### Starter ($19/month)
+- Limited bots for activation
+- DCA and Smart Rebalance strategies
 - Email support
 - 1 connected brokerage
+- Mobile app access
 
-### Pro ($99/month)
-- Up to $100K portfolio value
-- Advanced strategies
+### Pro ($49/month)
+- Wheel, Covered Calls, Cash-Secured Puts
+- Basic grid trading (spot grid)
 - Priority support
 - 3 connected brokerages
-- Backtesting & analytics
+- Basic analytics
+- Risk management tools
 
-### Performance ($299/month)
-- Unlimited portfolio value
-- All strategies + custom
-- White-glove support
+### Elite ($149/month)
+- All grids (spot/futures/infinity)
+- Advanced options strategies
+- Advanced analytics & backtesting
 - Unlimited brokerages
-- AI optimization
+- Priority support
+- API access
 
 ## 🔮 Roadmap
 

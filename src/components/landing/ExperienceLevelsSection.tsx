@@ -5,27 +5,27 @@ import { Card } from '../ui/Card';
 
 const experienceLevels = [
   {
-    level: 'Beginner',
+    level: 'Retail Traders',
     icon: '🌱',
-    title: 'Start Your Journey',
-    description: 'Never traded before? No problem. Our AI guides you through every step.',
-    features: ['Educational content', 'Paper trading', 'Risk-free learning', 'Simple strategies'],
+    title: 'Self-Serve Automation',
+    description: 'Product-led growth with guided onboarding and 14-day free trial.',
+    features: ['14-day free trial', 'Guided onboarding', 'Self-serve activation', 'DCA & rebalancing'],
     color: 'from-green-500 to-emerald-500'
   },
   {
-    level: 'Intermediate',
+    level: 'Active Traders',
     icon: '📈',
-    title: 'Level Up Your Game',
-    description: 'Ready to automate? Access advanced strategies and analytics.',
-    features: ['Strategy automation', 'Portfolio analytics', 'Multi-asset trading', 'Risk management'],
+    title: 'Pro Strategies',
+    description: 'Wheel, covered calls, and grid trading for serious automation.',
+    features: ['Options income strategies', 'Grid trading bots', 'Multi-account support', 'Advanced analytics'],
     color: 'from-blue-500 to-purple-500'
   },
   {
-    level: 'Professional',
+    level: 'RIAs & Institutions',
     icon: '🏆',
-    title: 'Institutional Tools',
-    description: 'Professional-grade features for serious traders and institutions.',
-    features: ['Custom strategies', 'API access', 'White-glove support', 'Unlimited scaling'],
+    title: 'Enterprise Solutions',
+    description: 'Sales-assisted onboarding with white-label and multi-account automation.',
+    features: ['All strategies + custom', 'API access', 'White-glove support', 'Revenue sharing'],
     color: 'from-purple-500 to-pink-500'
   }
 ];

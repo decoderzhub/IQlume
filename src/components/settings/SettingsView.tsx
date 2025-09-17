@@ -53,7 +53,7 @@ export function SettingsView() {
   const subscriptionTiers = {
     starter: { name: 'Starter', color: 'text-blue-400', price: '$29/month' },
     pro: { name: 'Pro', color: 'text-purple-400', price: '$99/month' },
-    performance: { name: 'Performance', color: 'text-yellow-400', price: '$299/month' },
+    elite: { name: 'Elite', color: 'text-yellow-400', price: '$149/month' },
   };
 
   const currentTier = subscriptionTiers[user?.subscription_tier || 'starter'];
