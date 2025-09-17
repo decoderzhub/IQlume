@@ -350,7 +350,6 @@ export function StrategiesView() {
               onToggle={() => handleToggleStrategy(strategy.id)}
               onViewDetails={() => handleViewDetails(strategy)}
               onBacktest={() => handleBacktest(strategy)}
-              isComingSoon={!INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any)}
             />
           </motion.div>
         ))}

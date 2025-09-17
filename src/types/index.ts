@@ -1,7 +1,7 @@
 export interface User {
   id: string;
   email: string;
-  subscription_tier: 'starter' | 'pro' | 'performance';
+  subscription_tier: 'starter' | 'pro' | 'elite';
   created_at: string;
   is_verified: boolean;
 }

@@ -12,12 +12,12 @@ interface PricingSectionProps {
 const pricingTiers = [
   {
     name: 'Starter',
-    price: '$29',
+    price: '$19',
     period: '/month',
-    description: 'Perfect for beginners',
+    description: 'Get started with automation',
     features: [
-      'Up to $10K portfolio value',
-      'Basic strategies (covered calls, CSP)',
+      'Limited bots for activation',
+      'DCA and Smart Rebalance strategies',
       'Email support',
       '1 connected brokerage',
       'Mobile app access'
@@ -27,32 +27,32 @@ const pricingTiers = [
   },
   {
     name: 'Pro',
-    price: '$99',
+    price: '$49',
     period: '/month',
-    description: 'For serious traders',
+    description: 'For active traders',
     features: [
-      'Up to $100K portfolio value',
-      'Advanced strategies',
+      'Wheel, Covered Calls, Cash-Secured Puts',
+      'Basic grid trading (spot grid)',
       'Priority support',
       '3 connected brokerages',
-      'Backtesting & analytics',
-      'API access'
+      'Basic analytics',
+      'Risk management tools'
     ],
     popular: true,
     color: 'from-purple-500 to-purple-600'
   },
   {
-    name: 'Performance',
-    price: '$299',
+    name: 'Elite',
+    price: '$149',
     period: '/month',
-    description: 'For professionals',
+    description: 'For professionals & institutions',
     features: [
-      'Unlimited portfolio value',
-      'All strategies + custom',
-      'White-glove support',
+      'All grids (spot/futures/infinity)',
+      'Advanced options strategies',
+      'Advanced analytics & backtesting',
       'Unlimited brokerages',
-      'AI optimization',
-      'Social marketplace'
+      'Priority support',
+      'API access'
     ],
     popular: false,
     color: 'from-yellow-500 to-orange-500'

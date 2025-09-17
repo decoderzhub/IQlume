@@ -15,16 +15,34 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent, cn } from '../../lib/utils';
+import { INITIAL_LAUNCH_STRATEGY_TYPES, STRATEGY_TIERS, SubscriptionTier } from '../../lib/constants';
+import { useStore } from '../../store/useStore';
 
 interface StrategyCardProps {
   strategy: TradingStrategy;
   onToggle: () => void;
   onViewDetails: () => void;
   onBacktest: () => void;
-  isComingSoon?: boolean;
 }
 
-export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, isComingSoon = false }: StrategyCardProps) {
+export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: StrategyCardProps) {
+  const { user } = useStore();
+  
+  // Check if strategy is implemented
+  const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
+  
+  // Check if user has access to this strategy tier
+  const requiredTier = STRATEGY_TIERS[strategy.type as keyof typeof STRATEGY_TIERS] as SubscriptionTier;
+  const userTier = user?.subscription_tier || 'starter';
+  
+  const tierOrder = { starter: 0, pro: 1, elite: 2 };
+  const hasAccess = tierOrder[userTier] >= tierOrder[requiredTier];
+  
+  // Determine card state
+  const isComingSoon = !isImplemented;
+  const needsUpgrade = isImplemented && !hasAccess;
+  const isAvailable = isImplemented && hasAccess;
+
   const getRiskColor = (level: 'low' | 'medium' | 'high') => {
     switch (level) {
       case 'low': return 'text-green-400 bg-green-400/10 border-green-400/20';
@@ -72,13 +90,31 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, is
   const performance = strategy.performance;
   const isPositiveReturn = (performance?.total_return || 0) >= 0;
 
+  const getUpgradeText = (tier: SubscriptionTier) => {
+    switch (tier) {
+      case 'pro': return 'Upgrade to Pro';
+      case 'elite': return 'Upgrade to Elite';
+      default: return 'Upgrade Required';
+    }
+  };
   return (
-    <Card hoverable className={cn("p-6 h-full relative", isComingSoon && "opacity-50 pointer-events-none select-none")}>
+    <Card hoverable className={cn("p-6 h-full relative", (isComingSoon || needsUpgrade) && "opacity-75")}>
       {isComingSoon && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 z-10 rounded-xl">
           <span className="text-white text-xl font-bold bg-blue-600 px-4 py-2 rounded-lg shadow-lg">
             Coming Soon
           </span>
+        </div>
+      )}
+      
+      {needsUpgrade && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 z-10 rounded-xl">
+          <div className="text-center">
+            <span className="text-white text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 rounded-lg shadow-lg block mb-2">
+              {getUpgradeText(requiredTier)}
+            </span>
+            <span className="text-sm text-gray-300 capitalize">{requiredTier} Plan Required</span>
+          </div>
         </div>
       )}
 
@@ -162,7 +198,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, is
           variant={strategy.is_active ? 'secondary' : 'primary'}
           size="sm"
           onClick={onToggle}
-          disabled={isComingSoon}
+          disabled={isComingSoon || needsUpgrade}
           className="flex-1"
         >
           {strategy.is_active ? (
@@ -181,14 +217,14 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, is
         <Button
           variant="ghost"
           size="sm"
-          disabled={isComingSoon}
+          disabled={isComingSoon || needsUpgrade}
           onClick={onViewDetails}
         >
           <Settings className="w-4 h-4" />
         </Button>
 
         <Button
-          disabled={isComingSoon}
+          disabled={isComingSoon || needsUpgrade}
           variant="ghost"
           size="sm"
           onClick={onBacktest}
