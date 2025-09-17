@@ -19,7 +19,6 @@ const pricingTiers = [
       'Limited bots for activation',
       'DCA and Smart Rebalance strategies',
       'Email support',
-      '1 connected brokerage',
       'Mobile app access'
     ],
     popular: false,
@@ -34,7 +33,6 @@ const pricingTiers = [
       'Wheel, Covered Calls, Cash-Secured Puts',
       'Basic grid trading (spot grid)',
       'Priority support',
-      '3 connected brokerages',
       'Basic analytics',
       'Risk management tools'
     ],
@@ -50,7 +48,6 @@ const pricingTiers = [
       'All grids (spot/futures/infinity)',
       'Advanced options strategies',
       'Advanced analytics & backtesting',
-      'Unlimited brokerages',
       'Priority support',
       'API access'
     ],

@@ -110,14 +110,12 @@ The frontend will be available at `http://localhost:5173` and the API at `http:/
 - Limited bots for activation
 - DCA and Smart Rebalance strategies
 - Email support
-- 1 connected brokerage
 - Mobile app access
 
 ### Pro ($49/month)
 - Wheel, Covered Calls, Cash-Secured Puts
 - Basic grid trading (spot grid)
 - Priority support
-- 3 connected brokerages
 - Basic analytics
 - Risk management tools
 
@@ -125,7 +123,6 @@ The frontend will be available at `http://localhost:5173` and the API at `http:/
 - All grids (spot/futures/infinity)
 - Advanced options strategies
 - Advanced analytics & backtesting
-- Unlimited brokerages
 - Priority support
 - API access
 
