@@ -36,8 +36,7 @@ const pricingTiers = [
       'Basic grid trading (spot grid)',
       'Priority support',
       'Basic analytics',
-      'Risk management tools',
-      '14-day free trial'
+      'Risk management tools'
     ],
     popular: true,
     color: 'from-purple-500 to-purple-600',
@@ -53,8 +52,7 @@ const pricingTiers = [
       'Advanced options strategies',
       'Advanced analytics & backtesting',
       'Priority support',
-      'API access',
-      '14-day free trial'
+      'API access'
     ],
     popular: false,
     color: 'from-yellow-500 to-orange-500',
