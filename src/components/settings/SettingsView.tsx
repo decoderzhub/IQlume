@@ -14,7 +14,9 @@ import {
   Globe,
   Smartphone,
   Mail,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Code,
+  Crown
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -23,7 +25,7 @@ import { auth } from '../../lib/supabase';
 import { formatDate } from '../../lib/utils';
 
 export function SettingsView() {
-  const { user, setUser } = useStore();
+  const { user, setUser, isDeveloperMode, setIsDeveloperMode, getEffectiveSubscriptionTier } = useStore();
   const [showApiKeys, setShowApiKeys] = useState(false);
   const [notifications, setNotifications] = useState({
     emailAlerts: true,
@@ -56,7 +58,9 @@ export function SettingsView() {
     elite: { name: 'Elite', color: 'text-yellow-400', price: '$149/month' },
   };
 
-  const currentTier = subscriptionTiers[user?.subscription_tier || 'starter'];
+  const effectiveTier = getEffectiveSubscriptionTier();
+  const actualTier = subscriptionTiers[user?.subscription_tier || 'starter'];
+  const displayTier = subscriptionTiers[effectiveTier];
 
   return (
     <motion.div
@@ -100,8 +104,20 @@ export function SettingsView() {
               <label className="block text-sm font-medium text-gray-300 mb-2">Subscription Tier</label>
               <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-gray-700">
                 <div>
-                  <span className={`font-semibold ${currentTier.color}`}>{currentTier.name}</span>
-                  <p className="text-sm text-gray-400">{currentTier.price}</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-semibold ${displayTier.color}`}>{displayTier.name}</span>
+                    {isDeveloperMode && effectiveTier !== (user?.subscription_tier || 'starter') && (
+                      <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded border border-blue-500/30">
+                        Developer Override
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-400">
+                    {isDeveloperMode && effectiveTier !== (user?.subscription_tier || 'starter') 
+                      ? `Actual: ${actualTier.name} (${actualTier.price})` 
+                      : displayTier.price
+                    }
+                  </p>
                 </div>
                 <Button variant="outline" size="sm">
                   <CreditCard className="w-4 h-4 mr-2" />
@@ -129,6 +145,61 @@ export function SettingsView() {
                 </span>
               </div>
             </div>
+          </div>
+        </Card>
+
+        {/* Developer Settings */}
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Code className="w-5 h-5 text-orange-400" />
+            <h3 className="text-lg font-semibold text-white">Developer Settings</h3>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+              <div className="flex items-center gap-3">
+                <Crown className="w-5 h-5 text-yellow-400" />
+                <div>
+                  <p className="text-sm font-medium text-white">Developer Mode</p>
+                  <p className="text-xs text-gray-400">
+                    Access all subscription tiers and features for development and testing
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isDeveloperMode}
+                  onChange={(e) => setIsDeveloperMode(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+              </label>
+            </div>
+            
+            {isDeveloperMode && (
+              <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Crown className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-orange-400 mb-2">Developer Mode Active</h4>
+                    <p className="text-sm text-orange-300 mb-2">
+                      You now have access to all features and strategies across all subscription tiers:
+                    </p>
+                    <ul className="text-sm text-orange-300 space-y-1">
+                      <li>• All grid bots (Spot, Futures, Infinity)</li>
+                      <li>• All options strategies (Covered Calls, Wheel, Iron Condor, etc.)</li>
+                      <li>• Advanced algorithmic trading strategies</li>
+                      <li>• All analytics and risk management tools</li>
+                      <li>• API access and advanced features</li>
+                    </ul>
+                    <p className="text-sm text-orange-300 mt-2">
+                      This setting is stored locally and will persist across browser sessions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 

@@ -267,13 +267,13 @@ const comingSoonCategories = [
 ];
 
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
-  const { user } = useStore();
+  const { user, getEffectiveSubscriptionTier } = useStore();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
   const [step, setStep] = useState<'category' | 'strategy' | 'configure'>('category');
   const [strategyConfig, setStrategyConfig] = useState<any>({});
 
-  const userTier = user?.subscription_tier || 'starter';
+  const userTier = getEffectiveSubscriptionTier();
   const tierOrder = { starter: 0, pro: 1, elite: 2 };
   
   // Check if user has access to a strategy

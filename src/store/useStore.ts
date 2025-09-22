@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { User, Portfolio, TradingStrategy, Trade, BrokerageAccount, BankAccount, CustodialWallet } from '../types';
+import { SubscriptionTier } from '../lib/constants';
 
 interface AppState {
   // Auth state
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
+  isDeveloperMode: boolean;
   
   // Portfolio state
   portfolio: Portfolio | null;
@@ -37,13 +39,18 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   setActiveView: (view: AppState['activeView']) => void;
   setLoading: (loading: boolean) => void;
+  setIsDeveloperMode: (isDeveloperMode: boolean) => void;
+  getEffectiveSubscriptionTier: () => SubscriptionTier;
 }
+
+type SubscriptionTier = 'starter' | 'pro' | 'elite';
 
 export const useStore = create<AppState>((set) => ({
   // Initial state
   user: null,
   isAuthenticated: false,
   loading: false,
+  isDeveloperMode: typeof window !== 'undefined' ? localStorage.getItem('brokernomex_developer_mode') === 'true' : false,
   portfolio: null,
   brokerageAccounts: [],
   bankAccounts: [],
@@ -90,4 +97,17 @@ export const useStore = create<AppState>((set) => ({
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setActiveView: (view) => set({ activeView: view }),
   setLoading: (loading) => set({ loading }),
+  setIsDeveloperMode: (isDeveloperMode) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('brokernomex_developer_mode', isDeveloperMode.toString());
+    }
+    set({ isDeveloperMode });
+  },
+  getEffectiveSubscriptionTier: () => {
+    const state = useStore.getState();
+    if (state.isDeveloperMode) {
+      return 'elite';
+    }
+    return state.user?.subscription_tier || 'starter';
+  },
 }));

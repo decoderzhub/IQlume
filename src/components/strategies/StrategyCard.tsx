@@ -26,14 +26,14 @@ interface StrategyCardProps {
 }
 
 export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: StrategyCardProps) {
-  const { user } = useStore();
+  const { user, getEffectiveSubscriptionTier } = useStore();
   
   // Check if strategy is implemented
   const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
   
   // Check if user has access to this strategy tier
   const requiredTier = STRATEGY_TIERS[strategy.type as keyof typeof STRATEGY_TIERS] as SubscriptionTier;
-  const userTier = user?.subscription_tier || 'starter';
+  const userTier = getEffectiveSubscriptionTier();
   
   const tierOrder = { starter: 0, pro: 1, elite: 2 };
   const hasAccess = tierOrder[userTier] >= tierOrder[requiredTier];

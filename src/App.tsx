@@ -59,7 +59,7 @@ function AppContent() {
         setUser({
           id: user.id,
           email: user.email!,
-          subscription_tier: 'starter', // This would come from your user profile
+          subscription_tier: 'starter', // This would come from your user profile in production
           created_at: user.created_at,
           is_verified: user.email_confirmed_at !== null,
         });
