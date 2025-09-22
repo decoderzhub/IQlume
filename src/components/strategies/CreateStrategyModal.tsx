@@ -463,16 +463,75 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const handleSave = () => {
     if (!selectedStrategy) return;
 
+    // Ensure we have the required fields
+    const strategyName = strategyConfig.description || `${selectedStrategy.name} - ${strategyConfig.symbol || 'Custom'}`;
+    
     const strategy: Omit<TradingStrategy, 'id'> = {
-      name: `${selectedStrategy.name} - ${strategyConfig.symbol || 'Custom'}`,
+      name: strategyName,
       type: selectedStrategy.type,
-      description: selectedStrategy.description,
+      description: strategyConfig.description || selectedStrategy.description,
       risk_level: selectedStrategy.risk_level,
       min_capital: selectedStrategy.min_capital,
       is_active: false,
       configuration: strategyConfig,
+      // Add the universal bot fields that are expected by the backend
+      account_id: strategyConfig.account_id || null,
+      asset_class: strategyConfig.asset_class || 'equity',
+      base_symbol: strategyConfig.symbol || null,
+      quote_currency: strategyConfig.quote_currency || 'USD',
+      time_horizon: strategyConfig.time_horizon || 'swing',
+      automation_level: strategyConfig.automation_level || 'fully_auto',
+      capital_allocation: strategyConfig.capital_allocation || {
+        mode: 'fixed_amount_usd',
+        value: selectedStrategy.min_capital,
+        max_positions: 1,
+        max_exposure_usd: selectedStrategy.min_capital,
+      },
+      position_sizing: strategyConfig.position_sizing || {
+        mode: 'fixed_units',
+        value: 1,
+      },
+      trade_window: strategyConfig.trade_window || {
+        enabled: false,
+        start_time: '09:30',
+        end_time: '16:00',
+        days_of_week: [1, 2, 3, 4, 5],
+      },
+      order_execution: strategyConfig.order_execution || {
+        order_type_default: 'market',
+        limit_tolerance_percent: 0.1,
+        allow_partial_fill: false,
+        combo_execution: 'atomic',
+      },
+      risk_controls: strategyConfig.risk_controls || {
+        take_profit_percent: 0,
+        take_profit_usd: 0,
+        stop_loss_percent: 0,
+        stop_loss_usd: 0,
+        max_daily_loss_usd: 0,
+        max_drawdown_percent: 0,
+        pause_on_event_flags: [],
+      },
+      data_filters: strategyConfig.data_filters || {
+        min_liquidity: 0,
+        max_bid_ask_spread_pct: 0,
+        iv_rank_threshold: 0,
+        min_open_interest: 0,
+      },
+      notifications: strategyConfig.notifications || {
+        email_alerts: true,
+        push_notifications: false,
+        webhook_url: '',
+      },
+      backtest_mode: strategyConfig.backtest_mode || 'paper',
+      backtest_params: strategyConfig.backtest_params || {
+        slippage: 0.001,
+        commission: 0.005,
+      },
+      telemetry_id: strategyConfig.telemetry_id || null,
     };
 
+    console.log('Creating strategy with data:', strategy);
     onSave(strategy);
   };
 

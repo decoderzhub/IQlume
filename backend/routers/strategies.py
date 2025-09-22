@@ -22,6 +22,7 @@ from schemas import (
     AutomationLevel,
     BacktestMode,
 )
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)

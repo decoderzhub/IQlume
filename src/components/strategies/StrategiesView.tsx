@@ -161,11 +161,49 @@ export function StrategiesView() {
       return;
     }
 
+    console.log('Creating strategy with data:', strategyData);
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('No valid session found. Please log in again.');
       }
+
+      // Prepare the strategy data for the backend API
+      const strategyPayload = {
+        name: strategyData.name,
+        type: strategyData.type,
+        description: strategyData.description || '',
+        risk_level: strategyData.risk_level,
+        min_capital: strategyData.min_capital,
+        is_active: strategyData.is_active || false,
+        
+        // Universal bot fields
+        account_id: strategyData.account_id || null,
+        asset_class: strategyData.asset_class || 'equity',
+        base_symbol: strategyData.base_symbol || null,
+        quote_currency: strategyData.quote_currency || 'USD',
+        time_horizon: strategyData.time_horizon || 'swing',
+        automation_level: strategyData.automation_level || 'fully_auto',
+        
+        // JSONB fields
+        capital_allocation: strategyData.capital_allocation || {},
+        position_sizing: strategyData.position_sizing || {},
+        trade_window: strategyData.trade_window || {},
+        order_execution: strategyData.order_execution || {},
+        risk_controls: strategyData.risk_controls || {},
+        data_filters: strategyData.data_filters || {},
+        notifications: strategyData.notifications || {},
+        backtest_mode: strategyData.backtest_mode || 'paper',
+        backtest_params: strategyData.backtest_params || {},
+        telemetry_id: strategyData.telemetry_id || null,
+        
+        // Strategy-specific configuration
+        configuration: strategyData.configuration || {},
+        performance: strategyData.performance || null,
+      };
+
+      console.log('Sending strategy payload to API:', strategyPayload);
 
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies`, {
         method: 'POST',
@@ -173,22 +211,24 @@ export function StrategiesView() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify(strategyData),
+        body: JSON.stringify(strategyPayload),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('API Error Response:', errorText);
         throw new Error(`Failed to create strategy: ${response.status} ${errorText}`);
       }
 
       const newStrategy = await response.json();
+      console.log('Strategy created successfully:', newStrategy);
       
       setStrategies(prev => [...prev, newStrategy]);
       setShowCreateModal(false);
       alert('Strategy created successfully!');
     } catch (error) {
       console.error('Error creating strategy:', error);
-      alert('An unexpected error occurred while saving the strategy');
+      alert(`Failed to create strategy: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
