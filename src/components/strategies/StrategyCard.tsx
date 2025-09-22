@@ -147,7 +147,24 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       }
 
       const result = await response.json();
-      alert(`Strategy executed: ${result.message}`);
+      
+      // Show detailed execution result
+      const executionResult = result.result;
+      let message = `Strategy executed: ${result.message}`;
+      
+      if (executionResult) {
+        if (executionResult.action === 'buy') {
+          message += `\n\n🟢 BUY ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: $${executionResult.price?.toFixed(2)}\n• Order ID: ${executionResult.order_id}\n• Reason: ${executionResult.reason}`;
+        } else if (executionResult.action === 'sell') {
+          message += `\n\n🔴 SELL ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: $${executionResult.price?.toFixed(2)}\n• Order ID: ${executionResult.order_id}\n• Reason: ${executionResult.reason}`;
+        } else if (executionResult.action === 'hold') {
+          message += `\n\n⏸️ HOLDING POSITION:\n• Current Price: $${executionResult.price?.toFixed(2)}\n• Reason: ${executionResult.reason}`;
+        } else if (executionResult.action === 'error') {
+          message += `\n\n❌ EXECUTION ERROR:\n• Reason: ${executionResult.reason}`;
+        }
+      }
+      
+      alert(message);
       
       if (onExecute) {
         await onExecute();
