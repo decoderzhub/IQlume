@@ -81,27 +81,6 @@ async def get_portfolio(
         
         logger.info(f"✅ Portfolio data compiled successfully")
         return portfolio_data
-            formatted_positions.append(
-                {
-                    "symbol": p.symbol,
-                    "quantity": float(p.qty or 0),
-                    "market_value": float(p.market_value or 0),
-                    "cost_basis": float(p.cost_basis or 0),
-                    "unrealized_pl": float(p.unrealized_pl or 0),
-                    "unrealized_plpc": float(p.unrealized_plpc or 0),
-                    "side": str(p.side),
-                }
-            )
-
-        return {
-            "total_value": total_value,
-            "day_change": day_change,
-            "day_change_percent": day_change_percent,
-            "buying_power": float(account.buying_power or 0),
-            "cash": float(account.cash or 0),
-            "positions": formatted_positions,
-            "account_status": str(account.status),
-        }
 
     except AlpacaAPIError as e:
         if "403" in str(e):
