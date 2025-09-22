@@ -214,6 +214,25 @@ export function StrategiesView() {
         body: JSON.stringify(strategyPayload),
       });
 
+      console.log('API Response Status:', response.status);
+      console.log('API Response Headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        throw new Error(`Failed to create strategy: ${response.status} ${errorText}`);
+      }
+
+      const newStrategy = await response.json();
+      console.log('Strategy created successfully:', newStrategy);
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(strategyPayload),
+      });
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API Error Response:', errorText);

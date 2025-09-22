@@ -4,6 +4,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 import logging
+import json
 
 from supabase import Client
 from dependencies import (
@@ -40,8 +41,13 @@ async def create_strategy(
 ):
     """Create a new trading strategy."""
     try:
+        logger.info(f"Creating strategy for user {current_user.id}")
+        logger.info(f"Incoming strategy data: {json.dumps(strategy_data.model_dump(), indent=2, default=str)}")
+        
         # Convert Pydantic model to dictionary, handling nested models
         strategy_dict = strategy_data.model_dump(exclude_unset=True, exclude_none=True)
+        
+        logger.info(f"Strategy dict after model_dump: {json.dumps(strategy_dict, indent=2, default=str)}")
         
         # Ensure nested Pydantic models are converted to dicts for Supabase JSONB
         for field in ['capital_allocation', 'position_sizing', 'trade_window',
@@ -55,11 +61,16 @@ async def create_strategy(
                     for k, v in strategy_dict[field].items():
                         if isinstance(v, BaseModel):
                             strategy_dict[field][k] = v.model_dump(exclude_unset=True, exclude_none=True)
+            else:
+                # Ensure JSONB fields are empty dicts instead of None
+                strategy_dict[field] = {}
 
         # Add user_id and current timestamps
         strategy_dict['user_id'] = current_user.id
         strategy_dict['created_at'] = datetime.now(timezone.utc).isoformat()
         strategy_dict['updated_at'] = datetime.now(timezone.utc).isoformat()
+
+        logger.info(f"Final strategy dict before database insert: {json.dumps(strategy_dict, indent=2, default=str)}")
 
         resp = (
             supabase.table("trading_strategies")
@@ -68,6 +79,17 @@ async def create_strategy(
             .single()
             .execute()
         )
+        
+        logger.info(f"Supabase response data: {json.dumps(resp.data, indent=2, default=str) if resp.data else 'None'}")
+        
+        if hasattr(resp, 'error') and resp.error:
+            logger.error(f"Supabase error: {resp.error}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Database error: {resp.error}")
+        
+        if not resp.data:
+            logger.error("No data returned from Supabase insert")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No data returned from database")
+            
         return TradingStrategyResponse.model_validate(resp.data)
     except Exception as e:
         logger.error(f"Error creating strategy: {e}", exc_info=True)
