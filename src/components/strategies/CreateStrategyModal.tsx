@@ -10,7 +10,8 @@ import {
   Building,
   Grid3X3,
   Calculator,
-  Target
+  Target,
+  BarChart3
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
