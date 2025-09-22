@@ -85,7 +85,9 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
 
         if (response.ok) {
           const data = await response.json();
+          console.log('📊 Market data response:', data);
           const symbolData = data[tradingSymbol.toUpperCase()];
+          console.log('📈 Symbol data for', tradingSymbol, ':', symbolData);
           if (symbolData && symbolData.price) {
             setCurrentPrice(symbolData.price);
             
@@ -96,7 +98,11 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               // Keep only last 20 points
               return newHistory.slice(-20);
             });
+          } else {
+            console.error('❌ No price data for symbol:', tradingSymbol, 'in response:', data);
           }
+        } else {
+          console.error('❌ Failed to fetch market data:', response.status, await response.text());
         }
       } catch (error) {
         console.error('Error fetching price data:', error);

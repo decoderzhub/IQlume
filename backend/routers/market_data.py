@@ -48,6 +48,10 @@ def normalize_crypto_symbol(symbol: str) -> Optional[str]:
         return "BTC/USD"
     if s in {"ETHUSD", "ETH/USD"}:
         return "ETH/USD"
+    if s in {"BTC/USDT", "BTCUSDT"}:
+        return "BTC/USD"
+    if s in {"ETH/USDT", "ETHUSDT"}:
+        return "ETH/USD"
     # Generic: ABCUSD -> ABC/USD
     if s.endswith("USD") and len(s) <= 7:
         base = s[:-3]

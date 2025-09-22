@@ -68,27 +68,49 @@ def is_crypto_symbol(symbol: str) -> bool:
 async def get_current_price(symbol: str, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> float:
     """Get current market price for a symbol"""
     try:
+        logger.info(f"🔍 Fetching price for symbol: {symbol}")
+        
         if is_crypto_symbol(symbol):
             # Crypto price
             normalized_symbol = normalize_crypto_symbol(symbol)
+            logger.info(f"📈 Normalized crypto symbol: {normalized_symbol}")
             req = CryptoLatestQuoteRequest(symbol_or_symbols=[normalized_symbol])
             data = crypto_client.get_crypto_latest_quote(req)
             quote = data.get(normalized_symbol)
+            
+            logger.info(f"📊 Raw crypto quote data: {quote}")
+            
             if quote and hasattr(quote, 'ask_price') and quote.ask_price:
-                return float(quote.ask_price)
+                price = float(quote.ask_price)
+                logger.info(f"💰 Using ask price: ${price}")
+                return price
             elif quote and hasattr(quote, 'bid_price') and quote.bid_price:
-                return float(quote.bid_price)
+                price = float(quote.bid_price)
+                logger.info(f"💰 Using bid price: ${price}")
+                return price
+            else:
+                logger.error(f"❌ No valid price data in quote: {quote}")
+                raise ValueError(f"No valid price data for {symbol}")
         else:
             # Stock price
+            logger.info(f"📈 Fetching stock price for: {symbol.upper()}")
             req = StockLatestQuoteRequest(symbol_or_symbols=[symbol.upper()], feed=DataFeed.IEX)
             data = stock_client.get_stock_latest_quote(req)
             quote = data.get(symbol.upper())
+            
+            logger.info(f"📊 Raw stock quote data: {quote}")
+            
             if quote and hasattr(quote, 'ask_price') and quote.ask_price:
-                return float(quote.ask_price)
+                price = float(quote.ask_price)
+                logger.info(f"💰 Using ask price: ${price}")
+                return price
             elif quote and hasattr(quote, 'bid_price') and quote.bid_price:
-                return float(quote.bid_price)
-        
-        raise ValueError(f"No price data available for {symbol}")
+                price = float(quote.bid_price)
+                logger.info(f"💰 Using bid price: ${price}")
+                return price
+            else:
+                logger.error(f"❌ No valid price data in quote: {quote}")
+                raise ValueError(f"No valid price data for {symbol}")
     except Exception as e:
         logger.error(f"Error fetching price for {symbol}: {e}")
         raise
