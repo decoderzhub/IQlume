@@ -24,81 +24,107 @@ interface CreateStrategyModalProps {
 }
 
 const strategyTypes = [
+  // Grid Trading Bots
   {
-    type: 'covered_calls',
-    name: 'Covered Calls',
-    description: 'Generate income by selling call options on owned stocks',
-    risk_level: 'low' as const,
-    min_capital: 15000,
-    tier: 'pro' as const,
+    category: 'Grid Trading Bots',
+    icon: Grid3X3,
+    description: 'Automated buy-low/sell-high trading within defined ranges',
+    strategies: [
+      {
+        type: 'spot_grid',
+        name: 'Spot Grid Bot',
+        description: 'Automate buy-low/sell-high trades within a price range',
+        risk_level: 'low' as const,
+        min_capital: 1000,
+        tier: 'pro' as const,
+      },
+      {
+        type: 'futures_grid',
+        name: 'Futures Grid Bot',
+        description: 'Grid trading on futures with leverage support',
+        risk_level: 'medium' as const,
+        min_capital: 2000,
+        tier: 'elite' as const,
+      },
+      {
+        type: 'infinity_grid',
+        name: 'Infinity Grid Bot',
+        description: 'Grid trading without upper price limit for trending markets',
+        risk_level: 'medium' as const,
+        min_capital: 1500,
+        tier: 'elite' as const,
+      },
+    ]
   },
+  // Options Income Strategies
   {
-    type: 'wheel',
-    name: 'The Wheel',
-    description: 'Systematic approach combining cash-secured puts and covered calls',
-    risk_level: 'low' as const,
-    min_capital: 20000,
-    tier: 'pro' as const,
+    category: 'Options Income Strategies',
+    icon: TrendingUp,
+    description: 'Generate consistent income through options trading',
+    strategies: [
+      {
+        type: 'covered_calls',
+        name: 'Covered Calls',
+        description: 'Generate income by selling call options on owned stocks',
+        risk_level: 'low' as const,
+        min_capital: 15000,
+        tier: 'pro' as const,
+      },
+      {
+        type: 'wheel',
+        name: 'The Wheel',
+        description: 'Systematic approach combining cash-secured puts and covered calls',
+        risk_level: 'low' as const,
+        min_capital: 20000,
+        tier: 'pro' as const,
+      },
+      {
+        type: 'short_put',
+        name: 'Cash-Secured Put',
+        description: 'Generate income by selling put options with cash backing',
+        risk_level: 'medium' as const,
+        min_capital: 10000,
+        tier: 'pro' as const,
+      },
+    ]
   },
+  // Portfolio Management
   {
-    type: 'short_put',
-    name: 'Cash-Secured Put',
-    description: 'Generate income by selling put options with cash backing',
-    risk_level: 'medium' as const,
-    min_capital: 10000,
-    tier: 'pro' as const,
-  },
-  {
-    type: 'spot_grid',
-    name: 'Spot Grid Bot',
-    description: 'Automate buy-low/sell-high trades within a price range',
-    risk_level: 'low' as const,
-    min_capital: 1000,
-    tier: 'pro' as const,
-  },
-  {
-    type: 'futures_grid',
-    name: 'Futures Grid Bot',
-    description: 'Grid trading on futures with leverage support',
-    risk_level: 'medium' as const,
-    min_capital: 2000,
-    tier: 'elite' as const,
-  },
-  {
-    type: 'infinity_grid',
-    name: 'Infinity Grid Bot',
-    description: 'Grid trading without upper price limit for trending markets',
-    risk_level: 'medium' as const,
-    min_capital: 1500,
-    tier: 'elite' as const,
-  },
-  {
-    type: 'dca',
-    name: 'DCA Bot',
-    description: 'Dollar-cost averaging for systematic investing',
-    risk_level: 'low' as const,
-    min_capital: 500,
-    tier: 'starter' as const,
-  },
-  {
-    type: 'smart_rebalance',
-    name: 'Smart Rebalance',
-    description: 'Maintain target allocations through automatic rebalancing',
-    risk_level: 'low' as const,
-    min_capital: 5000,
-    tier: 'starter' as const,
+    category: 'Portfolio Management',
+    icon: BarChart3,
+    description: 'Systematic investing and portfolio optimization',
+    strategies: [
+      {
+        type: 'dca',
+        name: 'DCA Bot',
+        description: 'Dollar-cost averaging for systematic investing',
+        risk_level: 'low' as const,
+        min_capital: 500,
+        tier: 'starter' as const,
+      },
+      {
+        type: 'smart_rebalance',
+        name: 'Smart Rebalance',
+        description: 'Maintain target allocations through automatic rebalancing',
+        risk_level: 'low' as const,
+        min_capital: 5000,
+        tier: 'starter' as const,
+      },
+    ]
   },
 ];
 
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
   const { brokerageAccounts, getEffectiveSubscriptionTier } = useStore();
-  const [step, setStep] = useState<'select' | 'configure' | 'review'>('select');
+  const [step, setStep] = useState<'category' | 'strategy' | 'configure' | 'review'>('category');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [strategyName, setStrategyName] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [configuration, setConfiguration] = useState<Record<string, any>>({});
 
-  const selectedStrategyType = strategyTypes.find(s => s.type === selectedType);
+  const selectedCategoryData = strategyTypes.find(c => c.category === selectedCategory);
+  const selectedStrategyType = selectedCategoryData?.strategies.find(s => s.type === selectedType);
   const selectedAccountData = brokerageAccounts.find(acc => acc.id === selectedAccount);
   const userTier = getEffectiveSubscriptionTier();
 
@@ -106,7 +132,9 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const hasAccess = (requiredTier: string) => tierOrder[userTier] >= tierOrder[requiredTier as keyof typeof tierOrder];
 
   const handleNext = () => {
-    if (step === 'select' && selectedType) {
+    if (step === 'category' && selectedCategory) {
+      setStep('strategy');
+    } else if (step === 'strategy' && selectedType) {
       setStep('configure');
       // Set default strategy name
       if (!strategyName) {
@@ -121,7 +149,9 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     if (step === 'review') {
       setStep('configure');
     } else if (step === 'configure') {
-      setStep('select');
+      setStep('strategy');
+    } else if (step === 'strategy') {
+      setStep('category');
     }
   };
 
@@ -183,59 +213,55 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     onSave(strategy);
   };
 
-  const renderSelectStep = () => (
+  const renderCategoryStep = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-white mb-4">Choose Strategy Type</h3>
+        <h3 className="text-lg font-semibold text-white mb-4">Choose Strategy Category</h3>
         <p className="text-gray-400 mb-6">
-          Select the type of trading strategy you want to create
+          Select the category of trading strategy you want to create
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {strategyTypes.map((strategy) => {
-          const hasStrategyAccess = hasAccess(strategy.tier);
+      <div className="grid grid-cols-1 gap-6">
+        {strategyTypes.map((category) => {
+          const Icon = category.icon;
+          const hasAnyAccess = category.strategies.some(s => hasAccess(s.tier));
           
           return (
             <motion.div
-              key={strategy.type}
-              whileHover={hasStrategyAccess ? { scale: 1.01 } : {}}
-              whileTap={hasStrategyAccess ? { scale: 0.99 } : {}}
-              onClick={hasStrategyAccess ? () => setSelectedType(strategy.type) : undefined}
+              key={category.category}
+              whileHover={hasAnyAccess ? { scale: 1.01 } : {}}
+              whileTap={hasAnyAccess ? { scale: 0.99 } : {}}
+              onClick={hasAnyAccess ? () => setSelectedCategory(category.category) : undefined}
               className={`p-6 border rounded-lg transition-all relative ${
-                selectedType === strategy.type
+                selectedCategory === category.category
                   ? 'border-blue-500 bg-blue-500/10'
-                  : hasStrategyAccess
+                  : hasAnyAccess
                     ? 'border-gray-700 bg-gray-800/30 cursor-pointer hover:border-gray-600'
                     : 'border-gray-800 bg-gray-800/10 cursor-not-allowed opacity-60'
               }`}
             >
-              {!hasStrategyAccess && (
-                <div className="absolute top-2 right-2 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30 capitalize">
-                  {strategy.tier} Required
+              {!hasAnyAccess && (
+                <div className="absolute top-2 right-2 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30">
+                  Upgrade Required
                 </div>
               )}
               
-              <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <Icon className="w-6 h-6 text-white" />
+                </div>
                 <div>
-                  <h4 className="font-semibold text-white mb-2">{strategy.name}</h4>
-                  <p className="text-sm text-gray-400 mb-3">{strategy.description}</p>
+                  <h4 className="font-semibold text-white text-lg">{category.category}</h4>
+                  <p className="text-sm text-gray-400">{category.description}</p>
                 </div>
               </div>
               
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 rounded text-xs font-medium border ${
-                    strategy.risk_level === 'low' ? 'text-green-400 bg-green-400/10 border-green-400/20' :
-                    strategy.risk_level === 'medium' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' :
-                    'text-red-400 bg-red-400/10 border-red-400/20'
-                  }`}>
-                    {strategy.risk_level} risk
-                  </span>
-                </div>
-                <div className="text-sm text-gray-400">
-                  Min: {formatCurrency(strategy.min_capital)}
-                </div>
+              <div className="flex items-center justify-between text-sm text-gray-400">
+                <span>{category.strategies.length} strategies available</span>
+                <span>
+                  From {formatCurrency(Math.min(...category.strategies.map(s => s.min_capital)))}
+                </span>
               </div>
             </motion.div>
           );
@@ -243,6 +269,71 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       </div>
     </div>
   );
+
+  const renderStrategyStep = () => {
+    if (!selectedCategoryData) return null;
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-4">Choose Strategy</h3>
+          <p className="text-gray-400 mb-6">
+            Select a specific strategy from the {selectedCategory} category
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {selectedCategoryData.strategies.map((strategy) => {
+            const hasStrategyAccess = hasAccess(strategy.tier);
+            
+            return (
+              <motion.div
+                key={strategy.type}
+                whileHover={hasStrategyAccess ? { scale: 1.01 } : {}}
+                whileTap={hasStrategyAccess ? { scale: 0.99 } : {}}
+                onClick={hasStrategyAccess ? () => setSelectedType(strategy.type) : undefined}
+                className={`p-6 border rounded-lg transition-all relative ${
+                  selectedType === strategy.type
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : hasStrategyAccess
+                      ? 'border-gray-700 bg-gray-800/30 cursor-pointer hover:border-gray-600'
+                      : 'border-gray-800 bg-gray-800/10 cursor-not-allowed opacity-60'
+                }`}
+              >
+                {!hasStrategyAccess && (
+                  <div className="absolute top-2 right-2 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30 capitalize">
+                    {strategy.tier} Required
+                  </div>
+                )}
+                
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h4 className="font-semibold text-white mb-2">{strategy.name}</h4>
+                    <p className="text-sm text-gray-400 mb-3">{strategy.description}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-1 rounded text-xs font-medium border ${
+                      strategy.risk_level === 'low' ? 'text-green-400 bg-green-400/10 border-green-400/20' :
+                      strategy.risk_level === 'medium' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' :
+                      'text-red-400 bg-red-400/10 border-red-400/20'
+                    }`}>
+                      {strategy.risk_level} risk
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-400">
+                    Min: {formatCurrency(strategy.min_capital)}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   const renderConfigureStep = () => {
     if (!selectedStrategyType) return null;
@@ -634,7 +725,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   );
 
   const canProceed = () => {
-    if (step === 'select') return selectedType !== null;
+    if (step === 'category') return selectedCategory !== null;
+    if (step === 'strategy') return selectedType !== null;
     if (step === 'configure') {
       if (!strategyName || !selectedAccount) return false;
       
@@ -677,20 +769,20 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           {/* Progress Indicator */}
           <div className="flex items-center justify-center mb-8">
             <div className="flex items-center gap-4">
-              {['select', 'configure', 'review'].map((stepName, index) => (
+              {['category', 'strategy', 'configure', 'review'].map((stepName, index) => (
                 <div key={stepName} className="flex items-center">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                     step === stepName 
                       ? 'bg-blue-600 text-white' 
-                      : index < ['select', 'configure', 'review'].indexOf(step)
+                      : index < ['category', 'strategy', 'configure', 'review'].indexOf(step)
                         ? 'bg-green-600 text-white'
                         : 'bg-gray-700 text-gray-400'
                   }`}>
                     {index + 1}
                   </div>
-                  {index < 2 && (
+                  {index < 3 && (
                     <div className={`w-12 h-0.5 mx-2 ${
-                      index < ['select', 'configure', 'review'].indexOf(step)
+                      index < ['category', 'strategy', 'configure', 'review'].indexOf(step)
                         ? 'bg-green-600'
                         : 'bg-gray-700'
                     }`} />
@@ -701,13 +793,14 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           </div>
 
           {/* Step Content */}
-          {step === 'select' && renderSelectStep()}
+          {step === 'category' && renderCategoryStep()}
+          {step === 'strategy' && renderStrategyStep()}
           {step === 'configure' && renderConfigureStep()}
           {step === 'review' && renderReviewStep()}
 
           {/* Action Buttons */}
           <div className="flex gap-4 mt-8">
-            {step !== 'select' && (
+            {step !== 'category' && (
               <Button variant="secondary" onClick={handleBack}>
                 Back
               </Button>
