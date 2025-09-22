@@ -91,25 +91,39 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
         logger.info(f"Grid range: ${price_range_lower} - ${price_range_upper}")
         
         if not price_range_lower or not price_range_upper:
-            raise ValueError("Grid strategy requires valid price range")
+            logger.error(f"❌ Invalid grid range: lower={price_range_lower}, upper={price_range_upper}")
+            return {
+                "action": "error",
+                "reason": f"Invalid grid range: lower=${price_range_lower}, upper=${price_range_upper}. Please configure valid price ranges."
+            }
+        
+        if price_range_lower >= price_range_upper:
+            logger.error(f"❌ Invalid grid range: lower bound must be less than upper bound")
+            return {
+                "action": "error", 
+                "reason": f"Invalid grid range: lower bound ${price_range_lower} must be less than upper bound ${price_range_upper}"
+            }
         
         # Get current market price
         current_price = await get_current_price(symbol, stock_client, crypto_client)
-        logger.info(f"Current {symbol} price: ${current_price}")
+        logger.info(f"💲 Current {symbol} price: ${current_price}")
+        logger.info(f"🎯 Price position: {'BUY ZONE' if current_price < price_range_lower else 'SELL ZONE' if current_price > price_range_upper else 'IN RANGE'}")
         
         # Determine trading action based on grid position
         if current_price < price_range_lower:
             # Buy zone - place buy order
             if is_crypto_symbol(symbol):
                 # For crypto, use fractional shares
-                quantity = 0.001  # Small test amount
+                quantity = min(0.001, allocated_capital * 0.1 / current_price)  # 10% of capital or 0.001, whichever is smaller
                 trading_symbol = normalize_crypto_symbol(symbol)
             else:
                 # For stocks, calculate whole shares
-                quantity = max(1, int(allocated_capital * 0.1 / current_price))  # 10% of capital
+                buy_amount = allocated_capital * 0.05  # Use 5% of capital for each buy
+                quantity = max(1, int(buy_amount / current_price))
                 trading_symbol = symbol.upper()
             
-            logger.info(f"Price in buy zone, placing BUY order for {quantity} {trading_symbol}")
+            logger.info(f"🟢 Price in buy zone, placing BUY order for {quantity} {trading_symbol}")
+            logger.info(f"📈 Order details: {quantity} shares at ~${current_price} = ${quantity * current_price:.2f}")
             
             order_request = MarketOrderRequest(
                 symbol=trading_symbol,
@@ -119,6 +133,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
             )
             
             order = trading_client.submit_order(order_request)
+            logger.info(f"✅ BUY order submitted successfully! Order ID: {order.id}")
             
             return {
                 "action": "buy",
@@ -126,12 +141,14 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                 "quantity": quantity,
                 "price": current_price,
                 "order_id": str(order.id),
-                "reason": f"Price ${current_price} below grid lower bound ${price_range_lower}"
+                "reason": f"Price ${current_price:.2f} below grid lower bound ${price_range_lower}",
+                "order_value": quantity * current_price
             }
             
         elif current_price > price_range_upper:
             # Sell zone - check if we have positions to sell
             try:
+                logger.info(f"🔍 Checking positions for {symbol}...")
                 positions = trading_client.get_all_positions()
                 trading_symbol = normalize_crypto_symbol(symbol) if is_crypto_symbol(symbol) else symbol.upper()
                 
@@ -144,9 +161,11 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                 
                 if position and float(position.qty) > 0:
                     # We have a position, place sell order
-                    quantity = min(0.001, float(position.qty)) if is_crypto_symbol(symbol) else min(1, int(float(position.qty)))
+                    available_qty = float(position.qty)
+                    quantity = min(0.001, available_qty * 0.1) if is_crypto_symbol(symbol) else min(1, int(available_qty * 0.1))
                     
-                    logger.info(f"Price in sell zone, placing SELL order for {quantity} {trading_symbol}")
+                    logger.info(f"🔴 Price in sell zone, placing SELL order for {quantity} {trading_symbol}")
+                    logger.info(f"📉 Available position: {available_qty}, selling: {quantity}")
                     
                     order_request = MarketOrderRequest(
                         symbol=trading_symbol,
@@ -156,6 +175,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     )
                     
                     order = trading_client.submit_order(order_request)
+                    logger.info(f"✅ SELL order submitted successfully! Order ID: {order.id}")
                     
                     return {
                         "action": "sell",
@@ -163,12 +183,14 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                         "quantity": quantity,
                         "price": current_price,
                         "order_id": str(order.id),
-                        "reason": f"Price ${current_price} above grid upper bound ${price_range_upper}"
+                        "reason": f"Price ${current_price:.2f} above grid upper bound ${price_range_upper}",
+                        "order_value": quantity * current_price
                     }
                 else:
+                    logger.info(f"⏸️ No {trading_symbol} position to sell")
                     return {
                         "action": "hold",
-                        "reason": f"Price in sell zone but no {trading_symbol} position to sell"
+                        "reason": f"Price ${current_price:.2f} in sell zone but no {trading_symbol} position to sell"
                     }
             except Exception as e:
                 logger.error(f"Error checking positions: {e}")
@@ -178,10 +200,11 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                 }
         else:
             # Within grid range - hold
+            logger.info(f"⏸️ Price within grid range, holding position")
             return {
                 "action": "hold",
                 "price": current_price,
-                "reason": f"Price ${current_price} within grid range ${price_range_lower}-${price_range_upper}"
+                "reason": f"Price ${current_price:.2f} within grid range ${price_range_lower}-${price_range_upper}"
             }
             
     except Exception as e:
@@ -195,12 +218,12 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
         symbol = config.get("symbol", "BTC")
         investment_amount = config.get("investment_amount_per_interval", 100)
         
-        logger.info(f"Executing DCA strategy for {symbol}")
-        logger.info(f"Investment amount: ${investment_amount}")
+        logger.info(f"💰 Executing DCA strategy for {symbol}")
+        logger.info(f"💵 Investment amount: ${investment_amount}")
         
         # Get current market price
         current_price = await get_current_price(symbol, stock_client, crypto_client)
-        logger.info(f"Current {symbol} price: ${current_price}")
+        logger.info(f"💲 Current {symbol} price: ${current_price}")
         
         # Calculate quantity to buy
         if is_crypto_symbol(symbol):
@@ -212,7 +235,8 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
             quantity = max(1, int(investment_amount / current_price))
             trading_symbol = symbol.upper()
         
-        logger.info(f"Placing DCA BUY order for {quantity} {trading_symbol}")
+        logger.info(f"🟢 Placing DCA BUY order for {quantity} {trading_symbol}")
+        logger.info(f"📈 Order value: ${investment_amount} = {quantity} shares at ${current_price:.2f}")
         
         order_request = MarketOrderRequest(
             symbol=trading_symbol,
@@ -222,6 +246,7 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
         )
         
         order = trading_client.submit_order(order_request)
+        logger.info(f"✅ DCA BUY order submitted successfully! Order ID: {order.id}")
         
         return {
             "action": "buy",
@@ -230,7 +255,7 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
             "price": current_price,
             "investment_amount": investment_amount,
             "order_id": str(order.id),
-            "reason": f"DCA investment of ${investment_amount}"
+            "reason": f"DCA investment of ${investment_amount} at ${current_price:.2f}"
         }
         
     except Exception as e:
