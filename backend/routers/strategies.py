@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
     status_code=status.HTTP_201_CREATED
 )
 async def create_strategy(
-    strategy_data: TradingStrategyCreate,
+    strategy_data: Dict[str, Any],
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
@@ -31,10 +31,10 @@ async def create_strategy(
     """Create a new trading strategy."""
     try:
         logger.info(f"Creating strategy for user {current_user.id}")
-        logger.info(f"Incoming strategy data: {json.dumps(strategy_data.model_dump(), indent=2, default=str)}")
+        logger.info(f"Incoming strategy data: {json.dumps(strategy_data, indent=2, default=str)}")
         
-        # Convert Pydantic model to dictionary, handling nested models
-        strategy_dict = strategy_data.model_dump(exclude_unset=True, exclude_none=True)
+        # Use the dictionary directly
+        strategy_dict = strategy_data.copy()
         
         logger.info(f"Strategy dict after model_dump: {json.dumps(strategy_dict, indent=2, default=str)}")
         
