@@ -27,6 +27,7 @@ from dependencies import (
 )
 from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse, RiskLevel
 from schemas import StrategiesListResponse
+from scheduler import trading_scheduler
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
@@ -87,6 +88,23 @@ async def update_strategy_performance(strategy_id: str, user_id: str, supabase: 
         
     except Exception as e:
         logger.error(f"Error updating strategy performance: {e}")
+
+async def reload_scheduler_for_strategy(strategy_id: str, is_active: bool):
+    """Reload scheduler when strategy active status changes"""
+    try:
+        if is_active:
+            # Strategy was activated - reload scheduler to pick it up
+            logger.info(f"🔄 Strategy {strategy_id} activated - reloading scheduler")
+            await trading_scheduler.reload_strategies()
+        else:
+            # Strategy was deactivated - remove from scheduler
+            job_id = f"strategy_{strategy_id}"
+            if job_id in trading_scheduler.active_jobs:
+                trading_scheduler.scheduler.remove_job(job_id)
+                del trading_scheduler.active_jobs[job_id]
+                logger.info(f"⏹️ Strategy {strategy_id} deactivated - removed from scheduler")
+    except Exception as e:
+        logger.error(f"Error reloading scheduler for strategy {strategy_id}: {e}")
 
 def is_market_open() -> bool:
     """Check if the market is currently open (simplified check)"""
@@ -514,6 +532,19 @@ async def execute_strategy(
         logger.error(f"Error executing strategy {strategy_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to execute strategy: {str(e)}")
 
+@router.get("/scheduler/status")
+async def get_scheduler_status(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+):
+    """Get autonomous trading scheduler status"""
+    try:
+        status = await trading_scheduler.get_scheduler_status()
+        return status
+    except Exception as e:
+        logger.error(f"Error getting scheduler status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get scheduler status: {str(e)}")
+
 @router.post("/", response_model=TradingStrategyResponse, status_code=status.HTTP_201_CREATED)
 @router.post("")
 async def create_strategy(
@@ -561,6 +592,10 @@ async def create_strategy(
         
         # Get the first (and only) inserted record
         created_strategy = resp.data[0]
+        
+        # If strategy is created as active, add to scheduler
+        if created_strategy.get("is_active"):
+            await reload_scheduler_for_strategy(created_strategy["id"], True)
         
         # Now fetch the complete record with a separate select to ensure we have all fields
         fetch_resp = supabase.table("trading_strategies").select("*").eq("id", created_strategy["id"]).single().execute()
@@ -668,6 +703,12 @@ async def update_strategy(
         )
         if not resp.data or len(resp.data) == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Strategy not found or not authorized")
+        
+        # Check if is_active status changed and reload scheduler
+        updated_strategy = resp.data[0]
+        if "is_active" in update_dict:
+            await reload_scheduler_for_strategy(strategy_id, update_dict["is_active"])
+        
         return TradingStrategyResponse.model_validate(resp.data[0])
     except HTTPException:
         raise # Re-raise HTTPExceptions
@@ -703,6 +744,10 @@ async def delete_strategy(
              # if it doesn't raise an error, we assume success.
              # If you want to return 404 for non-existent, you'd need a prior select.
              pass # No content to return, 204 is success
+        
+        # Remove strategy from scheduler if it was active
+        await reload_scheduler_for_strategy(strategy_id, False)
+        
     except Exception as e:
         logger.error(f"Error deleting strategy {strategy_id}: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to delete strategy: {str(e)}")

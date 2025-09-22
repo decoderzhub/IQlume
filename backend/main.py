@@ -4,12 +4,14 @@ from fastapi.security import HTTPBearer
 import logging
 import os
 from dotenv import load_dotenv
+import asyncio
 
 # Load environment variables
 load_dotenv()
 
 # Import routers
 from routers import chat, trades, strategies, market_data, plaid_routes, brokerage_auth
+from scheduler import trading_scheduler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +33,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    """Start the autonomous trading scheduler"""
+    try:
+        await trading_scheduler.start()
+        logger.info("🚀 Autonomous trading scheduler started")
+    except Exception as e:
+        logger.error(f"❌ Failed to start trading scheduler: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop the autonomous trading scheduler"""
+    try:
+        await trading_scheduler.stop()
+        logger.info("🛑 Autonomous trading scheduler stopped")
+    except Exception as e:
+        logger.error(f"❌ Error stopping trading scheduler: {e}")
 # Include routers
 app.include_router(chat.router)
 app.include_router(trades.router)
