@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import logging
 import json
 from pydantic import BaseModel
+from datetime import time
 
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
@@ -29,6 +30,20 @@ from schemas import StrategiesListResponse
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
+
+def is_market_open() -> bool:
+    """Check if the market is currently open (simplified check)"""
+    now = datetime.now()
+    # Check if it's a weekday (Monday=0, Sunday=6)
+    if now.weekday() >= 5:  # Saturday or Sunday
+        return False
+    
+    # Check if it's during market hours (9:30 AM - 4:00 PM ET)
+    current_time = now.time()
+    market_open = time(9, 30)  # 9:30 AM
+    market_close = time(16, 0)  # 4:00 PM
+    
+    return market_open <= current_time <= market_close
 
 def normalize_crypto_symbol(symbol: str) -> str:
     """Normalize crypto symbol for Alpaca API"""
@@ -112,6 +127,14 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
         # Determine trading action based on grid position
         if current_price < price_range_lower:
             # Buy zone - place buy order
+            if not is_crypto_symbol(symbol) and not is_market_open():
+                logger.warning(f"⏰ Market is closed, cannot place stock order for {symbol}")
+                return {
+                    "action": "hold",
+                    "price": current_price,
+                    "reason": f"Market is closed. Cannot place {symbol} order outside market hours."
+                }
+            
             if is_crypto_symbol(symbol):
                 # For crypto, use fractional shares
                 quantity = min(0.001, allocated_capital * 0.1 / current_price)  # 10% of capital or 0.001, whichever is smaller
@@ -125,28 +148,45 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
             logger.info(f"🟢 Price in buy zone, placing BUY order for {quantity} {trading_symbol}")
             logger.info(f"📈 Order details: {quantity} shares at ~${current_price} = ${quantity * current_price:.2f}")
             
-            order_request = MarketOrderRequest(
-                symbol=trading_symbol,
-                qty=quantity,
-                side=OrderSide.BUY,
-                time_in_force=TimeInForce.DAY,
-            )
-            
-            order = trading_client.submit_order(order_request)
-            logger.info(f"✅ BUY order submitted successfully! Order ID: {order.id}")
-            
-            return {
-                "action": "buy",
-                "symbol": trading_symbol,
-                "quantity": quantity,
-                "price": current_price,
-                "order_id": str(order.id),
-                "reason": f"Price ${current_price:.2f} below grid lower bound ${price_range_lower}",
-                "order_value": quantity * current_price
-            }
+            try:
+                order_request = MarketOrderRequest(
+                    symbol=trading_symbol,
+                    qty=quantity,
+                    side=OrderSide.BUY,
+                    time_in_force=TimeInForce.DAY,
+                )
+                
+                order = trading_client.submit_order(order_request)
+                logger.info(f"✅ BUY order submitted successfully! Order ID: {order.id}")
+                
+                return {
+                    "action": "buy",
+                    "symbol": trading_symbol,
+                    "quantity": quantity,
+                    "price": current_price,
+                    "order_id": str(order.id),
+                    "reason": f"Price ${current_price:.2f} below grid lower bound ${price_range_lower}",
+                    "order_value": quantity * current_price,
+                    "status": str(order.status) if hasattr(order, 'status') else 'submitted'
+                }
+            except Exception as order_error:
+                logger.error(f"❌ Failed to place BUY order: {order_error}")
+                return {
+                    "action": "error",
+                    "reason": f"Failed to place BUY order: {str(order_error)}",
+                    "price": current_price
+                }
             
         elif current_price > price_range_upper:
             # Sell zone - check if we have positions to sell
+            if not is_crypto_symbol(symbol) and not is_market_open():
+                logger.warning(f"⏰ Market is closed, cannot place stock order for {symbol}")
+                return {
+                    "action": "hold",
+                    "price": current_price,
+                    "reason": f"Market is closed. Cannot place {symbol} order outside market hours."
+                }
+            
             try:
                 logger.info(f"🔍 Checking positions for {symbol}...")
                 positions = trading_client.get_all_positions()
@@ -167,25 +207,34 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     logger.info(f"🔴 Price in sell zone, placing SELL order for {quantity} {trading_symbol}")
                     logger.info(f"📉 Available position: {available_qty}, selling: {quantity}")
                     
-                    order_request = MarketOrderRequest(
-                        symbol=trading_symbol,
-                        qty=quantity,
-                        side=OrderSide.SELL,
-                        time_in_force=TimeInForce.DAY,
-                    )
-                    
-                    order = trading_client.submit_order(order_request)
-                    logger.info(f"✅ SELL order submitted successfully! Order ID: {order.id}")
-                    
-                    return {
-                        "action": "sell",
-                        "symbol": trading_symbol,
-                        "quantity": quantity,
-                        "price": current_price,
-                        "order_id": str(order.id),
-                        "reason": f"Price ${current_price:.2f} above grid upper bound ${price_range_upper}",
-                        "order_value": quantity * current_price
-                    }
+                    try:
+                        order_request = MarketOrderRequest(
+                            symbol=trading_symbol,
+                            qty=quantity,
+                            side=OrderSide.SELL,
+                            time_in_force=TimeInForce.DAY,
+                        )
+                        
+                        order = trading_client.submit_order(order_request)
+                        logger.info(f"✅ SELL order submitted successfully! Order ID: {order.id}")
+                        
+                        return {
+                            "action": "sell",
+                            "symbol": trading_symbol,
+                            "quantity": quantity,
+                            "price": current_price,
+                            "order_id": str(order.id),
+                            "reason": f"Price ${current_price:.2f} above grid upper bound ${price_range_upper}",
+                            "order_value": quantity * current_price,
+                            "status": str(order.status) if hasattr(order, 'status') else 'submitted'
+                        }
+                    except Exception as order_error:
+                        logger.error(f"❌ Failed to place SELL order: {order_error}")
+                        return {
+                            "action": "error",
+                            "reason": f"Failed to place SELL order: {str(order_error)}",
+                            "price": current_price
+                        }
                 else:
                     logger.info(f"⏸️ No {trading_symbol} position to sell")
                     return {
@@ -225,6 +274,15 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
         current_price = await get_current_price(symbol, stock_client, crypto_client)
         logger.info(f"💲 Current {symbol} price: ${current_price}")
         
+        # Check market hours for stocks
+        if not is_crypto_symbol(symbol) and not is_market_open():
+            logger.warning(f"⏰ Market is closed, cannot place stock order for {symbol}")
+            return {
+                "action": "hold",
+                "price": current_price,
+                "reason": f"Market is closed. Cannot place {symbol} order outside market hours."
+            }
+        
         # Calculate quantity to buy
         if is_crypto_symbol(symbol):
             # For crypto, use fractional shares
@@ -238,25 +296,34 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
         logger.info(f"🟢 Placing DCA BUY order for {quantity} {trading_symbol}")
         logger.info(f"📈 Order value: ${investment_amount} = {quantity} shares at ${current_price:.2f}")
         
-        order_request = MarketOrderRequest(
-            symbol=trading_symbol,
-            qty=quantity,
-            side=OrderSide.BUY,
-            time_in_force=TimeInForce.DAY,
-        )
-        
-        order = trading_client.submit_order(order_request)
-        logger.info(f"✅ DCA BUY order submitted successfully! Order ID: {order.id}")
-        
-        return {
-            "action": "buy",
-            "symbol": trading_symbol,
-            "quantity": quantity,
-            "price": current_price,
-            "investment_amount": investment_amount,
-            "order_id": str(order.id),
-            "reason": f"DCA investment of ${investment_amount} at ${current_price:.2f}"
-        }
+        try:
+            order_request = MarketOrderRequest(
+                symbol=trading_symbol,
+                qty=quantity,
+                side=OrderSide.BUY,
+                time_in_force=TimeInForce.DAY,
+            )
+            
+            order = trading_client.submit_order(order_request)
+            logger.info(f"✅ DCA BUY order submitted successfully! Order ID: {order.id}")
+            
+            return {
+                "action": "buy",
+                "symbol": trading_symbol,
+                "quantity": quantity,
+                "price": current_price,
+                "investment_amount": investment_amount,
+                "order_id": str(order.id),
+                "reason": f"DCA investment of ${investment_amount} at ${current_price:.2f}",
+                "status": str(order.status) if hasattr(order, 'status') else 'submitted'
+            }
+        except Exception as order_error:
+            logger.error(f"❌ Failed to place DCA BUY order: {order_error}")
+            return {
+                "action": "error",
+                "reason": f"Failed to place DCA BUY order: {str(order_error)}",
+                "price": current_price
+            }
         
     except Exception as e:
         logger.error(f"Error executing DCA strategy: {e}")
