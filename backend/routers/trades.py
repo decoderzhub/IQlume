@@ -16,6 +16,7 @@ from alpaca.trading.enums import (
 from alpaca.common.exceptions import APIError as AlpacaAPIError
 
 from supabase import Client
+from uuid import uuid4
 from dependencies import (
     get_current_user,
     get_supabase_client,
@@ -227,6 +228,7 @@ async def execute_trade(
                 side=order_side,
                 time_in_force=TimeInForce.Day,
                 limit_price=float(limit_price),
+                client_order_id=f"manual-{uuid4().hex[:8]}"
             )
         else:
             order_request = MarketOrderRequest(
@@ -234,6 +236,7 @@ async def execute_trade(
                 qty=float(quantity),
                 side=order_side,
                 time_in_force=TimeInForce.Day,
+                client_order_id=f"manual-{uuid4().hex[:8]}"
             )
 
         order = trading_client.submit_order(order_request)

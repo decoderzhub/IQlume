@@ -17,6 +17,7 @@ from alpaca.data.enums import DataFeed
 from alpaca.common.exceptions import APIError as AlpacaAPIError
 
 from supabase import Client
+from uuid import uuid4
 from dependencies import (
     get_current_user,
     get_supabase_client,
@@ -35,84 +36,60 @@ logger = logging.getLogger(__name__)
 async def update_strategy_performance(strategy_id: str, user_id: str, supabase: Client, trading_client: TradingClient):
     """Update strategy performance based on actual trades"""
     try:
-        # Get strategy details first
+        from alpaca.trading.requests import GetOrdersRequest
+        from alpaca.trading.enums import QueryOrderStatus, OrderStatus
+        
+        orders_request = GetOrdersRequest(status=QueryOrderStatus.ALL, limit=200)
+        orders = trading_client.get_orders(orders_request)
+        
+        # Filter orders by client_order_id that starts with strategy_id
+        strategy_orders = [
+            order for order in orders
+            if order.client_order_id and str(order.client_order_id).startswith(strategy_id)
+            and order.status == OrderStatus.FILLED
+        ]
+        
+        total_trades = len(strategy_orders)
+        
+        if total_trades == 0:
+            logger.info(f"No executed trades found for strategy {strategy_id}")
+            return  # No trades to calculate performance from
+        
+        logger.info(f"Found {total_trades} executed trades for strategy {strategy_id}")
+        
+        # Calculate performance metrics
+        total_profit_loss = 0.0
+        winning_trades = 0
+        
+        for order in strategy_orders:
+            filled_qty = float(order.filled_qty or 0)
+            filled_price = float(order.filled_avg_price or 0)
+            order_value = filled_qty * filled_price
+            
+            # Simplified P&L calculation
+            if order.side.value.lower() == 'sell':
+                profit_loss = order_value * 0.02
+                total_profit_loss += profit_loss
+                if profit_loss > 0:
+                    winning_trades += 1
+        
+        win_rate = winning_trades / total_trades if total_trades > 0 else 0
+        
+        # Get strategy for capital calculation
         strategy_resp = supabase.table("trading_strategies").select("*").eq("id", strategy_id).eq("user_id", user_id).single().execute()
         if not strategy_resp.data:
             logger.error(f"Strategy {strategy_id} not found")
             return
             
         strategy = strategy_resp.data
-        strategy_symbol = strategy.get("configuration", {}).get("symbol", "").upper()
-        
-        # Get all orders for this user
-        from alpaca.trading.requests import GetOrdersRequest
-        from alpaca.trading.enums import QueryOrderStatus, OrderStatus
-        
-        orders_request = GetOrdersRequest(status=QueryOrderStatus.ALL, limit=100)
-        orders = trading_client.get_orders(orders_request)
-        
-        # Filter orders for this strategy's symbol only
-        executed_orders = [order for order in orders if order.status == OrderStatus.FILLED]
-        
-        # Filter by strategy symbol if available
-        if strategy_symbol:
-            # Handle both crypto and stock symbols
-            target_symbols = [strategy_symbol]
-            if strategy_symbol == "BTC":
-                target_symbols.extend(["BTC/USD", "BTCUSD"])
-            elif strategy_symbol == "ETH":
-                target_symbols.extend(["ETH/USD", "ETHUSD"])
-            
-            strategy_orders = [order for order in executed_orders if order.symbol in target_symbols]
-        else:
-            # If no symbol specified, use all orders (fallback)
-            strategy_orders = executed_orders
-        
-        total_trades = len(strategy_orders)
-        total_trades = len(executed_orders)
-        
-        if total_trades == 0:
-            logger.info(f"No executed trades found for strategy {strategy_id} (symbol: {strategy_symbol})")
-            return  # No trades to calculate performance from
-        
-        logger.info(f"Found {total_trades} executed trades for strategy {strategy_id} (symbol: {strategy_symbol})")
-        
-        # Calculate performance metrics from strategy-specific orders
-        total_profit_loss = 0.0
-        winning_trades = 0
-        total_volume = 0.0
-        buy_orders = 0
-        sell_orders = 0
-        
-        for order in strategy_orders:
-            filled_qty = float(order.filled_qty or 0)
-            filled_price = float(order.filled_avg_price or 0)
-            order_value = filled_qty * filled_price
-            total_volume += order_value
-            
-            # Count buy/sell orders
-            if order.side.value.lower() == 'sell' and order.filled_avg_price:
-                sell_orders += 1
-                # Assume 2% profit on sells (simplified)
-                profit_loss = order_value * 0.02
-                total_profit_loss += profit_loss
-                if profit_loss > 0:
-                    winning_trades += 1
-            elif order.side.value.lower() == 'buy':
-                buy_orders += 1
-                # Buys don't generate immediate profit
-        
-        win_rate = winning_trades / total_trades if total_trades > 0 else 0
-        
-        # Calculate total return based on allocated capital
         allocated_capital = strategy.get("configuration", {}).get("allocated_capital", strategy.get("min_capital", 10000))
         total_return = total_profit_loss / allocated_capital if allocated_capital > 0 else 0
         
-        # Calculate max drawdown (simplified - assume worst case is -5% of capital)
+        # Calculate max drawdown (simplified)
         max_drawdown = -0.05 if total_trades > 0 else 0
         
-        # Calculate Sharpe ratio (simplified)
-        sharpe_ratio = total_return / 0.15 if total_return > 0 else 0  # Assume 15% volatility
+        # Calculate other metrics
+        sharpe_ratio = total_return / 0.15 if total_return > 0 else 0
         
         performance_data = {
             "total_return": total_return,
@@ -128,22 +105,15 @@ async def update_strategy_performance(strategy_id: str, user_id: str, supabase: 
             "value_at_risk": -0.03,
         }
         
-        logger.info(f"Updating strategy {strategy_id} performance:")
-        logger.info(f"  - Total trades: {total_trades}")
-        logger.info(f"  - Buy orders: {buy_orders}, Sell orders: {sell_orders}")
-        logger.info(f"  - Total P&L: ${total_profit_loss:.2f}")
-        logger.info(f"  - Win rate: {win_rate:.2%}")
-        logger.info(f"  - Total return: {total_return:.2%}")
+        logger.info(f"✅ Strategy {strategy_id} performance: {total_trades} trades, {win_rate:.1%} win rate, {total_return:.1%} return")
         
         supabase.table("trading_strategies").update({
             "performance": performance_data,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }).eq("id", strategy_id).eq("user_id", user_id).execute()
         
-        logger.info(f"✅ Strategy {strategy_id} performance updated successfully")
-        
     except Exception as e:
-        logger.error(f"Error updating strategy performance: {e}")
+        logger.error(f"Error updating strategy performance: {e}", exc_info=True)
 
 async def reload_scheduler_for_strategy(strategy_id: str, is_active: bool):
     """Reload scheduler when strategy active status changes"""
@@ -327,13 +297,15 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     qty=quantity,
                     side=OrderSide.BUY,
                     time_in_force=TimeInForce.DAY,
+                    client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
                 )
                 
                 order = trading_client.submit_order(order_request)
                 logger.info(f"✅ BUY order submitted successfully! Order ID: {order.id}")
                 
                 # Update strategy performance after successful order
-                await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), get_supabase_client(), trading_client)
+                supabase = get_supabase_client()
+                await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), supabase, trading_client)
                 
                 return {
                     "action": "buy",
@@ -389,13 +361,15 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                             qty=quantity,
                             side=OrderSide.SELL,
                             time_in_force=TimeInForce.DAY,
+                            client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
                         )
                         
                         order = trading_client.submit_order(order_request)
                         logger.info(f"✅ SELL order submitted successfully! Order ID: {order.id}")
                         
                         # Update strategy performance after successful order
-                        await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), get_supabase_client(), trading_client)
+                        supabase = get_supabase_client()
+                        await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), supabase, trading_client)
                         
                         return {
                             "action": "sell",
@@ -481,13 +455,17 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
                 qty=quantity,
                 side=OrderSide.BUY,
                 time_in_force=TimeInForce.DAY,
+                client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
+                client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
             )
             
             order = trading_client.submit_order(order_request)
             logger.info(f"✅ DCA BUY order submitted successfully! Order ID: {order.id}")
             
             # Update strategy performance after successful order
-            await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), get_supabase_client(), trading_client)
+            supabase = get_supabase_client()
+            await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), supabase, trading_client)
+            await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), supabase, trading_client)
             
             return {
                 "action": "buy",
