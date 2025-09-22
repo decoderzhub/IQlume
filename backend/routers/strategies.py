@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 import logging
 import json
+from pydantic import BaseModel
 
 from supabase import Client
 from dependencies import (
