@@ -168,9 +168,27 @@ class TradingScheduler:
             elif strategy_type == "covered_calls":
                 from routers.strategies import execute_covered_calls_strategy
                 result = await execute_covered_calls_strategy(strategy, trading_client, stock_client, crypto_client)
+            elif strategy_type == "wheel":
+                from routers.strategies import execute_wheel_strategy
+                result = await execute_wheel_strategy(strategy, trading_client, stock_client, crypto_client)
+            elif strategy_type == "smart_rebalance":
+                from routers.strategies import execute_smart_rebalance_strategy
+                result = await execute_smart_rebalance_strategy(strategy, trading_client, stock_client, crypto_client)
             else:
                 logger.warning(f"⚠️ Strategy type {strategy_type} not implemented for autonomous execution")
-                return
+                result = {
+                    "action": "hold",
+                    "reason": f"Strategy type {strategy_type} not implemented for autonomous execution"
+                }
+            
+            # Update strategy performance if trade was executed
+            if result and result.get("action") in ["buy", "sell"]:
+                try:
+                    from routers.strategies import update_strategy_performance
+                    await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), self.supabase, trading_client)
+                    logger.info(f"📊 Updated performance for strategy {strategy.get('name')}")
+                except Exception as perf_error:
+                    logger.error(f"❌ Failed to update strategy performance: {perf_error}")
             
             # Update last execution time
             if strategy_id in self.active_jobs:
@@ -179,16 +197,17 @@ class TradingScheduler:
             # Broadcast update to frontend (if SSE is connected)
             try:
                 from main import broadcast_trading_update
-                await broadcast_trading_update(strategy.get("user_id"), {
+                update_data = {
                     "type": "trade_executed",
                     "strategy_id": strategy.get("id"),
                     "strategy_name": strategy.get("name"),
-                    "action": result.get("action"),
-                    "symbol": result.get("symbol"),
-                    "quantity": result.get("quantity"),
-                    "price": result.get("price"),
+                    "action": result.get("action", "unknown"),
+                    "symbol": result.get("symbol", "N/A"),
+                    "quantity": result.get("quantity", 0),
+                    "price": result.get("price", 0),
                     "timestamp": datetime.now(timezone.utc).isoformat()
-                })
+                }
+                await broadcast_trading_update(strategy.get("user_id"), update_data)
             except Exception as broadcast_error:
                 logger.error(f"Error broadcasting update: {broadcast_error}")
             
@@ -196,13 +215,15 @@ class TradingScheduler:
             if result:
                 action = result.get("action", "unknown")
                 if action == "buy":
-                    logger.info(f"✅ {strategy_name}: BUY order placed - {result.get('symbol')} x{result.get('quantity')} @ ${result.get('price', 0):.2f}")
+                    logger.info(f"✅ {strategy_name}: BUY executed - {result.get('symbol', 'N/A')} x{result.get('quantity', 0)} @ ${result.get('price', 0):.2f}")
                 elif action == "sell":
-                    logger.info(f"✅ {strategy_name}: SELL order placed - {result.get('symbol')} x{result.get('quantity')} @ ${result.get('price', 0):.2f}")
+                    logger.info(f"✅ {strategy_name}: SELL executed - {result.get('symbol', 'N/A')} x{result.get('quantity', 0)} @ ${result.get('price', 0):.2f}")
                 elif action == "hold":
                     logger.info(f"⏸️ {strategy_name}: HOLDING - {result.get('reason', 'No action needed')}")
                 elif action == "error":
                     logger.error(f"❌ {strategy_name}: ERROR - {result.get('reason', 'Unknown error')}")
+                else:
+                    logger.info(f"ℹ️ {strategy_name}: {action.upper()} - {result.get('reason', 'No details')}")
             
         except Exception as e:
             logger.error(f"❌ Error executing strategy {strategy_name}: {e}")

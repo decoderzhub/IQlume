@@ -73,6 +73,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     const fetchPriceData = async () => {
       try {
         setLoading(true);
+        console.log(`📈 Fetching live price for ${tradingSymbol}...`);
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.access_token) return;
@@ -85,9 +86,9 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
 
         if (response.ok) {
           const data = await response.json();
-          console.log('📊 Market data response:', data);
           const symbolData = data[tradingSymbol.toUpperCase()];
-          console.log('📈 Symbol data for', tradingSymbol, ':', symbolData);
+          console.log(`💲 Live price for ${tradingSymbol}:`, symbolData?.price || 'No price data');
+          
           if (symbolData && typeof symbolData.price === 'number' && symbolData.price > 0) {
             setCurrentPrice(symbolData.price);
             
@@ -110,7 +111,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               });
             }
           } else {
-            console.error('❌ No price data for symbol:', tradingSymbol, 'in response:', data);
+            console.warn(`⚠️ No valid price data for ${tradingSymbol}, using fallback`);
             // For demo purposes, set realistic prices
             if (tradingSymbol.toUpperCase() === 'BTC') {
               setCurrentPrice(52000 + Math.random() * 8000); // $52K-$60K range
@@ -119,7 +120,8 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
             }
           }
         } else {
-          console.error('❌ Failed to fetch market data:', response.status, await response.text());
+          const errorText = await response.text();
+          console.error(`❌ Failed to fetch market data for ${tradingSymbol}:`, response.status, errorText);
           // Set fallback prices for demo
           if (tradingSymbol.toUpperCase() === 'BTC') {
             setCurrentPrice(52000 + Math.random() * 8000);
@@ -128,7 +130,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           }
         }
       } catch (error) {
-        console.error('Error fetching price data:', error);
+        console.error(`Error fetching price data for ${tradingSymbol}:`, error);
         // Set fallback prices for demo
         if (tradingSymbol.toUpperCase() === 'BTC') {
           setCurrentPrice(52000 + Math.random() * 8000);
@@ -143,8 +145,8 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     // Initial fetch
     fetchPriceData();
     
-    // Update every 30 seconds for active strategies
-    const interval = setInterval(fetchPriceData, 30000);
+    // Update every 15 seconds for active strategies
+    const interval = setInterval(fetchPriceData, 15000);
     return () => clearInterval(interval);
   }, [strategy.is_active, tradingSymbol, user]);
 
@@ -163,6 +165,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     
     setIsExecuting(true);
     try {
+      console.log(`🤖 Executing strategy: ${strategy.name} (${strategy.type})`);
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
@@ -178,10 +181,12 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ Strategy execution failed:', errorText);
         throw new Error(`Failed to execute strategy: ${response.status} ${errorText}`);
       }
 
       const result = await response.json();
+      console.log('✅ Strategy execution result:', result);
       
       // Show detailed execution result
       const executionResult = result.result;
@@ -193,9 +198,17 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         const priceDisplay = typeof price === 'number' && price > 0 ? `$${price.toFixed(2)}` : 'Price unavailable';
         
         if (executionResult.action === 'buy') {
-          message += `\n\n🟢 BUY ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: ${priceDisplay}\n• Order ID: ${executionResult.order_id}\n• Reason: ${executionResult.reason}`;
+          message += `\n\n🟢 BUY ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: ${priceDisplay}`;
+          if (executionResult.order_id) {
+            message += `\n• Order ID: ${executionResult.order_id}`;
+          }
+          message += `\n• Reason: ${executionResult.reason}`;
         } else if (executionResult.action === 'sell') {
-          message += `\n\n🔴 SELL ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: ${priceDisplay}\n• Order ID: ${executionResult.order_id}\n• Reason: ${executionResult.reason}`;
+          message += `\n\n🔴 SELL ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: ${priceDisplay}`;
+          if (executionResult.order_id) {
+            message += `\n• Order ID: ${executionResult.order_id}`;
+          }
+          message += `\n• Reason: ${executionResult.reason}`;
         } else if (executionResult.action === 'hold') {
           message += `\n\n⏸️ HOLDING POSITION:\n• Current Price: ${priceDisplay}\n• Reason: ${executionResult.reason}`;
         } else if (executionResult.action === 'error') {
@@ -205,28 +218,6 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       
       alert(message);
       
-      // Force refresh of strategy data after execution
-      // Reload strategies from API to get updated performance
-      setTimeout(async () => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.access_token) return;
-
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            // Trigger a re-render by updating the store
-            useStore.getState().setStrategies(data.strategies || []);
-          }
-        } catch (error) {
-          console.error('Error refreshing strategies:', error);
-        }
-      }, 2000); // Give backend time to update performance
     } catch (error) {
       console.error('Error executing strategy:', error);
       alert(`Failed to execute strategy: ${error instanceof Error ? error.message : 'Unknown error'}`);

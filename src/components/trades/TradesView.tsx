@@ -68,6 +68,7 @@ export function TradesView() {
     setError(null);
 
     try {
+      console.log(`📋 Loading trades for account ${accountId} with date range: ${dateRange}`);
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
@@ -86,6 +87,7 @@ export function TradesView() {
         
         params.append('start_date', startDate.toISOString().split('T')[0]);
         params.append('end_date', endDate.toISOString().split('T')[0]);
+        console.log(`📅 Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
       }
 
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/trades?${params.toString()}`, {
@@ -96,15 +98,20 @@ export function TradesView() {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ API Error Response:', errorText);
         throw new Error(`Failed to fetch trades: ${response.status} ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('✅ Trades data received:', data);
       
       // Set trades and stats from API response
       setTrades(data.trades || []);
       setStats(data.stats || {
         total_trades: 0,
+        executed_trades: 0,
+        pending_trades: 0,
+        failed_trades: 0,
         total_profit_loss: 0,
         win_rate: 0,
         avg_trade_duration: 0,

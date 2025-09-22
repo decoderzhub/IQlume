@@ -93,6 +93,7 @@ export function StrategiesView() {
     if (!strategy || !user) return;
 
     const newActiveStatus = !strategy.is_active;
+    console.log(`🔄 Toggling strategy ${strategy.name}: ${strategy.is_active ? 'PAUSE' : 'START'}`);
     
     // Optimistically update local state
     setStrategies(prev => prev.map(s => 
@@ -109,6 +110,7 @@ export function StrategiesView() {
           throw new Error('No valid session found. Please log in again.');
         }
 
+        console.log(`📡 Sending ${newActiveStatus ? 'START' : 'PAUSE'} request to backend...`);
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${strategyId}`, {
           method: 'PUT',
           headers: {
@@ -120,7 +122,7 @@ export function StrategiesView() {
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Error updating strategy active status:', errorText);
+          console.error(`❌ Failed to ${newActiveStatus ? 'start' : 'pause'} strategy:`, errorText);
           // Revert local state on error
           setStrategies(prev => prev.map(s => 
             s.id === strategyId 
@@ -129,7 +131,14 @@ export function StrategiesView() {
           ));
           alert(`Failed to ${newActiveStatus ? 'start' : 'pause'} strategy.`);
         } else {
-          console.log(`Strategy ${newActiveStatus ? 'started' : 'paused'} successfully`);
+          const updatedStrategy = await response.json();
+          console.log(`✅ Strategy ${newActiveStatus ? 'started' : 'paused'} successfully:`, updatedStrategy);
+          
+          if (newActiveStatus) {
+            alert(`🚀 Strategy "${strategy.name}" is now ACTIVE and will execute automatically based on market conditions.`);
+          } else {
+            alert(`⏸️ Strategy "${strategy.name}" has been PAUSED and will no longer execute trades.`);
+          }
         }
       } catch (error) {
         console.error('Unexpected error updating strategy:', error);

@@ -18,6 +18,7 @@ export function TradingStrategies() {
       if (!user) return;
       
       try {
+        console.log('📊 Fetching active strategies for dashboard...');
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) return;
 
@@ -27,16 +28,19 @@ export function TradingStrategies() {
           },
         });
         if (!response.ok) {
-          console.error('Error loading strategies:', response.status);
+          console.error('❌ Error loading strategies for dashboard:', response.status);
           setStrategies([]);
           return;
         }
 
         const data = await response.json();
+        console.log('✅ Strategies loaded for dashboard:', data.strategies?.length || 0);
         if (data.strategies && Array.isArray(data.strategies)) {
           const activeStrategies = data.strategies
             .filter((strategy: any) => strategy.is_active)
             .slice(0, 3);
+            
+          console.log(`📈 Found ${activeStrategies.length} active strategies for dashboard`);
             
           const transformedStrategies: TradingStrategy[] = activeStrategies.map((strategy: any) => ({
             id: strategy.id,
@@ -54,6 +58,7 @@ export function TradingStrategies() {
           
           setStrategies(transformedStrategies);
         } else {
+          console.warn('⚠️ No strategies data in API response');
           setStrategies([]);
         }
       } catch (error) {
@@ -66,8 +71,8 @@ export function TradingStrategies() {
 
     fetchStrategies();
     
-    // Refresh strategies every 30 seconds to pick up trade updates
-    const interval = setInterval(fetchStrategies, 30000);
+    // Refresh strategies every 60 seconds to pick up performance updates
+    const interval = setInterval(fetchStrategies, 60000);
     return () => clearInterval(interval);
   }, [user]);
 

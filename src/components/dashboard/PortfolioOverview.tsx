@@ -25,6 +25,7 @@ export function PortfolioOverview() {
       }
 
       try {
+        console.log('📊 Loading portfolio data from Alpaca...');
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.access_token) {
@@ -32,33 +33,58 @@ export function PortfolioOverview() {
           return;
         }
 
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/alpaca/accounts`, {
+        // Fetch actual portfolio data from Alpaca
+        const portfolioResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/portfolio`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          const accounts = data.accounts || [];
+        if (portfolioResponse.ok) {
+          const portfolioData = await portfolioResponse.json();
+          console.log('✅ Portfolio data received:', portfolioData);
           
-          // Transform backend data to frontend format
-          const transformedAccounts = accounts.map((account: any) => ({
-            id: account.id,
-            user_id: account.user_id,
-            brokerage: account.brokerage,
-            account_name: account.account_name,
-            account_type: account.account_type,
-            balance: account.balance,
-            is_connected: account.is_connected,
-            last_sync: account.last_sync,
-            oauth_token: account.oauth_token,
-            account_number: account.account_number,
-            routing_number: account.routing_number,
-          }));
+          // Update portfolio in store
+          useStore.getState().setPortfolio({
+            total_value: portfolioData.total_value || 0,
+            buying_power: portfolioData.buying_power || 0,
+            day_change: portfolioData.day_change || 0,
+            day_change_percent: portfolioData.day_change_percent || 0,
+            accounts: [], // Will be populated separately
+          });
+          
+          // Also fetch connected accounts
+          const accountsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/alpaca/accounts`, {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          });
+          
+          if (accountsResponse.ok) {
+            const accountsData = await accountsResponse.json();
+            const accounts = accountsData.accounts || [];
+            
+            // Transform backend data to frontend format
+            const transformedAccounts = accounts.map((account: any) => ({
+              id: account.id,
+              user_id: account.user_id,
+              brokerage: account.brokerage,
+              account_name: account.account_name,
+              account_type: account.account_type,
+              balance: portfolioData.total_value || account.balance, // Use live portfolio value
+              is_connected: account.is_connected,
+              last_sync: new Date().toISOString(), // Update sync time
+              oauth_token: account.oauth_token,
+              account_number: account.account_number,
+              routing_number: account.routing_number,
+            }));
 
-          useStore.getState().setBrokerageAccounts(transformedAccounts);
+            useStore.getState().setBrokerageAccounts(transformedAccounts);
+          }
+          
           useStore.getState().updatePortfolioFromAccounts();
+        } else {
+          console.error('❌ Failed to fetch portfolio data:', portfolioResponse.status);
         }
       } catch (error) {
         console.error('Error loading brokerage accounts in dashboard:', error);

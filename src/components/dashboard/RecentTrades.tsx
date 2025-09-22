@@ -17,6 +17,7 @@ export function RecentTrades() {
       if (!user) return;
       
       try {
+        console.log('📋 Fetching recent trades from Alpaca...');
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.access_token) return;
@@ -29,7 +30,10 @@ export function RecentTrades() {
 
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ Recent trades data:', data);
           setTrades(data.trades || []);
+        } else {
+          console.error('❌ Failed to fetch recent trades:', response.status);
         }
       } catch (error) {
         console.error('Error fetching recent trades:', error);

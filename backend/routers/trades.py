@@ -36,9 +36,15 @@ async def get_portfolio(
 ):
     """Get portfolio information"""
     try:
+        logger.info(f"📊 Fetching portfolio for user {current_user.id}")
         trading_client = await get_alpaca_trading_client(current_user, supabase)
         account = trading_client.get_account()
         positions = trading_client.get_all_positions()
+
+        logger.info(f"💼 Account status: {account.status}")
+        logger.info(f"💰 Portfolio value: ${account.portfolio_value}")
+        logger.info(f"💵 Buying power: ${account.buying_power}")
+        logger.info(f"📈 Found {len(positions or [])} positions")
 
         total_value = float(account.portfolio_value or 0)
         day_change = float(account.unrealized_pl or 0)
@@ -46,6 +52,35 @@ async def get_portfolio(
 
         formatted_positions = []
         for p in positions or []:
+            position_data = {
+                "symbol": p.symbol,
+                "quantity": float(p.qty or 0),
+                "market_value": float(p.market_value or 0),
+                "cost_basis": float(p.cost_basis or 0),
+                "unrealized_pl": float(p.unrealized_pl or 0),
+                "unrealized_plpc": float(p.unrealized_plpc or 0),
+                "side": str(p.side),
+                "current_price": float(p.current_price or 0) if hasattr(p, 'current_price') else 0,
+            }
+            formatted_positions.append(position_data)
+            logger.info(f"📊 Position: {p.symbol} - {float(p.qty or 0)} shares @ ${float(p.current_price or 0):.2f}")
+
+        portfolio_data = {
+            "total_value": total_value,
+            "day_change": day_change,
+            "day_change_percent": day_change_percent,
+            "buying_power": float(account.buying_power or 0),
+            "cash": float(account.cash or 0),
+            "positions": formatted_positions,
+            "account_status": str(account.status),
+            "equity": float(account.equity or 0),
+            "last_equity": float(account.last_equity or 0),
+            "multiplier": int(account.multiplier or 1),
+            "portfolio_value": total_value,
+        }
+        
+        logger.info(f"✅ Portfolio data compiled successfully")
+        return portfolio_data
             formatted_positions.append(
                 {
                     "symbol": p.symbol,
@@ -135,17 +170,27 @@ async def get_trades(
         orders_request = GetOrdersRequest(**req_kwargs)
         orders = trading_client.get_orders(orders_request)
 
+        logger.info(f"📋 Found {len(orders or [])} orders from Alpaca")
+
         trades: List[Dict[str, Any]] = []
         total_profit_loss = 0.0
         executed_trades = 0
         winning_trades = 0
 
         for order in orders or []:
-            # toy P&L: +2% of notional on SELL fills
+            # Calculate P&L based on order data
             profit_loss = 0.0
             if getattr(order, "filled_qty", None) and getattr(order, "filled_avg_price", None):
+                filled_qty = float(order.filled_qty)
+                filled_price = float(order.filled_avg_price)
+                order_value = filled_qty * filled_price
+                
+                # For demo purposes, calculate simple P&L
+                # In production, you'd track cost basis and calculate actual P&L
                 if order.side == OrderSide.SELL:
-                    profit_loss = float(order.filled_qty) * float(order.filled_avg_price) * 0.02
+                    profit_loss = order_value * 0.02  # Assume 2% profit on sells
+                elif order.side == OrderSide.BUY:
+                    profit_loss = 0  # No immediate P&L on buys
 
             if order.status == OrderStatus.FILLED:
                 executed_trades += 1
@@ -153,14 +198,21 @@ async def get_trades(
                 if profit_loss > 0:
                     winning_trades += 1
 
+            # Extract strategy ID from client_order_id if present
+            strategy_id = "manual"
+            if hasattr(order, 'client_order_id') and order.client_order_id:
+                client_id = str(order.client_order_id)
+                if '-' in client_id:
+                    strategy_id = client_id.split('-')[0]
+
             trades.append(
                 {
                     "id": str(order.id),
-                    "strategy_id": "manual",
+                    "strategy_id": strategy_id,
                     "symbol": order.symbol,
                     "type": (order.side.value.lower() if hasattr(order.side, "value") else str(order.side).lower()),
                     "quantity": float(getattr(order, "qty", 0) or 0),
-                    "price": float(getattr(order, "filled_avg_price", 0) or getattr(order, "limit_price", 0) or 0),
+                    "price": float(getattr(order, "filled_avg_price", 0) or getattr(order, "limit_price", 0) or getattr(order, "stop_price", 0) or 0),
                     "timestamp": (
                         order.created_at.isoformat()
                         if getattr(order, "created_at", None)
@@ -174,17 +226,23 @@ async def get_trades(
                         if order.status in {OrderStatus.NEW, OrderStatus.PARTIALLY_FILLED, OrderStatus.ACCEPTED}
                         else "failed"
                     ),
+                    "order_type": str(getattr(order, "order_type", "market")).lower(),
+                    "time_in_force": str(getattr(order, "time_in_force", "day")).lower(),
                 }
             )
 
         win_rate = (winning_trades / executed_trades) if executed_trades > 0 else 0.0
         stats = {
             "total_trades": len(trades),
+            "executed_trades": executed_trades,
+            "pending_trades": len([t for t in trades if t["status"] == "pending"]),
+            "failed_trades": len([t for t in trades if t["status"] == "failed"]),
             "total_profit_loss": total_profit_loss,
             "win_rate": win_rate,
-            "avg_trade_duration": 1.0,  # placeholder
+            "avg_trade_duration": 1.0,  # Would calculate from actual trade data
         }
 
+        logger.info(f"📊 Trade stats: {executed_trades} executed, {win_rate:.1%} win rate, ${total_profit_loss:.2f} P&L")
         return {"trades": trades, "stats": stats}
 
     except AlpacaAPIError as e:
