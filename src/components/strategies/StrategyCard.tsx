@@ -17,16 +17,19 @@ import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent, cn } from '../../lib/utils';
 import { INITIAL_LAUNCH_STRATEGY_TYPES, STRATEGY_TIERS, SubscriptionTier } from '../../lib/constants';
 import { useStore } from '../../store/useStore';
+import { supabase } from '../../lib/supabase';
 
 interface StrategyCardProps {
   strategy: TradingStrategy;
-  onToggle: () => void;
+  onToggle: () => Promise<void>;
   onViewDetails: () => void;
   onBacktest: () => void;
+  onExecute?: () => Promise<void>;
 }
 
-export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: StrategyCardProps) {
+export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, onExecute }: StrategyCardProps) {
   const { user, getEffectiveSubscriptionTier } = useStore();
+  const [isExecuting, setIsExecuting] = React.useState(false);
   
   // Check if strategy is implemented
   const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
@@ -42,6 +45,43 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: 
   const isComingSoon = !isImplemented;
   const needsUpgrade = isImplemented && !hasAccess;
   const isAvailable = isImplemented && hasAccess;
+
+  const handleExecuteStrategy = async () => {
+    if (!user || !strategy.is_active) return;
+    
+    setIsExecuting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found. Please log in again.');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${strategy.id}/execute`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to execute strategy: ${response.status} ${errorText}`);
+      }
+
+      const result = await response.json();
+      alert(`Strategy executed: ${result.message}`);
+      
+      if (onExecute) {
+        await onExecute();
+      }
+    } catch (error) {
+      console.error('Error executing strategy:', error);
+      alert(`Failed to execute strategy: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
 
   const getRiskColor = (level: 'low' | 'medium' | 'high') => {
     switch (level) {
@@ -213,6 +253,22 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest }: 
             </>
           )}
         </Button>
+
+        {strategy.is_active && isAvailable && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExecuteStrategy}
+            disabled={isExecuting}
+            title="Execute one iteration of this strategy"
+          >
+            {isExecuting ? (
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+          </Button>
+        )}
 
         <Button
           variant="ghost"

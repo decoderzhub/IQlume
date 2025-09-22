@@ -42,3 +42,5 @@ export const STRATEGY_TIERS = {
   'arbitrage': 'elite',
   'news_based_trading': 'elite',
 } as const;
+
+export type SubscriptionTier = 'starter' | 'pro' | 'elite';

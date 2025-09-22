@@ -87,6 +87,8 @@ export function StrategiesView() {
   });
 
   const handleToggleStrategy = (strategyId: string) => {
+    return new Promise<void>(async (resolve, reject) => {
+      try {
     const strategy = strategies.find(s => s.id === strategyId);
     if (!strategy || !user) return;
 
@@ -142,8 +144,20 @@ export function StrategiesView() {
     };
     
     updateStrategyStatus();
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
   };
 
+  const handleExecuteStrategy = async () => {
+    // Refresh strategies after execution
+    if (!user) return;
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
   const handleViewDetails = (strategy: TradingStrategy) => {
     setSelectedStrategy(strategy);
     setShowDetailsModal(true);
@@ -269,7 +283,22 @@ export function StrategiesView() {
     }
   };
 
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
 
+      if (response.ok) {
+        const data = await response.json();
+        if (data.strategies && Array.isArray(data.strategies)) {
+          setStrategies(data.strategies);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing strategies after execution:', error);
+    }
+  };
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -393,6 +422,7 @@ export function StrategiesView() {
               onToggle={() => handleToggleStrategy(strategy.id)}
               onViewDetails={() => handleViewDetails(strategy)}
               onBacktest={() => handleBacktest(strategy)}
+              onExecute={handleExecuteStrategy}
             />
           </motion.div>
         ))}
