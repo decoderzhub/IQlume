@@ -55,25 +55,25 @@ async def create_strategy(
 
         logger.info(f"Final strategy dict before database insert: {json.dumps(strategy_dict, indent=2, default=str)}")
 
-        resp = (
-            supabase.table("trading_strategies")
-            .insert(strategy_dict)
-            .select("*")
-            .single()
-            .execute()
-        )
+        resp = supabase.table("trading_strategies").insert(strategy_dict).execute()
         
         logger.info(f"Supabase response data: {json.dumps(resp.data, indent=2, default=str) if resp.data else 'None'}")
         
-        if hasattr(resp, 'error') and resp.error:
-            logger.error(f"Supabase error: {resp.error}")
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Database error: {resp.error}")
-        
-        if not resp.data:
+        if resp.data is None or len(resp.data) == 0:
             logger.error("No data returned from Supabase insert")
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No data returned from database")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create strategy in database")
+        
+        # Get the first (and only) inserted record
+        created_strategy = resp.data[0]
+        
+        # Now fetch the complete record with a separate select to ensure we have all fields
+        fetch_resp = supabase.table("trading_strategies").select("*").eq("id", created_strategy["id"]).single().execute()
+        
+        if fetch_resp.data is None:
+            logger.error(f"Supabase error: {resp.error}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch created strategy")
             
-        return TradingStrategyResponse.model_validate(resp.data)
+        return TradingStrategyResponse.model_validate(fetch_resp.data)
     except Exception as e:
         logger.error(f"Error creating strategy: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create strategy: {str(e)}")
