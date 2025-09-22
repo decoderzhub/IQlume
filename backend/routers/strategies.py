@@ -183,13 +183,11 @@ async def update_strategy(
             .update(update_dict)
             .eq("id", strategy_id)
             .eq("user_id", current_user.id)
-            .select("*")
-            .single()
             .execute()
         )
-        if not resp.data:
+        if not resp.data or len(resp.data) == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Strategy not found or not authorized")
-        return TradingStrategyResponse.model_validate(resp.data)
+        return TradingStrategyResponse.model_validate(resp.data[0])
     except HTTPException:
         raise # Re-raise HTTPExceptions
     except Exception as e:
