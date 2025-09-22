@@ -454,7 +454,7 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
                 qty=quantity,
                 side=OrderSide.BUY,
                 time_in_force=TimeInForce.DAY,
-                client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
+                client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}",
                 client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
             )
             
