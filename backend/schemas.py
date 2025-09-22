@@ -37,77 +37,16 @@ class SkillLevel(str, Enum):
     MODERATE = "moderate"
     ADVANCED = "advanced"
 
-# Nested models for JSONB fields
-class CapitalAllocation(BaseModel):
-    mode: Optional[str] = None # 'fixed_amount_usd' | 'percent_of_portfolio'
-    value: Optional[float] = None
-    max_positions: Optional[int] = None
-    max_exposure_usd: Optional[float] = None
-
-class PositionSizing(BaseModel):
-    mode: Optional[str] = None # 'fixed_units' | 'percent_equity' | 'volatility_target'
-    value: Optional[float] = None
-
-class TradeWindow(BaseModel):
-    enabled: Optional[bool] = None
-    start_time: Optional[str] = None # "HH:MM"
-    end_time: Optional[str] = None # "HH:MM"
-    days_of_week: Optional[List[int]] = None # 0=Sunday, 1=Monday, ..., 6=Saturday
-
-class OrderExecution(BaseModel):
-    order_type_default: Optional[str] = None # 'market' | 'limit' | 'limit_if_touched'
-    limit_tolerance_percent: Optional[float] = None
-    allow_partial_fill: Optional[bool] = None
-    combo_execution: Optional[str] = None # 'atomic' | 'legged'
-
-class RiskControls(BaseModel):
-    take_profit_percent: Optional[float] = None
-    take_profit_usd: Optional[float] = None
-    stop_loss_percent: Optional[float] = None
-    stop_loss_usd: Optional[float] = None
-    max_daily_loss_usd: Optional[float] = None
-    max_drawdown_percent: Optional[float] = None
-    pause_on_event_flags: Optional[List[str]] = None # e.g., ['earnings', 'FOMC']
-
-class DataFilters(BaseModel):
-    min_liquidity: Optional[float] = None
-    max_bid_ask_spread_pct: Optional[float] = None
-    iv_rank_threshold: Optional[float] = None
-    min_open_interest: Optional[float] = None
-
-class Notifications(BaseModel):
-    email_alerts: Optional[bool] = None
-    push_notifications: Optional[bool] = None
-    webhook_url: Optional[str] = None
-
-class BacktestParams(BaseModel):
-    slippage: Optional[float] = None
-    commission: Optional[float] = None
-
-class PerformanceMetrics(BaseModel):
-    total_return: Optional[float] = None
-    win_rate: Optional[float] = None
-    max_drawdown: Optional[float] = None
-    sharpe_ratio: Optional[float] = None
-    total_trades: Optional[int] = None
-    avg_trade_duration: Optional[float] = None
-    volatility: Optional[float] = None
-    standard_deviation: Optional[float] = None
-    beta: Optional[float] = None
-    alpha: Optional[float] = None
-    value_at_risk: Optional[float] = None
-
-# Main Strategy Models
+# Simplified strategy models that match frontend expectations
 class TradingStrategyBase(BaseModel):
     name: str
     type: str  # This should map to the strategy_type enum in DB
     description: Optional[str] = None
     risk_level: RiskLevel = RiskLevel.MEDIUM
-    skill_level: SkillLevel = SkillLevel.BEGINNER
     min_capital: float = 0.0
     is_active: bool = False
 
-    # Universal Bot Fields
+    # Universal Bot Fields - simplified to match frontend
     account_id: Optional[str] = None
     asset_class: Optional[AssetClass] = None
     base_symbol: Optional[str] = None
@@ -115,36 +54,36 @@ class TradingStrategyBase(BaseModel):
     time_horizon: Optional[TimeHorizon] = None
     automation_level: Optional[AutomationLevel] = None
 
-    capital_allocation: Optional[CapitalAllocation] = Field(default_factory=CapitalAllocation)
-    position_sizing: Optional[PositionSizing] = Field(default_factory=PositionSizing)
-    trade_window: Optional[TradeWindow] = Field(default_factory=TradeWindow)
-    order_execution: Optional[OrderExecution] = Field(default_factory=OrderExecution)
-    risk_controls: Optional[RiskControls] = Field(default_factory=RiskControls)
-    data_filters: Optional[DataFilters] = Field(default_factory=DataFilters)
-    notifications: Optional[Notifications] = Field(default_factory=Notifications)
+    # JSONB fields as simple dictionaries (not nested Pydantic models)
+    capital_allocation: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    position_sizing: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    trade_window: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    order_execution: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    risk_controls: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    data_filters: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    notifications: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
     backtest_mode: Optional[BacktestMode] = None
-    backtest_params: Optional[BacktestParams] = Field(default_factory=BacktestParams)
+    backtest_params: Optional[Dict[str, Any]] = Field(default_factory=dict)
     telemetry_id: Optional[str] = None
 
-    # Strategy-specific configuration (still a generic JSONB)
+    # Strategy-specific configuration
     configuration: Dict[str, Any] = Field(default_factory=dict)
 
-    performance: Optional[PerformanceMetrics] = None
+    performance: Optional[Dict[str, Any]] = None
 
 class TradingStrategyCreate(TradingStrategyBase):
     pass
 
-class TradingStrategyUpdate(TradingStrategyBase):
+class TradingStrategyUpdate(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
     description: Optional[str] = None
     risk_level: Optional[RiskLevel] = None
-    skill_level: Optional[SkillLevel] = None
     min_capital: Optional[float] = None
     is_active: Optional[bool] = None
 
-    # All universal fields and nested models are optional for update
+    # All universal fields are optional for update
     account_id: Optional[str] = None
     asset_class: Optional[AssetClass] = None
     base_symbol: Optional[str] = None
@@ -152,21 +91,20 @@ class TradingStrategyUpdate(TradingStrategyBase):
     time_horizon: Optional[TimeHorizon] = None
     automation_level: Optional[AutomationLevel] = None
 
-    capital_allocation: Optional[CapitalAllocation] = None
-    position_sizing: Optional[PositionSizing] = None
-    trade_window: Optional[TradeWindow] = None
-    order_execution: Optional[OrderExecution] = None
-    risk_controls: Optional[RiskControls] = None
-    data_filters: Optional[DataFilters] = None
-    notifications: Optional[Notifications] = None
+    capital_allocation: Optional[Dict[str, Any]] = None
+    position_sizing: Optional[Dict[str, Any]] = None
+    trade_window: Optional[Dict[str, Any]] = None
+    order_execution: Optional[Dict[str, Any]] = None
+    risk_controls: Optional[Dict[str, Any]] = None
+    data_filters: Optional[Dict[str, Any]] = None
+    notifications: Optional[Dict[str, Any]] = None
 
     backtest_mode: Optional[BacktestMode] = None
-    backtest_params: Optional[BacktestParams] = None
+    backtest_params: Optional[Dict[str, Any]] = None
     telemetry_id: Optional[str] = None
 
     configuration: Optional[Dict[str, Any]] = None
-    performance: Optional[PerformanceMetrics] = None
-
+    performance: Optional[Dict[str, Any]] = None
 
 class TradingStrategyResponse(TradingStrategyBase):
     id: str
@@ -175,4 +113,4 @@ class TradingStrategyResponse(TradingStrategyBase):
     updated_at: datetime
 
     class Config:
-        from_attributes = True # For Pydantic v2, use from_attributes=True instead of orm_mode=True
+        from_attributes = True

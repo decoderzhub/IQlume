@@ -12,18 +12,7 @@ from dependencies import (
     get_supabase_client,
     security,
 )
-from schemas import (
-    TradingStrategyCreate,
-    TradingStrategyUpdate,
-    TradingStrategyResponse,
-    RiskLevel,
-    SkillLevel,
-    AssetClass,
-    TimeHorizon,
-    AutomationLevel,
-    BacktestMode,
-)
-from pydantic import BaseModel
+from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
@@ -54,13 +43,8 @@ async def create_strategy(
                        'order_execution', 'risk_controls', 'data_filters',
                        'notifications', 'backtest_params', 'performance']:
             if strategy_dict.get(field) is not None:
-                if isinstance(strategy_dict[field], BaseModel):
-                    strategy_dict[field] = strategy_dict[field].model_dump(exclude_unset=True, exclude_none=True)
-                elif isinstance(strategy_dict[field], dict):
-                    # Ensure any sub-fields within these are also dumped if they were models
-                    for k, v in strategy_dict[field].items():
-                        if isinstance(v, BaseModel):
-                            strategy_dict[field][k] = v.model_dump(exclude_unset=True, exclude_none=True)
+                # Fields are already dictionaries, no conversion needed
+                pass
             else:
                 # Ensure JSONB fields are empty dicts instead of None
                 strategy_dict[field] = {}
