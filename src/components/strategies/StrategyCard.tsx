@@ -206,9 +206,27 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       alert(message);
       
       // Force refresh of strategy data after execution
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000); // Give backend time to update performance
+      // Reload strategies from API to get updated performance
+      setTimeout(async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.access_token) return;
+
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            // Trigger a re-render by updating the store
+            useStore.getState().setStrategies(data.strategies || []);
+          }
+        } catch (error) {
+          console.error('Error refreshing strategies:', error);
+        }
+      }, 2000); // Give backend time to update performance
     } catch (error) {
       console.error('Error executing strategy:', error);
       alert(`Failed to execute strategy: ${error instanceof Error ? error.message : 'Unknown error'}`);
