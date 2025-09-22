@@ -158,6 +158,24 @@ export function StrategiesView() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.strategies && Array.isArray(data.strategies)) {
+          setStrategies(data.strategies);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing strategies after execution:', error);
+    }
+  };
+
   const handleViewDetails = (strategy: TradingStrategy) => {
     setSelectedStrategy(strategy);
     setShowDetailsModal(true);
@@ -280,23 +298,6 @@ export function StrategiesView() {
     } catch (error) {
       console.error('Unexpected error deleting strategy:', error);
       alert('An unexpected error occurred while deleting the strategy');
-    }
-  };
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.strategies && Array.isArray(data.strategies)) {
-          setStrategies(data.strategies);
-        }
-      }
-    } catch (error) {
-      console.error('Error refreshing strategies after execution:', error);
     }
   };
   return (
