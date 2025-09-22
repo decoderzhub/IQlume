@@ -39,6 +39,9 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
   const [currentPrice, setCurrentPrice] = React.useState<number | null>(null);
   const [priceHistory, setPriceHistory] = React.useState<Array<{ time: number; price: number }>>([]);
   const [loading, setLoading] = React.useState(false);
+  const [currentPrice, setCurrentPrice] = React.useState<number | null>(null);
+  const [priceHistory, setPriceHistory] = React.useState<Array<{ time: number; price: number }>>([]);
+  const [loading, setLoading] = React.useState(false);
   
   // Check if strategy is implemented
   const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
@@ -55,6 +58,74 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
   const needsUpgrade = isImplemented && !hasAccess;
   const isAvailable = isImplemented && hasAccess;
 
+  // Get trading symbol from configuration
+  const tradingSymbol = strategy.configuration?.symbol || strategy.base_symbol || 'N/A';
+  
+  // Get grid configuration for grid strategies
+  const isGridStrategy = ['spot_grid', 'futures_grid', 'infinity_grid'].includes(strategy.type);
+  const gridConfig = isGridStrategy ? {
+    lower: strategy.configuration?.price_range_lower || 0,
+    upper: strategy.configuration?.price_range_upper || 0,
+    grids: strategy.configuration?.number_of_grids || 0,
+  } : null;
+
+  // Fetch real-time price data for active strategies
+  React.useEffect(() => {
+    if (!strategy.is_active || !tradingSymbol || tradingSymbol === 'N/A' || !user) return;
+    
+    const fetchPriceData = async () => {
+      try {
+        setLoading(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) return;
+
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/live-prices?symbols=${tradingSymbol}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const symbolData = data[tradingSymbol.toUpperCase()];
+          if (symbolData && symbolData.price) {
+            setCurrentPrice(symbolData.price);
+            
+            // Add to price history
+            const now = Date.now();
+            setPriceHistory(prev => {
+              const newHistory = [...prev, { time: now, price: symbolData.price }];
+              // Keep only last 20 points
+              return newHistory.slice(-20);
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching price data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Initial fetch
+    fetchPriceData();
+    
+    // Update every 30 seconds for active strategies
+    const interval = setInterval(fetchPriceData, 30000);
+    return () => clearInterval(interval);
+  }, [strategy.is_active, tradingSymbol, user]);
+
+  // Determine price position relative to grid
+  const getPricePosition = () => {
+    if (!gridConfig || !currentPrice || !gridConfig.lower || !gridConfig.upper) return null;
+    
+    if (currentPrice < gridConfig.lower) return 'below';
+    if (currentPrice > gridConfig.upper) return 'above';
+    return 'within';
+  };
+
+  const pricePosition = getPricePosition();
   const handleExecuteStrategy = async () => {
     if (!user || !strategy.is_active) return;
     
@@ -146,6 +217,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       default: return 'Upgrade Required';
     }
   };
+  
   return (
     <Card hoverable className={cn("p-6 h-full relative", (isComingSoon || needsUpgrade) && "opacity-75")}>
       {isComingSoon && (
@@ -173,6 +245,58 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
             <h3 className="font-semibold text-white text-lg">{strategy.name}</h3>
             <div className={`w-3 h-3 rounded-full ${strategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
           </div>
+          
+          {/* Trading Symbol and Current Price */}
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">Trading:</span>
+              <span className="font-bold text-blue-400 text-lg">{tradingSymbol}</span>
+            </div>
+            {currentPrice && (
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-gray-400">@</span>
+                <span className="font-semibold text-white">{formatCurrency(currentPrice)}</span>
+                {loading && <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />}
+              </div>
+            )}
+          </div>
+          
+          {/* Grid Configuration Display */}
+          {isGridStrategy && gridConfig && gridConfig.lower && gridConfig.upper && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-gray-400">Grid Range:</span>
+                <span className="text-white">{gridConfig.grids} levels</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-1">
+                  <ArrowDown className="w-3 h-3 text-green-400" />
+                  <span className="text-green-400 font-medium">{formatCurrency(gridConfig.lower)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <ArrowUp className="w-3 h-3 text-red-400" />
+                  <span className="text-red-400 font-medium">{formatCurrency(gridConfig.upper)}</span>
+                </div>
+              </div>
+              
+              {/* Price Position Indicator */}
+              {currentPrice && pricePosition && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-gray-400">Position:</span>
+                  <span className={`text-xs font-medium px-2 py-1 rounded ${
+                    pricePosition === 'below' ? 'bg-green-500/20 text-green-400' :
+                    pricePosition === 'above' ? 'bg-red-500/20 text-red-400' :
+                    'bg-blue-500/20 text-blue-400'
+                  }`}>
+                    {pricePosition === 'below' ? 'Buy Zone' : 
+                     pricePosition === 'above' ? 'Sell Zone' : 
+                     'In Range'}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          
           <p className="text-sm text-gray-400 mb-3">{strategy.description}</p>
           
           <div className="flex items-center gap-2 mb-3">
@@ -186,6 +310,65 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         </div>
       </div>
 
+      {/* Real-time Price Chart for Active Strategies */}
+      {strategy.is_active && priceHistory.length > 5 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-400">Price Movement</span>
+            <span className="text-xs text-gray-500">Last 10 updates</span>
+          </div>
+          <div className="h-24 bg-gray-800/30 rounded-lg p-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={priceHistory}>
+                <defs>
+                  <linearGradient id={`gradient-${strategy.id}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="time" hide />
+                <YAxis domain={['dataMin - 1', 'dataMax + 1']} hide />
+                <Area
+                  type="monotone"
+                  dataKey="price"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  fill={`url(#gradient-${strategy.id})`}
+                  dot={false}
+                />
+                {/* Grid level lines for grid strategies */}
+                {isGridStrategy && gridConfig && gridConfig.lower && gridConfig.upper && (
+                  <>
+                    {/* Lower bound line */}
+                    <defs>
+                      <pattern id={`lowerLine-${strategy.id}`} patternUnits="userSpaceOnUse" width="4" height="4">
+                        <path d="M 0,4 l 4,0" stroke="#10b981" strokeWidth="1" strokeDasharray="2,2"/>
+                      </pattern>
+                      <pattern id={`upperLine-${strategy.id}`} patternUnits="userSpaceOnUse" width="4" height="4">
+                        <path d="M 0,4 l 4,0" stroke="#ef4444" strokeWidth="1" strokeDasharray="2,2"/>
+                      </pattern>
+                    </defs>
+                  </>
+                )}
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          
+          {/* Grid level indicators */}
+          {isGridStrategy && gridConfig && gridConfig.lower && gridConfig.upper && (
+            <div className="flex items-center justify-between text-xs mt-2">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-0.5 bg-green-400"></div>
+                <span className="text-green-400">Buy: {formatCurrency(gridConfig.lower)}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-0.5 bg-red-400"></div>
+                <span className="text-red-400">Sell: {formatCurrency(gridConfig.upper)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {/* Performance Metrics */}
       {performance && (
         <div className="grid grid-cols-2 gap-4 mb-6">
