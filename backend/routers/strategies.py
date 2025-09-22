@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 @router.post("/", response_model=TradingStrategyResponse, status_code=status.HTTP_201_CREATED)
 async def create_strategy(
-    strategy_data: Dict[str, Any],
+    strategy_data: TradingStrategyCreate,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
@@ -28,10 +28,10 @@ async def create_strategy(
     """Create a new trading strategy."""
     try:
         logger.info(f"Creating strategy for user {current_user.id}")
-        logger.info(f"Incoming strategy data: {json.dumps(strategy_data, indent=2, default=str)}")
+        logger.info(f"Incoming strategy data: {json.dumps(strategy_data.model_dump(), indent=2, default=str)}")
         
-        # Use the dictionary directly
-        strategy_dict = strategy_data.copy()
+        # Convert Pydantic model to dictionary
+        strategy_dict = strategy_data.model_dump()
         
         logger.info(f"Strategy dict after model_dump: {json.dumps(strategy_dict, indent=2, default=str)}")
         
@@ -40,8 +40,9 @@ async def create_strategy(
                        'order_execution', 'risk_controls', 'data_filters',
                        'notifications', 'backtest_params', 'performance']:
             if strategy_dict.get(field) is not None:
-                # Fields are already dictionaries, no conversion needed
-                pass
+                # Ensure any nested Pydantic models are converted to dicts
+                if isinstance(strategy_dict[field], BaseModel):
+                    strategy_dict[field] = strategy_dict[field].model_dump()
             else:
                 # Ensure JSONB fields are empty dicts instead of None
                 strategy_dict[field] = {}
