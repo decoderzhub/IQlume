@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Security
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 # Initialize clients
 def get_supabase_client() -> Client:
