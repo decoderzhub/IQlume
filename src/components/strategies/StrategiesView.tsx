@@ -152,29 +152,10 @@ export function StrategiesView() {
   };
 
   const handleExecuteStrategy = async () => {
-    // Force refresh strategies after execution
-    if (!user) return;
-    
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.strategies && Array.isArray(data.strategies)) {
-          setStrategies(data.strategies);
-          console.log('✅ Strategies refreshed after execution');
-        }
-      }
-    } catch (error) {
-      console.error('Error refreshing strategies after execution:', error);
-    }
+    // Refresh strategies after execution
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
   };
 
   const handleViewDetails = (strategy: TradingStrategy) => {

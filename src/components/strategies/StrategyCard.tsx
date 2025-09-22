@@ -185,11 +185,12 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       
       // Show detailed execution result
       const executionResult = result.result;
-      let message = `Strategy executed: ${result.message}`;
+      let message = `✅ Strategy executed: ${result.message}`;
       
       if (executionResult) {
-        // Ensure price is properly formatted
-        const priceDisplay = executionResult.price ? `$${Number(executionResult.price).toFixed(2)}` : 'N/A';
+        // Format price properly and handle undefined
+        const price = executionResult.price || 0;
+        const priceDisplay = typeof price === 'number' && price > 0 ? `$${price.toFixed(2)}` : 'Price unavailable';
         
         if (executionResult.action === 'buy') {
           message += `\n\n🟢 BUY ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: ${priceDisplay}\n• Order ID: ${executionResult.order_id}\n• Reason: ${executionResult.reason}`;
@@ -204,13 +205,10 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       
       alert(message);
       
-      // Force refresh of strategy data and trades
-      if (onExecute) {
-        await onExecute();
-      }
-      
-      // Also trigger a page refresh to update trade counts
-      window.location.reload();
+      // Force refresh of strategy data after execution
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000); // Give backend time to update performance
     } catch (error) {
       console.error('Error executing strategy:', error);
       alert(`Failed to execute strategy: ${error instanceof Error ? error.message : 'Unknown error'}`);
