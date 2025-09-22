@@ -208,6 +208,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       },
       backtest_mode: 'paper',
       backtest_params: {},
+      base_symbol: configuration.symbol || 'BTC',
       configuration,
     };
 
