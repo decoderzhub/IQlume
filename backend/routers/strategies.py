@@ -7,6 +7,14 @@ import logging
 import json
 from pydantic import BaseModel
 
+from alpaca.trading.client import TradingClient
+from alpaca.trading.requests import MarketOrderRequest
+from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
+from alpaca.data.requests import StockLatestQuoteRequest, CryptoLatestQuoteRequest
+from alpaca.data.enums import DataFeed
+from alpaca.common.exceptions import APIError as AlpacaAPIError
+
 from supabase import Client
 from dependencies import (
     get_current_user,
@@ -22,8 +30,291 @@ from schemas import StrategiesListResponse
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
 
+def normalize_crypto_symbol(symbol: str) -> str:
+    """Normalize crypto symbol for Alpaca API"""
+    s = symbol.upper().replace("USDT", "USD")
+    if s in {"BTC", "BITCOIN"}:
+        return "BTC/USD"
+    if s in {"ETH", "ETHEREUM"}:
+        return "ETH/USD"
+    if s.endswith("USD") and "/" not in s:
+        base = s[:-3]
+        if base.isalpha() and 2 <= len(base) <= 5:
+            return f"{base}/USD"
+    if "/" in s and s.endswith("/USD"):
+        return s
+    return symbol.upper()
+
+def is_crypto_symbol(symbol: str) -> bool:
+    """Check if symbol is a crypto pair"""
+    normalized = normalize_crypto_symbol(symbol)
+    return "/" in normalized and normalized.endswith("/USD")
+
+async def get_current_price(symbol: str, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> float:
+    """Get current market price for a symbol"""
+    try:
+        if is_crypto_symbol(symbol):
+            # Crypto price
+            normalized_symbol = normalize_crypto_symbol(symbol)
+            req = CryptoLatestQuoteRequest(symbol_or_symbols=[normalized_symbol])
+            data = crypto_client.get_crypto_latest_quote(req)
+            quote = data.get(normalized_symbol)
+            if quote and hasattr(quote, 'ask_price') and quote.ask_price:
+                return float(quote.ask_price)
+            elif quote and hasattr(quote, 'bid_price') and quote.bid_price:
+                return float(quote.bid_price)
+        else:
+            # Stock price
+            req = StockLatestQuoteRequest(symbol_or_symbols=[symbol.upper()], feed=DataFeed.IEX)
+            data = stock_client.get_stock_latest_quote(req)
+            quote = data.get(symbol.upper())
+            if quote and hasattr(quote, 'ask_price') and quote.ask_price:
+                return float(quote.ask_price)
+            elif quote and hasattr(quote, 'bid_price') and quote.bid_price:
+                return float(quote.bid_price)
+        
+        raise ValueError(f"No price data available for {symbol}")
+    except Exception as e:
+        logger.error(f"Error fetching price for {symbol}: {e}")
+        raise
+
+async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> dict:
+    """Execute spot grid trading strategy logic."""
+    try:
+        config = strategy.get("configuration", {})
+        symbol = config.get("symbol", "BTC")
+        price_range_lower = config.get("price_range_lower", 0)
+        price_range_upper = config.get("price_range_upper", 0)
+        allocated_capital = config.get("allocated_capital", 1000)
+        
+        logger.info(f"Executing spot grid strategy for {symbol}")
+        logger.info(f"Grid range: ${price_range_lower} - ${price_range_upper}")
+        
+        if not price_range_lower or not price_range_upper:
+            raise ValueError("Grid strategy requires valid price range")
+        
+        # Get current market price
+        current_price = await get_current_price(symbol, stock_client, crypto_client)
+        logger.info(f"Current {symbol} price: ${current_price}")
+        
+        # Determine trading action based on grid position
+        if current_price < price_range_lower:
+            # Buy zone - place buy order
+            if is_crypto_symbol(symbol):
+                # For crypto, use fractional shares
+                quantity = 0.001  # Small test amount
+                trading_symbol = normalize_crypto_symbol(symbol)
+            else:
+                # For stocks, calculate whole shares
+                quantity = max(1, int(allocated_capital * 0.1 / current_price))  # 10% of capital
+                trading_symbol = symbol.upper()
+            
+            logger.info(f"Price in buy zone, placing BUY order for {quantity} {trading_symbol}")
+            
+            order_request = MarketOrderRequest(
+                symbol=trading_symbol,
+                qty=quantity,
+                side=OrderSide.BUY,
+                time_in_force=TimeInForce.DAY,
+            )
+            
+            order = trading_client.submit_order(order_request)
+            
+            return {
+                "action": "buy",
+                "symbol": trading_symbol,
+                "quantity": quantity,
+                "price": current_price,
+                "order_id": str(order.id),
+                "reason": f"Price ${current_price} below grid lower bound ${price_range_lower}"
+            }
+            
+        elif current_price > price_range_upper:
+            # Sell zone - check if we have positions to sell
+            try:
+                positions = trading_client.get_all_positions()
+                trading_symbol = normalize_crypto_symbol(symbol) if is_crypto_symbol(symbol) else symbol.upper()
+                
+                # Find position for this symbol
+                position = None
+                for pos in positions:
+                    if pos.symbol == trading_symbol:
+                        position = pos
+                        break
+                
+                if position and float(position.qty) > 0:
+                    # We have a position, place sell order
+                    quantity = min(0.001, float(position.qty)) if is_crypto_symbol(symbol) else min(1, int(float(position.qty)))
+                    
+                    logger.info(f"Price in sell zone, placing SELL order for {quantity} {trading_symbol}")
+                    
+                    order_request = MarketOrderRequest(
+                        symbol=trading_symbol,
+                        qty=quantity,
+                        side=OrderSide.SELL,
+                        time_in_force=TimeInForce.DAY,
+                    )
+                    
+                    order = trading_client.submit_order(order_request)
+                    
+                    return {
+                        "action": "sell",
+                        "symbol": trading_symbol,
+                        "quantity": quantity,
+                        "price": current_price,
+                        "order_id": str(order.id),
+                        "reason": f"Price ${current_price} above grid upper bound ${price_range_upper}"
+                    }
+                else:
+                    return {
+                        "action": "hold",
+                        "reason": f"Price in sell zone but no {trading_symbol} position to sell"
+                    }
+            except Exception as e:
+                logger.error(f"Error checking positions: {e}")
+                return {
+                    "action": "hold",
+                    "reason": f"Price in sell zone but couldn't check positions: {str(e)}"
+                }
+        else:
+            # Within grid range - hold
+            return {
+                "action": "hold",
+                "price": current_price,
+                "reason": f"Price ${current_price} within grid range ${price_range_lower}-${price_range_upper}"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error executing spot grid strategy: {e}")
+        raise
+
+async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> dict:
+    """Execute DCA (Dollar Cost Averaging) strategy logic."""
+    try:
+        config = strategy.get("configuration", {})
+        symbol = config.get("symbol", "BTC")
+        investment_amount = config.get("investment_amount_per_interval", 100)
+        
+        logger.info(f"Executing DCA strategy for {symbol}")
+        logger.info(f"Investment amount: ${investment_amount}")
+        
+        # Get current market price
+        current_price = await get_current_price(symbol, stock_client, crypto_client)
+        logger.info(f"Current {symbol} price: ${current_price}")
+        
+        # Calculate quantity to buy
+        if is_crypto_symbol(symbol):
+            # For crypto, use fractional shares
+            quantity = investment_amount / current_price
+            trading_symbol = normalize_crypto_symbol(symbol)
+        else:
+            # For stocks, calculate whole shares
+            quantity = max(1, int(investment_amount / current_price))
+            trading_symbol = symbol.upper()
+        
+        logger.info(f"Placing DCA BUY order for {quantity} {trading_symbol}")
+        
+        order_request = MarketOrderRequest(
+            symbol=trading_symbol,
+            qty=quantity,
+            side=OrderSide.BUY,
+            time_in_force=TimeInForce.DAY,
+        )
+        
+        order = trading_client.submit_order(order_request)
+        
+        return {
+            "action": "buy",
+            "symbol": trading_symbol,
+            "quantity": quantity,
+            "price": current_price,
+            "investment_amount": investment_amount,
+            "order_id": str(order.id),
+            "reason": f"DCA investment of ${investment_amount}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error executing DCA strategy: {e}")
+        raise
+
+async def execute_covered_calls_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> dict:
+    """Execute covered calls strategy logic."""
+    try:
+        config = strategy.get("configuration", {})
+        symbol = config.get("symbol", "AAPL")
+        
+        logger.info(f"Covered calls strategy execution for {symbol} - placeholder implementation")
+        
+        # For covered calls, we would need to:
+        # 1. Check if we own 100+ shares of the stock
+        # 2. Fetch options chain data
+        # 3. Select appropriate call option to sell
+        # 4. Place options order
+        
+        # This is complex and requires options trading permissions
+        # For now, return a placeholder response
+        
+        return {
+            "action": "hold",
+            "symbol": symbol,
+            "reason": "Covered calls strategy requires options trading implementation"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error executing covered calls strategy: {e}")
+        raise
+
+@router.post("/{strategy_id}/execute")
+async def execute_strategy(
+    strategy_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Execute a single iteration of a trading strategy."""
+    try:
+        # Get strategy from database
+        resp = supabase.table("trading_strategies").select("*").eq("id", strategy_id).eq("user_id", current_user.id).single().execute()
+        
+        if not resp.data:
+            raise HTTPException(status_code=404, detail="Strategy not found")
+        
+        strategy = resp.data
+        
+        if not strategy.get("is_active"):
+            raise HTTPException(status_code=400, detail="Strategy is not active")
+        
+        # Get trading client and data clients
+        trading_client = await get_alpaca_trading_client(current_user, supabase)
+        stock_client = get_alpaca_stock_data_client()
+        crypto_client = get_alpaca_crypto_data_client()
+        
+        # Execute strategy based on type
+        if strategy["type"] == "spot_grid":
+            result = await execute_spot_grid_strategy(strategy, trading_client, stock_client, crypto_client)
+        elif strategy["type"] == "dca":
+            result = await execute_dca_strategy(strategy, trading_client, stock_client, crypto_client)
+        elif strategy["type"] == "covered_calls":
+            result = await execute_covered_calls_strategy(strategy, trading_client, stock_client, crypto_client)
+        else:
+            raise HTTPException(status_code=400, detail=f"Strategy type {strategy['type']} not implemented")
+        
+        logger.info(f"Strategy execution result: {result}")
+        return {"message": "Strategy executed successfully", "result": result}
+        
+    except AlpacaAPIError as e:
+        logger.error(f"Alpaca API error executing strategy {strategy_id}: {e}")
+        if "403" in str(e):
+            raise HTTPException(
+                status_code=403,
+                detail="Alpaca Trading API denied. Check your API key permissions."
+            )
+        raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error executing strategy {strategy_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to execute strategy: {str(e)}")
+
 @router.post("/", response_model=TradingStrategyResponse, status_code=status.HTTP_201_CREATED)
-@router.post("")  # Add this line
 async def create_strategy(
     strategy_data: TradingStrategyCreate,
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -82,73 +373,7 @@ async def create_strategy(
         logger.error(f"Error creating strategy: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create strategy: {str(e)}")
 
-@router.post("/{strategy_id}/execute")
-async def execute_strategy(
-    strategy_id: str,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-):
-    """Execute a single iteration of a trading strategy."""
-    try:
-        # Get strategy from database
-        resp = supabase.table("trading_strategies").select("*").eq("id", strategy_id).eq("user_id", current_user.id).single().execute()
-        
-        if not resp.data:
-            raise HTTPException(status_code=404, detail="Strategy not found")
-        
-        strategy = resp.data
-        
-        if not strategy.get("is_active"):
-            raise HTTPException(status_code=400, detail="Strategy is not active")
-        
-        # Get trading client for the strategy's account
-        trading_client = await get_alpaca_trading_client(current_user, supabase)
-        
-        # Execute strategy based on type
-        if strategy["type"] == "spot_grid":
-            result = await execute_spot_grid_strategy(strategy, trading_client)
-        elif strategy["type"] == "dca":
-            result = await execute_dca_strategy(strategy, trading_client)
-        elif strategy["type"] == "covered_calls":
-            result = await execute_covered_calls_strategy(strategy, trading_client)
-        else:
-            raise HTTPException(status_code=400, detail=f"Strategy type {strategy['type']} not implemented")
-        
-        return {"message": "Strategy executed successfully", "result": result}
-        
-    except Exception as e:
-        logger.error(f"Error executing strategy {strategy_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to execute strategy: {str(e)}")
-
-async def execute_spot_grid_strategy(strategy: dict, trading_client) -> dict:
-    """Execute spot grid trading strategy logic."""
-    config = strategy.get("configuration", {})
-    symbol = config.get("symbol", "BTC/USD")
-    price_range_lower = config.get("price_range_lower", 0)
-    price_range_upper = config.get("price_range_upper", 0)
-    number_of_grids = config.get("number_of_grids", 20)
-    allocated_capital = config.get("allocated_capital", 1000)
-    
-    if not price_range_lower or not price_range_upper:
-        raise ValueError("Grid strategy requires valid price range")
-    
-    # Get current market price
-    try:
-        # For crypto symbols, we need to handle the format
-        if symbol in ["BTC", "ETH"]:
-            symbol = f"{symbol}/USD"
-        
-        # This is a simplified example - in production you'd:
-        # 1. Get current market price
-        # 2. Calculate grid levels
-        # 3. Check existing positions
-        # 4. Place buy/sell orders at appropriate grid levels
-        
-@router.get(
-    "/",
-    response_model=StrategiesListResponse
-)
+@router.get("/", response_model=StrategiesListResponse)
 async def get_all_strategies(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
@@ -179,10 +404,7 @@ async def get_all_strategies(
         logger.error(f"Error fetching strategies: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to fetch strategies: {str(e)}")
 
-@router.get(
-    "/{strategy_id}",
-    response_model=TradingStrategyResponse
-)
+@router.get("/{strategy_id}", response_model=TradingStrategyResponse)
 async def get_strategy_by_id(
     strategy_id: str,
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -208,10 +430,7 @@ async def get_strategy_by_id(
         logger.error(f"Error fetching strategy {strategy_id}: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to fetch strategy: {str(e)}")
 
-@router.put(
-    "/{strategy_id}",
-    response_model=TradingStrategyResponse
-)
+@router.put("/{strategy_id}", response_model=TradingStrategyResponse)
 async def update_strategy(
     strategy_id: str,
     strategy_data: TradingStrategyUpdate,
@@ -255,10 +474,7 @@ async def update_strategy(
         logger.error(f"Error updating strategy {strategy_id}: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to update strategy: {str(e)}")
 
-@router.delete(
-    "/{strategy_id}",
-    status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/{strategy_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_strategy(
     strategy_id: str,
     credentials: HTTPAuthorizationCredentials = Depends(security),
