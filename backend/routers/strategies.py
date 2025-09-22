@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
 
 @router.post("/", response_model=TradingStrategyResponse, status_code=status.HTTP_201_CREATED)
-@router.post("", ...)  # Add this line
+@router.post("")  # Add this line
 async def create_strategy(
     strategy_data: TradingStrategyCreate,
     credentials: HTTPAuthorizationCredentials = Depends(security),
