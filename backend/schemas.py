@@ -100,7 +100,7 @@ class PerformanceMetrics(BaseModel):
 # Main Strategy Models
 class TradingStrategyBase(BaseModel):
     name: str
-    type: str # This should map to the strategy_type enum in DB
+    type: str  # This should map to the strategy_type enum in DB
     description: Optional[str] = None
     risk_level: RiskLevel = RiskLevel.MEDIUM
     skill_level: SkillLevel = SkillLevel.BEGINNER
