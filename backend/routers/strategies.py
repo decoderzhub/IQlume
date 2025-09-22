@@ -340,7 +340,7 @@ async def execute_strategy(
         raise HTTPException(status_code=500, detail=f"Failed to execute strategy: {str(e)}")
 
 @router.post("/", response_model=TradingStrategyResponse, status_code=status.HTTP_201_CREATED)
-@router.post("/")
+@router.post("")
 async def create_strategy(
     strategy_data: TradingStrategyCreate,
     credentials: HTTPAuthorizationCredentials = Depends(security),
