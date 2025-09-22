@@ -213,14 +213,6 @@ export function StrategiesView() {
         },
         body: JSON.stringify(strategyPayload),
       });
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(strategyPayload),
-      });
 
       console.log('API Response Status:', response.status);
       console.log('API Response Headers:', Object.fromEntries(response.headers.entries()));
