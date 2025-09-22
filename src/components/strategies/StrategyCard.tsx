@@ -188,12 +188,15 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       let message = `Strategy executed: ${result.message}`;
       
       if (executionResult) {
+        // Ensure price is properly formatted
+        const priceDisplay = executionResult.price ? `$${Number(executionResult.price).toFixed(2)}` : 'N/A';
+        
         if (executionResult.action === 'buy') {
-          message += `\n\n🟢 BUY ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: $${executionResult.price?.toFixed(2)}\n• Order ID: ${executionResult.order_id}\n• Reason: ${executionResult.reason}`;
+          message += `\n\n🟢 BUY ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: ${priceDisplay}\n• Order ID: ${executionResult.order_id}\n• Reason: ${executionResult.reason}`;
         } else if (executionResult.action === 'sell') {
-          message += `\n\n🔴 SELL ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: $${executionResult.price?.toFixed(2)}\n• Order ID: ${executionResult.order_id}\n• Reason: ${executionResult.reason}`;
+          message += `\n\n🔴 SELL ORDER PLACED:\n• Symbol: ${executionResult.symbol}\n• Quantity: ${executionResult.quantity}\n• Price: ${priceDisplay}\n• Order ID: ${executionResult.order_id}\n• Reason: ${executionResult.reason}`;
         } else if (executionResult.action === 'hold') {
-          message += `\n\n⏸️ HOLDING POSITION:\n• Current Price: $${executionResult.price?.toFixed(2)}\n• Reason: ${executionResult.reason}`;
+          message += `\n\n⏸️ HOLDING POSITION:\n• Current Price: ${priceDisplay}\n• Reason: ${executionResult.reason}`;
         } else if (executionResult.action === 'error') {
           message += `\n\n❌ EXECUTION ERROR:\n• Reason: ${executionResult.reason}`;
         }
