@@ -17,11 +17,7 @@ from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrateg
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
 
-@router.post(
-    "/",
-    response_model=TradingStrategyResponse,
-    status_code=status.HTTP_201_CREATED
-)
+@router.post("/", response_model=TradingStrategyResponse, status_code=status.HTTP_201_CREATED)
 async def create_strategy(
     strategy_data: Dict[str, Any],
     credentials: HTTPAuthorizationCredentials = Depends(security),
