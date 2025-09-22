@@ -39,9 +39,6 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
   const [currentPrice, setCurrentPrice] = React.useState<number | null>(null);
   const [priceHistory, setPriceHistory] = React.useState<Array<{ time: number; price: number }>>([]);
   const [loading, setLoading] = React.useState(false);
-  const [currentPrice, setCurrentPrice] = React.useState<number | null>(null);
-  const [priceHistory, setPriceHistory] = React.useState<Array<{ time: number; price: number }>>([]);
-  const [loading, setLoading] = React.useState(false);
   
   // Check if strategy is implemented
   const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
