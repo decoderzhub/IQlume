@@ -267,7 +267,7 @@ const comingSoonCategories = [
 ];
 
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
-  const { user, getEffectiveSubscriptionTier } = useStore();
+  const { user, getEffectiveSubscriptionTier, brokerageAccounts } = useStore();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
   const [step, setStep] = useState<'category' | 'strategy' | 'configure'>('category');
@@ -306,7 +306,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     const baseConfig: any = {
       description: '',
       is_active: false,
-      account_id: '',
+      account_id: brokerageAccounts.find(acc => acc.is_connected)?.id || '',
       quote_currency: 'USD',
       capital_allocation: {
         mode: 'fixed_amount_usd',
@@ -410,10 +410,11 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           ...baseConfig,
           symbol: 'BTC',
           allocated_capital: strategy.min_capital,
-          price_range_lower: 0,
-          price_range_upper: 0,
+          price_range_lower: 40000,
+          price_range_upper: 50000,
           number_of_grids: 20,
           grid_mode: 'arithmetic',
+          grid_spacing_percent: 2.0,
         };
         break;
       case 'futures_grid':
@@ -421,11 +422,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           ...baseConfig,
           symbol: 'BTC',
           allocated_capital: strategy.min_capital,
-          price_range_lower: 0,
-          price_range_upper: 0,
+          price_range_lower: 40000,
+          price_range_upper: 55000,
           number_of_grids: 25,
           leverage: 3,
           direction: 'long',
+          grid_spacing_percent: 2.5,
         };
         break;
       case 'infinity_grid':
@@ -433,9 +435,10 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           ...baseConfig,
           symbol: 'BTC',
           allocated_capital: strategy.min_capital,
-          price_range_lower: 0,
+          price_range_lower: 35000,
           number_of_grids: 30,
           grid_mode: 'geometric',
+          grid_spacing_percent: 3.0,
         };
         break;
       case 'dca':
@@ -884,6 +887,31 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           {/* Configuration for other strategies */}
           {selectedStrategy.type !== 'smart_rebalance' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Account Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Trading Account
+              </label>
+              <select
+                value={strategyConfig.account_id || ''}
+                onChange={(e) => setStrategyConfig(prev => ({ ...prev, account_id: e.target.value }))}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Select Account</option>
+                {brokerageAccounts.filter(acc => acc.is_connected).map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.account_name} ({account.brokerage}) - {formatCurrency(account.balance)}
+                  </option>
+                ))}
+              </select>
+              {brokerageAccounts.filter(acc => acc.is_connected).length === 0 && (
+                <p className="text-sm text-red-400 mt-1">
+                  No connected accounts. Please connect a brokerage account first.
+                </p>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Symbol
@@ -916,6 +944,117 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
           )}
 
+          {/* Grid Trading Specific Configuration */}
+          {(selectedStrategy.type === 'spot_grid' || selectedStrategy.type === 'futures_grid' || selectedStrategy.type === 'infinity_grid') && (
+            <>
+              <h3 className="text-lg font-semibold text-white mb-4 mt-8">Grid Configuration</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Lower Price Range
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="number"
+                      value={strategyConfig.price_range_lower || ''}
+                      onChange={(e) => setStrategyConfig(prev => ({ ...prev, price_range_lower: Number(e.target.value) }))}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      placeholder="e.g., 40000"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                {selectedStrategy.type !== 'infinity_grid' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Upper Price Range
+                    </label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                      <input
+                        type="number"
+                        value={strategyConfig.price_range_upper || ''}
+                        onChange={(e) => setStrategyConfig(prev => ({ ...prev, price_range_upper: Number(e.target.value) }))}
+                        className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                        placeholder="e.g., 50000"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Number of Grids
+                  </label>
+                  <input
+                    type="number"
+                    value={strategyConfig.number_of_grids || ''}
+                    onChange={(e) => setStrategyConfig(prev => ({ ...prev, number_of_grids: Number(e.target.value) }))}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    min="5"
+                    max="100"
+                    placeholder="20"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Grid Spacing (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={strategyConfig.grid_spacing_percent || ''}
+                    onChange={(e) => setStrategyConfig(prev => ({ ...prev, grid_spacing_percent: Number(e.target.value) }))}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    min="0.1"
+                    max="10"
+                    step="0.1"
+                    placeholder="2.0"
+                    required
+                  />
+                </div>
+              </div>
+              
+              {/* Grid Preview */}
+              {strategyConfig.price_range_lower && strategyConfig.price_range_upper && strategyConfig.number_of_grids && (
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-400 mb-3 flex items-center gap-2">
+                    <Info className="w-4 h-4" />
+                    Grid Preview
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-400">Price Range:</span>
+                      <span className="text-white ml-2">
+                        ${strategyConfig.price_range_lower?.toLocaleString()} - ${strategyConfig.price_range_upper?.toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Grid Size:</span>
+                      <span className="text-white ml-2">
+                        ${((strategyConfig.price_range_upper - strategyConfig.price_range_lower) / strategyConfig.number_of_grids).toFixed(2)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Capital per Grid:</span>
+                      <span className="text-white ml-2">
+                        ${(strategyConfig.allocated_capital / strategyConfig.number_of_grids).toFixed(2)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Total Grids:</span>
+                      <span className="text-white ml-2">{strategyConfig.number_of_grids}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
           {/* Strategy-specific configuration */}
           {selectedStrategy.type === 'covered_calls' && selectedStrategy.type !== 'smart_rebalance' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -945,37 +1084,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   min="7"
                   max="90"
                 />
-              </div>
-            </div>
-          )}
-
-          {selectedStrategy.type === 'spot_grid' && selectedStrategy.type !== 'smart_rebalance' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Number of Grids
-                </label>
-                <input
-                  type="number"
-                  value={strategyConfig.number_of_grids || ''}
-                  onChange={(e) => setStrategyConfig(prev => ({ ...prev, number_of_grids: Number(e.target.value) }))}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                  min="5"
-                  max="100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Grid Mode
-                </label>
-                <select
-                  value={strategyConfig.grid_mode || ''}
-                  onChange={(e) => setStrategyConfig(prev => ({ ...prev, grid_mode: e.target.value }))}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="arithmetic">Arithmetic</option>
-                  <option value="geometric">Geometric</option>
-                </select>
               </div>
             </div>
           )}
@@ -1196,7 +1304,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 disabled={
                   selectedStrategy.type === 'smart_rebalance' 
                     ? !(strategyConfig.assets && strategyConfig.assets.length > 0)
-                    : (!strategyConfig.symbol || !strategyConfig.allocated_capital)
+                    : (!strategyConfig.symbol || !strategyConfig.allocated_capital || !strategyConfig.account_id)
                 }
                 className="flex-1"
               >

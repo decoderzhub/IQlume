@@ -11,6 +11,7 @@ from supabase import Client
 from dependencies import (
     get_current_user,
     get_supabase_client,
+    get_alpaca_trading_client,
     security,
 )
 from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse, RiskLevel
@@ -79,11 +80,130 @@ async def create_strategy(
         logger.error(f"Error creating strategy: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create strategy: {str(e)}")
 
+@router.post("/{strategy_id}/execute")
+async def execute_strategy(
+    strategy_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Execute a single iteration of a trading strategy."""
+    try:
+        # Get strategy from database
+        resp = supabase.table("trading_strategies").select("*").eq("id", strategy_id).eq("user_id", current_user.id).single().execute()
+        
+        if not resp.data:
+            raise HTTPException(status_code=404, detail="Strategy not found")
+        
+        strategy = resp.data
+        
+        if not strategy.get("is_active"):
+            raise HTTPException(status_code=400, detail="Strategy is not active")
+        
+        # Get trading client for the strategy's account
+        trading_client = await get_alpaca_trading_client(current_user, supabase)
+        
+        # Execute strategy based on type
+        if strategy["type"] == "spot_grid":
+            result = await execute_spot_grid_strategy(strategy, trading_client)
+        elif strategy["type"] == "dca":
+            result = await execute_dca_strategy(strategy, trading_client)
+        elif strategy["type"] == "covered_calls":
+            result = await execute_covered_calls_strategy(strategy, trading_client)
+        else:
+            raise HTTPException(status_code=400, detail=f"Strategy type {strategy['type']} not implemented")
+        
+        return {"message": "Strategy executed successfully", "result": result}
+        
+    except Exception as e:
+        logger.error(f"Error executing strategy {strategy_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to execute strategy: {str(e)}")
+
+async def execute_spot_grid_strategy(strategy: dict, trading_client) -> dict:
+    """Execute spot grid trading strategy logic."""
+    config = strategy.get("configuration", {})
+    symbol = config.get("symbol", "BTC/USD")
+    price_range_lower = config.get("price_range_lower", 0)
+    price_range_upper = config.get("price_range_upper", 0)
+    number_of_grids = config.get("number_of_grids", 20)
+    allocated_capital = config.get("allocated_capital", 1000)
+    
+    if not price_range_lower or not price_range_upper:
+        raise ValueError("Grid strategy requires valid price range")
+    
+    # Get current market price
+    try:
+        # For crypto symbols, we need to handle the format
+        if symbol in ["BTC", "ETH"]:
+            symbol = f"{symbol}/USD"
+        
+        # This is a simplified example - in production you'd:
+        # 1. Get current market price
+        # 2. Calculate grid levels
+        # 3. Check existing positions
+        # 4. Place buy/sell orders at appropriate grid levels
+        
+        # Calculate grid levels
+        price_range = price_range_upper - price_range_lower
+        grid_size = price_range / number_of_grids
+        capital_per_grid = allocated_capital / number_of_grids
+        
+        grid_levels = []
+        for i in range(number_of_grids + 1):
+            price = price_range_lower + (i * grid_size)
+            grid_levels.append({
+                "level": i,
+                "price": price,
+                "capital": capital_per_grid,
+                "action": "buy" if i < number_of_grids / 2 else "sell"
+            })
+        
+        logger.info(f"Grid strategy simulation for {symbol}: {len(grid_levels)} levels calculated")
+        
+        return {
+            "strategy_type": "spot_grid",
+            "symbol": symbol,
+            "grid_levels": grid_levels[:5],  # Return first 5 for demo
+            "total_grids": len(grid_levels),
+            "message": f"Grid strategy calculated {len(grid_levels)} levels for {symbol}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in spot grid execution: {e}")
+        raise ValueError(f"Failed to execute grid strategy: {str(e)}")
 @router.post("/debug", include_in_schema=False)
 async def debug_post(data: dict):
     return {"received": data}
 
+async def execute_dca_strategy(strategy: dict, trading_client) -> dict:
+    """Execute DCA strategy logic."""
+    config = strategy.get("configuration", {})
+    symbol = config.get("symbol", "BTC")
+    investment_amount = config.get("investment_amount_per_interval", 100)
+    
+    logger.info(f"DCA strategy simulation for {symbol}: ${investment_amount} investment")
+    
+    return {
+        "strategy_type": "dca",
+        "symbol": symbol,
+        "investment_amount": investment_amount,
+        "message": f"DCA strategy would invest ${investment_amount} in {symbol}"
+    }
 
+async def execute_covered_calls_strategy(strategy: dict, trading_client) -> dict:
+    """Execute covered calls strategy logic."""
+    config = strategy.get("configuration", {})
+    symbol = config.get("symbol", "AAPL")
+    strike_delta = config.get("strike_delta", 0.30)
+    
+    logger.info(f"Covered calls strategy simulation for {symbol}: {strike_delta} delta")
+    
+    return {
+        "strategy_type": "covered_calls",
+        "symbol": symbol,
+        "strike_delta": strike_delta,
+        "message": f"Covered calls strategy configured for {symbol} with {strike_delta} delta"
+    }
 @router.get(
     "/",
     response_model=StrategiesListResponse
