@@ -297,7 +297,6 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     qty=quantity,
                     side=OrderSide.BUY,
                     time_in_force=TimeInForce.DAY,
-                    client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
                 )
                 
                 order = trading_client.submit_order(order_request)
