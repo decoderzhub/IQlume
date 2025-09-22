@@ -172,6 +172,13 @@ export interface Trade {
   timestamp: string;
   profit_loss: number;
   status: 'pending' | 'executed' | 'failed';
+  order_type?: string;
+  time_in_force?: string;
+  filled_qty?: number;
+  filled_avg_price?: number;
+  commission?: number;
+  fees?: number;
+  alpaca_order_id?: string;
 }
 
 export interface OptionsChain {

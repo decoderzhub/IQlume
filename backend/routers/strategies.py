@@ -34,22 +34,13 @@ router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
 
 async def update_strategy_performance(strategy_id: str, user_id: str, supabase: Client, trading_client: TradingClient):
-    """Update strategy performance based on actual trades"""
+    """Update strategy performance based on trades stored in Supabase"""
     try:
-        from alpaca.trading.requests import GetOrdersRequest
-        from alpaca.trading.enums import QueryOrderStatus, OrderStatus
+        # Get executed trades for this strategy from Supabase
+        resp = supabase.table("trades").select("*").eq("strategy_id", strategy_id).eq("status", "executed").execute()
+        strategy_trades = resp.data or []
         
-        orders_request = GetOrdersRequest(status=QueryOrderStatus.ALL, limit=200)
-        orders = trading_client.get_orders(orders_request)
-        
-        # Filter orders by client_order_id that starts with strategy_id
-        strategy_orders = [
-            order for order in orders
-            if order.client_order_id and str(order.client_order_id).startswith(strategy_id)
-            and order.status == OrderStatus.FILLED
-        ]
-        
-        total_trades = len(strategy_orders)
+        total_trades = len(strategy_trades)
         
         if total_trades == 0:
             logger.info(f"No executed trades found for strategy {strategy_id}")
@@ -61,17 +52,11 @@ async def update_strategy_performance(strategy_id: str, user_id: str, supabase: 
         total_profit_loss = 0.0
         winning_trades = 0
         
-        for order in strategy_orders:
-            filled_qty = float(order.filled_qty or 0)
-            filled_price = float(order.filled_avg_price or 0)
-            order_value = filled_qty * filled_price
-            
-            # Simplified P&L calculation
-            if order.side.value.lower() == 'sell':
-                profit_loss = order_value * 0.02
-                total_profit_loss += profit_loss
-                if profit_loss > 0:
-                    winning_trades += 1
+        for trade in strategy_trades:
+            profit_loss = float(trade.get("profit_loss", 0))
+            total_profit_loss += profit_loss
+            if profit_loss > 0:
+                winning_trades += 1
         
         win_rate = winning_trades / total_trades if total_trades > 0 else 0
         

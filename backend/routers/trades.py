@@ -94,26 +94,6 @@ async def get_portfolio(
         raise HTTPException(status_code=500, detail=f"Failed to fetch portfolio: {str(e)}")
 
 
-@router.get("/strategies")
-async def get_strategies(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-):
-    """Get user's trading strategies"""
-    try:
-        resp = (
-            supabase.table("trading_strategies")
-            .select("*")
-            .eq("user_id", current_user.id)
-            .execute()
-        )
-        return {"strategies": resp.data}
-    except Exception as e:
-        logger.error("Error fetching strategies", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to fetch strategies: {str(e)}")
-
-
 @router.get("/trades")
 async def get_trades(
     limit: Optional[int] = Query(50, description="Maximum number of trades to return"),

@@ -17,6 +17,7 @@ load_dotenv()
 # Import routers
 from routers import chat, trades, strategies, market_data, plaid_routes, brokerage_auth
 from scheduler import trading_scheduler
+from trade_sync import trade_sync_service
 
 # Global connections store for SSE
 sse_connections: Dict[str, Set[str]] = {}  # user_id -> set of connection_ids
@@ -43,21 +44,28 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Start the autonomous trading scheduler"""
+    """Start the autonomous trading scheduler and trade sync service"""
     try:
         await trading_scheduler.start()
         logger.info("🚀 Autonomous trading scheduler started")
+        
+        # Start trade sync service in background
+        asyncio.create_task(trade_sync_service.start())
+        logger.info("🔄 Trade sync service started")
     except Exception as e:
-        logger.error(f"❌ Failed to start trading scheduler: {e}")
+        logger.error(f"❌ Failed to start services: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Stop the autonomous trading scheduler"""
+    """Stop the autonomous trading scheduler and trade sync service"""
     try:
         await trading_scheduler.stop()
         logger.info("🛑 Autonomous trading scheduler stopped")
+        
+        await trade_sync_service.stop()
+        logger.info("🛑 Trade sync service stopped")
     except Exception as e:
-        logger.error(f"❌ Error stopping trading scheduler: {e}")
+        logger.error(f"❌ Error stopping services: {e}")
 # Include routers
 app.include_router(chat.router)
 app.include_router(trades.router)
