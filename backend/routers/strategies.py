@@ -145,67 +145,6 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client) -> dict:
         # 3. Check existing positions
         # 4. Place buy/sell orders at appropriate grid levels
         
-        # Calculate grid levels
-        price_range = price_range_upper - price_range_lower
-        grid_size = price_range / number_of_grids
-        capital_per_grid = allocated_capital / number_of_grids
-        
-        grid_levels = []
-        for i in range(number_of_grids + 1):
-            price = price_range_lower + (i * grid_size)
-            grid_levels.append({
-                "level": i,
-                "price": price,
-                "capital": capital_per_grid,
-                "action": "buy" if i < number_of_grids / 2 else "sell"
-            })
-        
-        logger.info(f"Grid strategy simulation for {symbol}: {len(grid_levels)} levels calculated")
-        
-        return {
-            "strategy_type": "spot_grid",
-            "symbol": symbol,
-            "grid_levels": grid_levels[:5],  # Return first 5 for demo
-            "total_grids": len(grid_levels),
-            "message": f"Grid strategy calculated {len(grid_levels)} levels for {symbol}"
-        }
-        
-    except Exception as e:
-        logger.error(f"Error in spot grid execution: {e}")
-        raise ValueError(f"Failed to execute grid strategy: {str(e)}")
-@router.post("/debug", include_in_schema=False)
-async def debug_post(data: dict):
-    return {"received": data}
-
-async def execute_dca_strategy(strategy: dict, trading_client) -> dict:
-    """Execute DCA strategy logic."""
-    config = strategy.get("configuration", {})
-    symbol = config.get("symbol", "BTC")
-    investment_amount = config.get("investment_amount_per_interval", 100)
-    
-    logger.info(f"DCA strategy simulation for {symbol}: ${investment_amount} investment")
-    
-    return {
-        "strategy_type": "dca",
-        "symbol": symbol,
-        "investment_amount": investment_amount,
-        "message": f"DCA strategy would invest ${investment_amount} in {symbol}"
-    }
-
-async def execute_covered_calls_strategy(strategy: dict, trading_client) -> dict:
-    """Execute covered calls strategy logic."""
-    config = strategy.get("configuration", {})
-    symbol = config.get("symbol", "AAPL")
-    strike_delta = config.get("strike_delta", 0.30)
-    
-    logger.info(f"Covered calls strategy simulation for {symbol}: {strike_delta} delta")
-    
-    return {
-        "strategy_type": "covered_calls",
-        "symbol": symbol,
-        "strike_delta": strike_delta,
-        "message": f"Covered calls strategy configured for {symbol} with {strike_delta} delta"
-    }
 @router.get(
     "/",
     response_model=StrategiesListResponse
