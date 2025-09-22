@@ -9,8 +9,13 @@ import {
   TrendingDown,
   Clock,
   Target,
-  Shield
+  Shield,
+  Activity,
+  ArrowUp,
+  ArrowDown,
+  Minus
 } from 'lucide-react';
+import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
@@ -30,6 +35,9 @@ interface StrategyCardProps {
 export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, onExecute }: StrategyCardProps) {
   const { user, getEffectiveSubscriptionTier } = useStore();
   const [isExecuting, setIsExecuting] = React.useState(false);
+  const [currentPrice, setCurrentPrice] = React.useState<number | null>(null);
+  const [priceHistory, setPriceHistory] = React.useState<Array<{ time: number; price: number }>>([]);
+  const [loading, setLoading] = React.useState(false);
   
   // Check if strategy is implemented
   const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
