@@ -47,7 +47,7 @@ async def get_portfolio(
         logger.info(f"📈 Found {len(positions or [])} positions")
 
         total_value = float(account.portfolio_value or 0)
-        day_change = float(account.unrealized_pl or 0)
+        day_change = float(account.equity or 0) - float(account.last_equity or 0)
         day_change_percent = (day_change / total_value * 100) if total_value > 0 else 0
 
         formatted_positions = []
