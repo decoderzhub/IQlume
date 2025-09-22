@@ -95,6 +95,11 @@ async def create_strategy(
         logger.error(f"Error creating strategy: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create strategy: {str(e)}")
 
+@router.post("/debug")
+async def debug_post():
+    return {"status": "ok"}
+
+
 @router.get(
     "/",
     response_model=List[TradingStrategyResponse]
