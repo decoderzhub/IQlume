@@ -12,6 +12,8 @@ from dependencies import (
     get_current_user,
     get_supabase_client,
     get_alpaca_trading_client,
+    get_alpaca_stock_data_client,
+    get_alpaca_crypto_data_client,
     security,
 )
 from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse, RiskLevel
