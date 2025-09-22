@@ -114,3 +114,6 @@ class TradingStrategyResponse(TradingStrategyBase):
 
     class Config:
         from_attributes = True
+
+class StrategiesListResponse(BaseModel):
+    strategies: List[TradingStrategyResponse]

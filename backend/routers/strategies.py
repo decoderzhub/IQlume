@@ -14,6 +14,7 @@ from dependencies import (
     security,
 )
 from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse, RiskLevel
+from schemas import StrategiesListResponse
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ async def debug_post(data: dict):
 
 @router.get(
     "/",
-    response_model=List[TradingStrategyResponse]
+    response_model=StrategiesListResponse
 )
 async def get_all_strategies(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -111,7 +112,8 @@ async def get_all_strategies(
         query = query.order("updated_at", desc=True).limit(limit).offset(offset)
         
         resp = query.execute()
-        return [TradingStrategyResponse.model_validate(s) for s in resp.data]
+        strategies = [TradingStrategyResponse.model_validate(s) for s in resp.data]
+        return StrategiesListResponse(strategies=strategies)
     except Exception as e:
         logger.error(f"Error fetching strategies: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to fetch strategies: {str(e)}")
