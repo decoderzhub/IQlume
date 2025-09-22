@@ -43,7 +43,7 @@ export function MainApp() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900/20 to-purple-900/20">
       <Sidebar />
-      <Header />
+      <Header isConnected={isConnected} />
       
       <main className={cn(
         'pt-20 transition-all duration-300',

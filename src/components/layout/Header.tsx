@@ -6,7 +6,11 @@ import { useStore } from '../../store/useStore';
 import { auth } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 
-export function Header() {
+interface HeaderProps {
+  isConnected: boolean;
+}
+
+export function Header({ isConnected }: HeaderProps) {
   const { user, setUser, sidebarOpen, setSidebarOpen } = useStore();
 
   return (
