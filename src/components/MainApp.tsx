@@ -11,9 +11,13 @@ import { AnalyticsView } from './analytics/AnalyticsView';
 import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
 import { TradesView } from './trades/TradesView';
+import { useRealTimeUpdates } from '../hooks/useRealTimeUpdates';
 
 export function MainApp() {
   const { activeView, sidebarOpen } = useStore();
+  
+  // Enable real-time updates for autonomous trading
+  const { isConnected } = useRealTimeUpdates();
 
   const renderView = () => {
     switch (activeView) {

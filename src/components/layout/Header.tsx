@@ -38,6 +38,14 @@ export function Header() {
 
         <div className="flex items-center gap-4">
           {/* User menu would go here */}
+          
+          {/* Real-time connection indicator */}
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className="text-xs text-gray-400">
+              {isConnected ? 'Live' : 'Offline'}
+            </span>
+          </div>
         </div>
       </div>
     </motion.header>

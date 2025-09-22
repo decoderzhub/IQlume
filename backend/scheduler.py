@@ -176,6 +176,22 @@ class TradingScheduler:
             if strategy_id in self.active_jobs:
                 self.active_jobs[strategy_id]["last_execution"] = datetime.now(timezone.utc)
             
+            # Broadcast update to frontend (if SSE is connected)
+            try:
+                from main import broadcast_trading_update
+                await broadcast_trading_update(strategy.get("user_id"), {
+                    "type": "trade_executed",
+                    "strategy_id": strategy.get("id"),
+                    "strategy_name": strategy.get("name"),
+                    "action": result.get("action"),
+                    "symbol": result.get("symbol"),
+                    "quantity": result.get("quantity"),
+                    "price": result.get("price"),
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                })
+            except Exception as broadcast_error:
+                logger.error(f"Error broadcasting update: {broadcast_error}")
+            
             # Log result
             if result:
                 action = result.get("action", "unknown")
