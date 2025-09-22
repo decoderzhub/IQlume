@@ -12,7 +12,7 @@ from dependencies import (
     get_supabase_client,
     security,
 )
-from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse
+from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse, RiskLevel
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
