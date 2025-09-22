@@ -152,7 +152,7 @@ export function StrategiesView() {
   };
 
   const handleExecuteStrategy = async () => {
-    // Refresh strategies after execution
+    // Force refresh strategies after execution
     if (!user) return;
     
     try {
@@ -169,6 +169,7 @@ export function StrategiesView() {
         const data = await response.json();
         if (data.strategies && Array.isArray(data.strategies)) {
           setStrategies(data.strategies);
+          console.log('✅ Strategies refreshed after execution');
         }
       }
     } catch (error) {

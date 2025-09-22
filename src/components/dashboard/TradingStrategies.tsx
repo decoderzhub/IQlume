@@ -18,19 +18,27 @@ export function TradingStrategies() {
       if (!user) return;
       
       try {
-        const { data, error } = await supabase
-          .from('trading_strategies')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .limit(3)
-          .order('updated_at', { ascending: false });
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
 
-        if (error) {
-          console.error('Error loading strategies:', error);
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+        if (!response.ok) {
+          console.error('Error loading strategies:', response.status);
           setStrategies([]);
-        } else {
-          const transformedStrategies: TradingStrategy[] = data.map(strategy => ({
+          return;
+        }
+
+        const data = await response.json();
+        if (data.strategies && Array.isArray(data.strategies)) {
+          const activeStrategies = data.strategies
+            .filter((strategy: any) => strategy.is_active)
+            .slice(0, 3);
+            
+          const transformedStrategies: TradingStrategy[] = activeStrategies.map((strategy: any) => ({
             id: strategy.id,
             name: strategy.name,
             type: strategy.type,
@@ -45,6 +53,8 @@ export function TradingStrategies() {
           }));
           
           setStrategies(transformedStrategies);
+        } else {
+          setStrategies([]);
         }
       } catch (error) {
         console.error('Unexpected error loading strategies:', error);
@@ -55,6 +65,10 @@ export function TradingStrategies() {
     };
 
     fetchStrategies();
+    
+    // Refresh strategies every 30 seconds to pick up trade updates
+    const interval = setInterval(fetchStrategies, 30000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const getRiskColor = (level: TradingStrategy['risk_level']) => {

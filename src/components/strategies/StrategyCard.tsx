@@ -166,9 +166,13 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       
       alert(message);
       
+      // Force refresh of strategy data and trades
       if (onExecute) {
         await onExecute();
       }
+      
+      // Also trigger a page refresh to update trade counts
+      window.location.reload();
     } catch (error) {
       console.error('Error executing strategy:', error);
       alert(`Failed to execute strategy: ${error instanceof Error ? error.message : 'Unknown error'}`);
