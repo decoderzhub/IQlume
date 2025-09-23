@@ -143,7 +143,7 @@ class TradingScheduler:
         user_id = strategy["user_id"]
         
         try:
-            logger.info(f"🤖 Executing {strategy_name} ({strategy_type}) for user {user_id}")
+            logger.info(f"🤖 [SCHEDULER] Executing {strategy_name} ({strategy_type}) for user {user_id}")
             
             # Get user object (simplified - in production you'd cache this)
             class MockUser:
@@ -152,10 +152,14 @@ class TradingScheduler:
             
             user = MockUser(user_id)
             
+            logger.info(f"🔗 Getting trading clients for user {user_id}")
+            
             # Get clients
             trading_client = await get_alpaca_trading_client(user, self.supabase)
             stock_client = get_alpaca_stock_data_client()
             crypto_client = get_alpaca_crypto_data_client()
+            
+            logger.info(f"✅ Trading clients obtained successfully")
             
             # Execute strategy based on type
             result = None
@@ -180,6 +184,8 @@ class TradingScheduler:
                     "action": "hold",
                     "reason": f"Strategy type {strategy_type} not implemented for autonomous execution"
                 }
+            
+            logger.info(f"📊 [SCHEDULER] Strategy execution result: {result}")
             
             # Update strategy performance if trade was executed
             if result and result.get("action") in ["buy", "sell"]:
@@ -208,6 +214,7 @@ class TradingScheduler:
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 await publish(strategy.get("user_id"), update_data)
+                logger.info(f"📡 Broadcasted SSE update to user {user_id}")
             except Exception as broadcast_error:
                 logger.error(f"Error broadcasting update: {broadcast_error}")
             
@@ -215,18 +222,18 @@ class TradingScheduler:
             if result:
                 action = result.get("action", "unknown")
                 if action == "buy":
-                    logger.info(f"✅ {strategy_name}: BUY executed - {result.get('symbol', 'N/A')} x{result.get('quantity', 0)} @ ${result.get('price', 0):.2f}")
+                    logger.info(f"✅ [SCHEDULER] {strategy_name}: BUY executed - {result.get('symbol', 'N/A')} x{result.get('quantity', 0):.6f} @ ${result.get('price', 0):.2f}")
                 elif action == "sell":
-                    logger.info(f"✅ {strategy_name}: SELL executed - {result.get('symbol', 'N/A')} x{result.get('quantity', 0)} @ ${result.get('price', 0):.2f}")
+                    logger.info(f"✅ [SCHEDULER] {strategy_name}: SELL executed - {result.get('symbol', 'N/A')} x{result.get('quantity', 0):.6f} @ ${result.get('price', 0):.2f}")
                 elif action == "hold":
-                    logger.info(f"⏸️ {strategy_name}: HOLDING - {result.get('reason', 'No action needed')}")
+                    logger.info(f"⏸️ [SCHEDULER] {strategy_name}: HOLDING - {result.get('reason', 'No action needed')}")
                 elif action == "error":
-                    logger.error(f"❌ {strategy_name}: ERROR - {result.get('reason', 'Unknown error')}")
+                    logger.error(f"❌ [SCHEDULER] {strategy_name}: ERROR - {result.get('reason', 'Unknown error')}")
                 else:
-                    logger.info(f"ℹ️ {strategy_name}: {action.upper()} - {result.get('reason', 'No details')}")
+                    logger.info(f"ℹ️ [SCHEDULER] {strategy_name}: {action.upper()} - {result.get('reason', 'No details')}")
             
         except Exception as e:
-            logger.error(f"❌ Error executing strategy {strategy_name}: {e}")
+            logger.error(f"❌ [SCHEDULER] Error executing strategy {strategy_name}: {e}", exc_info=True)
     
     async def get_scheduler_status(self) -> Dict[str, Any]:
         """Get current scheduler status"""

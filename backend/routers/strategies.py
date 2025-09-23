@@ -100,6 +100,8 @@ async def save_trade_to_supabase(
 ) -> bool:
     """Save a trade to Supabase trades table"""
     try:
+        logger.info(f"💾 Saving trade to Supabase: {symbol} {trade_type} x{quantity:.6f} @ ${price:.2f}")
+        
         trade_data = {
             "user_id": user_id,
             "strategy_id": strategy_id,
@@ -120,7 +122,11 @@ async def save_trade_to_supabase(
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         
+        logger.info(f"📝 Trade data to insert: {trade_data}")
+        
         result = supabase.table("trades").insert(trade_data).execute()
+        
+        logger.info(f"📊 Supabase insert result: {result}")
         
         if result.data:
             logger.info(f"✅ Trade saved to database: {symbol} {trade_type} x{quantity} @ ${price:.2f}")
@@ -130,7 +136,7 @@ async def save_trade_to_supabase(
             return False
             
     except Exception as e:
-        logger.error(f"❌ Error saving trade to database: {e}")
+        logger.error(f"❌ Error saving trade to database: {e}", exc_info=True)
         return False
 
 @router.get("/")
@@ -313,6 +319,10 @@ async def execute_strategy(
                 "reason": f"Strategy type {strategy['type']} not implemented"
             }
         
+        # Log the execution result
+        if result:
+            logger.info(f"🤖 Strategy execution result for {strategy['name']}: {result}")
+        
         return {
             "message": "Strategy executed successfully",
             "result": result
@@ -339,6 +349,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
         # Get current price
         current_price = await get_current_price(symbol, stock_client, crypto_client)
         logger.info(f"💰 Current {symbol} price: ${current_price:.2f}")
+        logger.info(f"📊 Grid bounds: Lower=${lower_bound}, Upper=${upper_bound}")
         
         # Get current positions
         positions = trading_client.get_all_positions()
@@ -351,12 +362,19 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
         current_qty = float(current_position.qty) if current_position else 0
         logger.info(f"📊 Current {symbol} position: {current_qty}")
         
+        # Calculate position value for comparison
+        position_value = current_qty * current_price
+        max_position_value = allocated_capital * 0.8  # Don't use more than 80% of allocated capital
+        
         # Grid trading logic
         if current_price < lower_bound:
             # Price below grid - BUY
-            if current_qty < allocated_capital / current_price:  # Don't over-buy
+            if position_value < max_position_value:  # Don't over-buy
                 buy_amount = min(allocated_capital / number_of_grids, allocated_capital / 4)  # Buy 1/4 of capital max
                 quantity = buy_amount / current_price
+                
+                logger.info(f"🟢 BUY SIGNAL: Price ${current_price:.2f} < Lower bound ${lower_bound}")
+                logger.info(f"💵 Buy amount: ${buy_amount:.2f}, Quantity: {quantity:.6f}")
                 
                 # Submit buy order to Alpaca
                 order_request = MarketOrderRequest(
@@ -368,10 +386,10 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                 )
                 
                 order = trading_client.submit_order(order_request)
-                logger.info(f"📈 BUY order submitted: {symbol} x{quantity:.4f} @ ${current_price:.2f}")
+                logger.info(f"✅ BUY order submitted to Alpaca: {symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
                 
                 # Save trade to Supabase
-                await save_trade_to_supabase(
+                trade_saved = await save_trade_to_supabase(
                     user_id=strategy["user_id"],
                     strategy_id=strategy["id"],
                     alpaca_order_id=str(order.id),
@@ -384,6 +402,11 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     supabase=supabase
                 )
                 
+                if trade_saved:
+                    logger.info(f"✅ Trade saved to Supabase database")
+                else:
+                    logger.error(f"❌ Failed to save trade to Supabase database")
+                
                 return {
                     "action": "buy",
                     "symbol": symbol,
@@ -393,15 +416,19 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     "reason": f"Price ${current_price:.2f} below lower bound ${lower_bound}"
                 }
             else:
+                logger.info(f"⏸️ HOLD: Already holding maximum position (${position_value:.2f} >= ${max_position_value:.2f})")
                 return {
                     "action": "hold",
-                    "reason": f"Already holding maximum position for allocated capital"
+                    "reason": f"Already holding maximum position (${position_value:.2f} of ${max_position_value:.2f} max)"
                 }
                 
         elif current_price > upper_bound:
             # Price above grid - SELL
             if current_qty > 0:
                 sell_quantity = min(current_qty, current_qty / 4)  # Sell 1/4 of position max
+                
+                logger.info(f"🔴 SELL SIGNAL: Price ${current_price:.2f} > Upper bound ${upper_bound}")
+                logger.info(f"📦 Sell quantity: {sell_quantity:.6f} (from total {current_qty:.6f})")
                 
                 # Submit sell order to Alpaca
                 order_request = MarketOrderRequest(
@@ -413,10 +440,10 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                 )
                 
                 order = trading_client.submit_order(order_request)
-                logger.info(f"📉 SELL order submitted: {symbol} x{sell_quantity:.4f} @ ${current_price:.2f}")
+                logger.info(f"✅ SELL order submitted to Alpaca: {symbol} x{sell_quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
                 
                 # Save trade to Supabase
-                await save_trade_to_supabase(
+                trade_saved = await save_trade_to_supabase(
                     user_id=strategy["user_id"],
                     strategy_id=strategy["id"],
                     alpaca_order_id=str(order.id),
@@ -429,6 +456,11 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     supabase=supabase
                 )
                 
+                if trade_saved:
+                    logger.info(f"✅ Trade saved to Supabase database")
+                else:
+                    logger.error(f"❌ Failed to save trade to Supabase database")
+                
                 return {
                     "action": "sell",
                     "symbol": symbol,
@@ -438,12 +470,14 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     "reason": f"Price ${current_price:.2f} above upper bound ${upper_bound}"
                 }
             else:
+                logger.info(f"⏸️ HOLD: Price in sell zone but no {symbol} position to sell")
                 return {
                     "action": "hold",
                     "reason": f"Price ${current_price:.2f} in sell zone but no {symbol} position to sell"
                 }
         else:
             # Price within grid - HOLD
+            logger.info(f"⏸️ HOLD: Price ${current_price:.2f} within grid range ${lower_bound}-${upper_bound}")
             return {
                 "action": "hold",
                 "reason": f"Price ${current_price:.2f} within grid range ${lower_bound}-${upper_bound}"
