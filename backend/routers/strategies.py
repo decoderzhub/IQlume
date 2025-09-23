@@ -428,7 +428,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     symbol=order_symbol,
                     qty=quantity,
                     side=OrderSide.BUY,
-                    time_in_force=TimeInForce.DAY,
+                    time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
                     client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
                 )
                 
@@ -486,7 +486,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     symbol=order_symbol,
                     qty=sell_quantity,
                     side=OrderSide.SELL,
-                    time_in_force=TimeInForce.DAY,
+                    time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
                     client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
                 )
                 
@@ -539,7 +539,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     symbol=order_symbol,
                     qty=quantity,
                     side=OrderSide.BUY,
-                    time_in_force=TimeInForce.DAY,
+                    time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
                     client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
                 )
                 
@@ -612,7 +612,7 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
             symbol=symbol.upper(),
             qty=quantity,
             side=OrderSide.BUY,
-            time_in_force=TimeInForce.DAY,
+            time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
             client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
         )
         
