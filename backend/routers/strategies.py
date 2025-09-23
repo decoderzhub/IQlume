@@ -482,13 +482,23 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                 logger.info(f"📦 Sell quantity: {sell_quantity:.6f} (from total {current_qty:.6f})")
                 
                 # Submit sell order to Alpaca
-                order_request = MarketOrderRequest(
-                    symbol=order_symbol,
-                    qty=sell_quantity,
-                    side=OrderSide.SELL,
-                    time_in_force=TimeInForce.DAY,
-                    client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
-                )
+                # Use different time_in_force for crypto vs stocks
+                if is_crypto_symbol(symbol):
+                    order_request = MarketOrderRequest(
+                        symbol=order_symbol,
+                        qty=sell_quantity,
+                        side=OrderSide.SELL,
+                        time_in_force=TimeInForce.GTC,  # Good Till Canceled for crypto
+                        client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
+                    )
+                else:
+                    order_request = MarketOrderRequest(
+                        symbol=order_symbol,
+                        qty=sell_quantity,
+                        side=OrderSide.SELL,
+                        time_in_force=TimeInForce.DAY,
+                        client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
+                    )
                 
                 order = trading_client.submit_order(order_request)
                 logger.info(f"✅ SELL order submitted to Alpaca: {order_symbol} x{sell_quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
