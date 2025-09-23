@@ -5,6 +5,16 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   root: '.',
   plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:6853',
+        changeOrigin: true,
+        secure: false,
+        ws: true, // Enable WebSocket proxying for SSE
+      },
+    },
+  },
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
