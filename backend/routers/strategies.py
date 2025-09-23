@@ -1093,3 +1093,4 @@ async def delete_strategy(
     except Exception as e:
         logger.error(f"Error deleting strategy {strategy_id}: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to delete strategy: {str(e)}")
+      
