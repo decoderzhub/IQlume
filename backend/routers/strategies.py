@@ -224,6 +224,7 @@ async def get_current_price(symbol: str, stock_client: StockHistoricalDataClient
             return 200.0  # Fallback stock price
 
 async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> dict:
+async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient, supabase: Client) -> dict:
     """Execute spot grid trading strategy logic."""
     try:
         config = strategy.get("configuration", {})
@@ -293,6 +294,33 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                 order = trading_client.submit_order(order_request)
                 logger.info(f"✅ BUY order submitted successfully! Order ID: {order.id}")
                 
+                # Save trade to Supabase
+                try:
+                    trade_record = {
+                        "user_id": strategy["user_id"],
+                        "strategy_id": strategy["id"],
+                        "alpaca_order_id": str(order.id),
+                        "symbol": trading_symbol,
+                        "type": "buy",
+                        "quantity": float(quantity),
+                        "price": float(current_price),
+                        "profit_loss": 0.0,  # Will be calculated later when order fills
+                        "status": "pending",
+                        "order_type": "market",
+                        "time_in_force": "day",
+                        "filled_qty": 0.0,
+                        "filled_avg_price": 0.0,
+                        "commission": 0.0,
+                        "fees": 0.0,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    
+                    supabase.table("trades").insert(trade_record).execute()
+                    logger.info(f"💾 Trade saved to database: BUY {quantity} {trading_symbol} @ ${current_price}")
+                except Exception as db_error:
+                    logger.error(f"❌ Failed to save trade to database: {db_error}")
+                
                 return {
                     "action": "buy",
                     "symbol": trading_symbol,
@@ -360,6 +388,33 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                         order = trading_client.submit_order(order_request)
                         logger.info(f"✅ SELL order submitted successfully! Order ID: {order.id}")
                         
+                        # Save trade to Supabase
+                        try:
+                            trade_record = {
+                                "user_id": strategy["user_id"],
+                                "strategy_id": strategy["id"],
+                                "alpaca_order_id": str(order.id),
+                                "symbol": trading_symbol,
+                                "type": "sell",
+                                "quantity": float(quantity),
+                                "price": float(current_price),
+                                "profit_loss": 0.0,  # Will be calculated later when order fills
+                                "status": "pending",
+                                "order_type": "market",
+                                "time_in_force": "day",
+                                "filled_qty": 0.0,
+                                "filled_avg_price": 0.0,
+                                "commission": 0.0,
+                                "fees": 0.0,
+                                "created_at": datetime.now(timezone.utc).isoformat(),
+                                "updated_at": datetime.now(timezone.utc).isoformat(),
+                            }
+                            
+                            supabase.table("trades").insert(trade_record).execute()
+                            logger.info(f"💾 Trade saved to database: SELL {quantity} {trading_symbol} @ ${current_price}")
+                        except Exception as db_error:
+                            logger.error(f"❌ Failed to save trade to database: {db_error}")
+                        
                         return {
                             "action": "sell",
                             "symbol": trading_symbol,
@@ -407,7 +462,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
             "reason": f"Strategy execution failed: {str(e)}"
         }
 
-async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> dict:
+async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient, supabase: Client) -> dict:
     """Execute DCA (Dollar Cost Averaging) strategy logic."""
     try:
         config = strategy.get("configuration", {})
@@ -456,6 +511,33 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
             order = trading_client.submit_order(order_request)
             logger.info(f"✅ DCA BUY order submitted successfully! Order ID: {order.id}")
             
+            # Save trade to Supabase
+            try:
+                trade_record = {
+                    "user_id": strategy["user_id"],
+                    "strategy_id": strategy["id"],
+                    "alpaca_order_id": str(order.id),
+                    "symbol": trading_symbol,
+                    "type": "buy",
+                    "quantity": float(quantity),
+                    "price": float(current_price),
+                    "profit_loss": 0.0,  # Will be calculated later when order fills
+                    "status": "pending",
+                    "order_type": "market",
+                    "time_in_force": "day",
+                    "filled_qty": 0.0,
+                    "filled_avg_price": 0.0,
+                    "commission": 0.0,
+                    "fees": 0.0,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+                
+                supabase.table("trades").insert(trade_record).execute()
+                logger.info(f"💾 DCA trade saved to database: BUY {quantity} {trading_symbol} @ ${current_price}")
+            except Exception as db_error:
+                logger.error(f"❌ Failed to save DCA trade to database: {db_error}")
+            
             return {
                 "action": "buy",
                 "symbol": trading_symbol,
@@ -481,7 +563,7 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
             "reason": f"DCA strategy execution failed: {str(e)}"
         }
 
-async def execute_covered_calls_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> dict:
+async def execute_covered_calls_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient, supabase: Client) -> dict:
     """Execute covered calls strategy logic."""
     try:
         config = strategy.get("configuration", {})
@@ -557,7 +639,7 @@ async def execute_covered_calls_strategy(strategy: dict, trading_client: Trading
             "reason": f"Covered calls strategy execution failed: {str(e)}"
         }
 
-async def execute_wheel_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> dict:
+async def execute_wheel_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient, supabase: Client) -> dict:
     """Execute wheel strategy logic."""
     try:
         config = strategy.get("configuration", {})
@@ -621,7 +703,7 @@ async def execute_wheel_strategy(strategy: dict, trading_client: TradingClient, 
             "reason": f"Wheel strategy execution failed: {str(e)}"
         }
 
-async def execute_smart_rebalance_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> dict:
+async def execute_smart_rebalance_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient, supabase: Client) -> dict:
     """Execute smart rebalance strategy logic."""
     try:
         config = strategy.get("configuration", {})
@@ -741,15 +823,15 @@ async def execute_strategy(
         
         # Execute strategy based on type
         if strategy["type"] == "spot_grid":
-            result = await execute_spot_grid_strategy(strategy, trading_client, stock_client, crypto_client)
+            result = await execute_spot_grid_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
         elif strategy["type"] == "dca":
-            result = await execute_dca_strategy(strategy, trading_client, stock_client, crypto_client)
+            result = await execute_dca_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
         elif strategy["type"] == "covered_calls":
-            result = await execute_covered_calls_strategy(strategy, trading_client, stock_client, crypto_client)
+            result = await execute_covered_calls_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
         elif strategy["type"] == "wheel":
-            result = await execute_wheel_strategy(strategy, trading_client, stock_client, crypto_client)
+            result = await execute_wheel_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
         elif strategy["type"] == "smart_rebalance":
-            result = await execute_smart_rebalance_strategy(strategy, trading_client, stock_client, crypto_client)
+            result = await execute_smart_rebalance_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
         else:
             logger.warning(f"⚠️ Strategy type {strategy['type']} not implemented for execution")
             return {
@@ -761,7 +843,7 @@ async def execute_strategy(
             }
         
         # Update strategy performance after successful execution
-        if result.get("action") in ["buy", "sell"]:
+        if result and result.get("action") in ["buy", "sell"]:
             try:
                 await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), supabase, trading_client)
                 logger.info(f"📊 Updated performance for strategy {strategy.get('name')}")

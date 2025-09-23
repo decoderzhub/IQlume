@@ -161,19 +161,19 @@ class TradingScheduler:
             result = None
             if strategy_type == "spot_grid":
                 from routers.strategies import execute_spot_grid_strategy
-                result = await execute_spot_grid_strategy(strategy, trading_client, stock_client, crypto_client)
+                result = await execute_spot_grid_strategy(strategy, trading_client, stock_client, crypto_client, self.supabase)
             elif strategy_type == "dca":
                 from routers.strategies import execute_dca_strategy
-                result = await execute_dca_strategy(strategy, trading_client, stock_client, crypto_client)
+                result = await execute_dca_strategy(strategy, trading_client, stock_client, crypto_client, self.supabase)
             elif strategy_type == "covered_calls":
                 from routers.strategies import execute_covered_calls_strategy
-                result = await execute_covered_calls_strategy(strategy, trading_client, stock_client, crypto_client)
+                result = await execute_covered_calls_strategy(strategy, trading_client, stock_client, crypto_client, self.supabase)
             elif strategy_type == "wheel":
                 from routers.strategies import execute_wheel_strategy
-                result = await execute_wheel_strategy(strategy, trading_client, stock_client, crypto_client)
+                result = await execute_wheel_strategy(strategy, trading_client, stock_client, crypto_client, self.supabase)
             elif strategy_type == "smart_rebalance":
                 from routers.strategies import execute_smart_rebalance_strategy
-                result = await execute_smart_rebalance_strategy(strategy, trading_client, stock_client, crypto_client)
+                result = await execute_smart_rebalance_strategy(strategy, trading_client, stock_client, crypto_client, self.supabase)
             else:
                 logger.warning(f"⚠️ Strategy type {strategy_type} not implemented for autonomous execution")
                 result = {
