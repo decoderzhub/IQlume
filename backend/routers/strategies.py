@@ -221,6 +221,7 @@ async def get_strategies(
         raise HTTPException(status_code=500, detail=f"Failed to fetch strategies: {str(e)}")
 
 @router.post("/")
+@router.post("")
 async def create_strategy(
     strategy_data: TradingStrategyCreate,
     credentials: HTTPAuthorizationCredentials = Depends(security),
