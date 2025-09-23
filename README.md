@@ -65,10 +65,11 @@ npm install
 # Copy environment file
 cp .env.example .env
 
-# Add your Supabase and Stripe keys to .env
+# Add your configuration to .env
 # VITE_SUPABASE_URL=your_supabase_url
 # VITE_SUPABASE_ANON_KEY=your_anon_key
 # VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_key
+# VITE_API_BASE_URL=http://localhost:6853
 
 # Start development server
 npm run dev
