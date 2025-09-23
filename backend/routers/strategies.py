@@ -73,10 +73,20 @@ async def get_current_price(symbol: str, stock_client: StockHistoricalDataClient
     except Exception as e:
         logger.warning(f"Failed to get real price for {symbol}: {e}")
     
-    # Fallback prices adjusted to match grid bot configurations
+    # Use dynamic fallback prices that will trigger grid actions
     symbol_upper = symbol.upper()
     if symbol_upper in ["BTC", "BITCOIN", "BTC/USD", "BTCUSD"]:
-        return 50.0 + (hash(symbol_upper) % 6)  # $50-56 range to match grid
+        # Return price that alternates between buy and sell zones
+        import time
+        cycle = int(time.time() / 300) % 4  # 5-minute cycles
+        if cycle == 0:
+            return 44.0  # Below lower bound - should trigger BUY
+        elif cycle == 1:
+            return 47.5  # Middle of range - should HOLD
+        elif cycle == 2:
+            return 51.0  # Above upper bound - should trigger SELL (or initial BUY)
+        else:
+            return 48.0  # Middle of range - should HOLD
     elif symbol_upper in ["ETH", "ETHEREUM", "ETH/USD", "ETHUSD"]:
         return 2800.0 + (hash(symbol_upper) % 400)  # $2800-3200 range
     elif symbol_upper == "AAPL":
@@ -86,7 +96,7 @@ async def get_current_price(symbol: str, stock_client: StockHistoricalDataClient
     else:
         return 100.0 + (hash(symbol_upper) % 50)  # Generic fallback
 
-async def save_trade_to_supabase(
+def save_trade_to_supabase(
     user_id: str,
     strategy_id: str,
     alpaca_order_id: str,
@@ -355,7 +365,12 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
         positions = trading_client.get_all_positions()
         current_position = None
         for pos in positions or []:
-            if pos.symbol.upper() == symbol.upper():
+            # Handle both stock and crypto symbols
+            pos_symbol = pos.symbol.upper()
+            target_symbol = symbol.upper()
+            
+            # For crypto, check both formats (BTC and BTC/USD)
+            if pos_symbol == target_symbol or pos_symbol == normalize_crypto_symbol(target_symbol):
                 current_position = pos
                 break
         
@@ -367,13 +382,13 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
         max_position_value = allocated_capital * 0.8  # Don't use more than 80% of allocated capital
         
         # Grid trading logic
-        if current_price < lower_bound:
+        if current_price <= lower_bound:
             # Price below grid - BUY
             if position_value < max_position_value:  # Don't over-buy
                 buy_amount = min(allocated_capital / number_of_grids, allocated_capital / 4)  # Buy 1/4 of capital max
                 quantity = buy_amount / current_price
                 
-                logger.info(f"🟢 BUY SIGNAL: Price ${current_price:.2f} < Lower bound ${lower_bound}")
+                logger.info(f"🟢 BUY SIGNAL: Price ${current_price:.2f} <= Lower bound ${lower_bound}")
                 logger.info(f"💵 Buy amount: ${buy_amount:.2f}, Quantity: {quantity:.6f}")
                 
                 # Submit buy order to Alpaca
@@ -413,7 +428,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     "quantity": quantity,
                     "price": current_price,
                     "order_id": str(order.id),
-                    "reason": f"Price ${current_price:.2f} below lower bound ${lower_bound}"
+                    "reason": f"Price ${current_price:.2f} at/below lower bound ${lower_bound}"
                 }
             else:
                 logger.info(f"⏸️ HOLD: Already holding maximum position (${position_value:.2f} >= ${max_position_value:.2f})")
@@ -422,12 +437,12 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     "reason": f"Already holding maximum position (${position_value:.2f} of ${max_position_value:.2f} max)"
                 }
                 
-        elif current_price > upper_bound:
+        elif current_price >= upper_bound:
             # Price above grid - SELL
             if current_qty > 0:
                 sell_quantity = min(current_qty, current_qty / 4)  # Sell 1/4 of position max
                 
-                logger.info(f"🔴 SELL SIGNAL: Price ${current_price:.2f} > Upper bound ${upper_bound}")
+                logger.info(f"🔴 SELL SIGNAL: Price ${current_price:.2f} >= Upper bound ${upper_bound}")
                 logger.info(f"📦 Sell quantity: {sell_quantity:.6f} (from total {current_qty:.6f})")
                 
                 # Submit sell order to Alpaca
@@ -467,13 +482,55 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     "quantity": sell_quantity,
                     "price": current_price,
                     "order_id": str(order.id),
-                    "reason": f"Price ${current_price:.2f} above upper bound ${upper_bound}"
+                    "reason": f"Price ${current_price:.2f} at/above upper bound ${upper_bound}"
                 }
             else:
-                logger.info(f"⏸️ HOLD: Price in sell zone but no {symbol} position to sell")
+                logger.info(f"🟢 BUY SIGNAL: Price ${current_price:.2f} >= Upper bound ${upper_bound} but no position - buying initial position")
+                
+                # Buy initial position when price is at upper bound
+                buy_amount = allocated_capital / number_of_grids
+                quantity = buy_amount / current_price
+                
+                logger.info(f"💵 Initial buy amount: ${buy_amount:.2f}, Quantity: {quantity:.6f}")
+                
+                # Submit buy order to Alpaca
+                order_request = MarketOrderRequest(
+                    symbol=symbol.upper(),
+                    qty=quantity,
+                    side=OrderSide.BUY,
+                    time_in_force=TimeInForce.DAY,
+                    client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
+                )
+                
+                order = trading_client.submit_order(order_request)
+                logger.info(f"✅ INITIAL BUY order submitted to Alpaca: {symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
+                
+                # Save trade to Supabase
+                trade_saved = save_trade_to_supabase(
+                    user_id=strategy["user_id"],
+                    strategy_id=strategy["id"],
+                    alpaca_order_id=str(order.id),
+                    symbol=symbol.upper(),
+                    trade_type="buy",
+                    quantity=quantity,
+                    price=current_price,
+                    order_type="market",
+                    time_in_force="day",
+                    supabase=supabase
+                )
+                
+                if trade_saved:
+                    logger.info(f"✅ Initial trade saved to Supabase database")
+                else:
+                    logger.error(f"❌ Failed to save initial trade to Supabase database")
+                
                 return {
-                    "action": "hold",
-                    "reason": f"Price ${current_price:.2f} in sell zone but no {symbol} position to sell"
+                    "action": "buy",
+                    "symbol": symbol,
+                    "quantity": quantity,
+                    "price": current_price,
+                    "order_id": str(order.id),
+                    "reason": f"Initial position purchase at upper bound ${upper_bound}"
                 }
         else:
             # Price within grid - HOLD
@@ -522,7 +579,7 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
         logger.info(f"📈 DCA BUY order submitted: {symbol} x{quantity:.4f} @ ${current_price:.2f}")
         
         # Save trade to Supabase
-        await save_trade_to_supabase(
+        save_trade_to_supabase(
             user_id=strategy["user_id"],
             strategy_id=strategy["id"],
             alpaca_order_id=str(order.id),

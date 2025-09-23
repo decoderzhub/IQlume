@@ -55,6 +55,11 @@ async def startup_event():
         from trade_sync import trade_sync_service
         asyncio.create_task(trade_sync_service.start())
         logger.info("🔄 Trade sync service started")
+        
+        # Log scheduler status
+        status = await trading_scheduler.get_scheduler_status()
+        logger.info(f"📊 Scheduler status: {status['active_strategies']} active strategies, {status['total_jobs']} total jobs")
+        
     except Exception as e:
         logger.error(f"❌ Failed to start services: {e}")
 
