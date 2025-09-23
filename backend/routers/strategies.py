@@ -765,6 +765,15 @@ async def execute_strategy(
             try:
                 await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), supabase, trading_client)
                 logger.info(f"📊 Updated performance for strategy {strategy.get('name')}")
+                
+                # Broadcast strategy update to frontend
+                from sse_manager import publish
+                await publish(strategy.get("user_id"), {
+                    "type": "strategy_updated",
+                    "strategy_id": strategy.get("id"),
+                    "strategy_name": strategy.get("name"),
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                })
             except Exception as perf_error:
                 logger.error(f"❌ Failed to update strategy performance: {perf_error}")
         

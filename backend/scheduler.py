@@ -196,7 +196,7 @@ class TradingScheduler:
             
             # Broadcast update to frontend (if SSE is connected)
             try:
-                from main import broadcast_trading_update
+                from sse_manager import publish
                 update_data = {
                     "type": "trade_executed",
                     "strategy_id": strategy.get("id"),
@@ -207,7 +207,7 @@ class TradingScheduler:
                     "price": result.get("price", 0),
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
-                await broadcast_trading_update(strategy.get("user_id"), update_data)
+                await publish(strategy.get("user_id"), update_data)
             except Exception as broadcast_error:
                 logger.error(f"Error broadcasting update: {broadcast_error}")
             
