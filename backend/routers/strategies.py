@@ -482,23 +482,13 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                 logger.info(f"📦 Sell quantity: {sell_quantity:.6f} (from total {current_qty:.6f})")
                 
                 # Submit sell order to Alpaca
-                # Use different time_in_force for crypto vs stocks
-                if is_crypto_symbol(symbol):
-                    order_request = MarketOrderRequest(
-                        symbol=order_symbol,
-                        qty=sell_quantity,
-                        side=OrderSide.SELL,
-                        time_in_force=TimeInForce.GTC,  # Good Till Canceled for crypto
-                        client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
-                    )
-                else:
-                    order_request = MarketOrderRequest(
-                        symbol=order_symbol,
-                        qty=sell_quantity,
-                        side=OrderSide.SELL,
-                        time_in_force=TimeInForce.DAY,
-                        client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
-                    )
+                order_request = MarketOrderRequest(
+                    symbol=order_symbol,
+                    qty=sell_quantity,
+                    side=OrderSide.SELL,
+                    time_in_force=TimeInForce.DAY,
+                    client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
+                )
                 
                 order = trading_client.submit_order(order_request)
                 logger.info(f"✅ SELL order submitted to Alpaca: {order_symbol} x{sell_quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
@@ -630,16 +620,16 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
         logger.info(f"📈 DCA BUY order submitted: {symbol} x{quantity:.4f} @ ${current_price:.2f}")
         
         # Save trade to Supabase
-        save_trade_to_supabase(
+        trade_saved = save_trade_to_supabase(
             user_id=strategy["user_id"],
             strategy_id=strategy["id"],
             alpaca_order_id=str(order.id),
-            symbol=symbol.upper(),
+            symbol=order_symbol,
             trade_type="buy",
             quantity=quantity,
             price=current_price,
             order_type="market",
-            time_in_force="day",
+            time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
             supabase=supabase
         )
         
