@@ -22,7 +22,6 @@ import { OptionsBellCurve } from './OptionsBellCurve';
 import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
-import { supabase } from '../../lib/supabase';
 
 interface TradableAsset {
   symbol: string;
