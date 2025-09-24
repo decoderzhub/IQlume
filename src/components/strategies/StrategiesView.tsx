@@ -228,7 +228,7 @@ export function StrategiesView() {
 
       console.log('Sending strategy payload to API:', strategyPayload);
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
