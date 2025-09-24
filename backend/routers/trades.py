@@ -105,92 +105,64 @@ async def get_trades(
 ):
     """Get user's trade history"""
     try:
-        trading_client = await get_alpaca_trading_client(current_user, supabase)
-        # Convert YYYY-MM-DD to UTC-aware datetimes (RFC3339)
-        start_dt = None
-        end_dt = None
-
+        logger.info(f"📋 Fetching trades from Supabase for user {current_user.id}")
+        
+        # Build Supabase query
+        query = supabase.table("trades").select("*").eq("user_id", current_user.id)
+        
+        # Apply date filters
         if start_date:
-            # start of day UTC
             start_dt = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+            query = query.gte("created_at", start_dt.isoformat())
         if end_date:
-            # end of day UTC (23:59:59.999999)
-            end_dt = (
-                datetime.fromisoformat(end_date)
-                .replace(tzinfo=timezone.utc, hour=23, minute=59, second=59, microsecond=999999)
-            )
-
-        req_kwargs: Dict[str, Any] = {"status": QueryOrderStatus.ALL, "limit": limit}
-        if start_dt:
-            req_kwargs["after"] = start_dt
-        if end_dt:
-            req_kwargs["until"] = end_dt
-
-        orders_request = GetOrdersRequest(**req_kwargs)
-        orders = trading_client.get_orders(orders_request)
-
-        logger.info(f"📋 Found {len(orders or [])} orders from Alpaca")
-
+            end_dt = datetime.fromisoformat(end_date).replace(tzinfo=timezone.utc, hour=23, minute=59, second=59)
+            query = query.lte("created_at", end_dt.isoformat())
+        
+        # Apply limit and order
+        query = query.order("created_at", desc=True).limit(limit)
+        
+        resp = query.execute()
+        trades_data = resp.data or []
+        
+        logger.info(f"📋 Found {len(trades_data)} trades in Supabase for user {current_user.id}")
+        
+        # Transform Supabase data to API format
         trades: List[Dict[str, Any]] = []
         total_profit_loss = 0.0
         executed_trades = 0
         winning_trades = 0
-
-        for order in orders or []:
-            # Calculate P&L based on order data
-            profit_loss = 0.0
-            if getattr(order, "filled_qty", None) and getattr(order, "filled_avg_price", None):
-                filled_qty = float(order.filled_qty)
-                filled_price = float(order.filled_avg_price)
-                order_value = filled_qty * filled_price
-                
-                # For demo purposes, calculate simple P&L
-                # In production, you'd track cost basis and calculate actual P&L
-                if order.side == OrderSide.SELL:
-                    profit_loss = order_value * 0.02  # Assume 2% profit on sells
-                elif order.side == OrderSide.BUY:
-                    profit_loss = 0  # No immediate P&L on buys
-
-            if order.status == OrderStatus.FILLED:
+        
+        for trade_data in trades_data:
+            trade = {
+                "id": trade_data["id"],
+                "strategy_id": trade_data.get("strategy_id", "manual"),
+                "symbol": trade_data["symbol"],
+                "type": trade_data["type"],
+                "quantity": float(trade_data["quantity"]),
+                "price": float(trade_data["price"]),
+                "timestamp": trade_data["created_at"],
+                "profit_loss": float(trade_data.get("profit_loss", 0)),
+                "status": trade_data["status"],
+                "order_type": trade_data.get("order_type", "market"),
+                "time_in_force": trade_data.get("time_in_force", "day"),
+                "filled_qty": float(trade_data.get("filled_qty", 0)),
+                "filled_avg_price": float(trade_data.get("filled_avg_price", 0)),
+                "commission": float(trade_data.get("commission", 0)),
+                "fees": float(trade_data.get("fees", 0)),
+                "alpaca_order_id": trade_data.get("alpaca_order_id"),
+            }
+            
+            trades.append(trade)
+            
+            # Calculate stats
+            if trade["status"] == "executed":
                 executed_trades += 1
-                total_profit_loss += profit_loss
-                if profit_loss > 0:
+                total_profit_loss += trade["profit_loss"]
+                if trade["profit_loss"] > 0:
                     winning_trades += 1
-
-            # Extract strategy ID from client_order_id if present
-            strategy_id = "manual"
-            if hasattr(order, 'client_order_id') and order.client_order_id:
-                client_id = str(order.client_order_id)
-                if '-' in client_id:
-                    strategy_id = client_id.split('-')[0]
-
-            trades.append(
-                {
-                    "id": str(order.id),
-                    "strategy_id": strategy_id,
-                    "symbol": order.symbol,
-                    "type": (order.side.value.lower() if hasattr(order.side, "value") else str(order.side).lower()),
-                    "quantity": float(getattr(order, "qty", 0) or 0),
-                    "price": float(getattr(order, "filled_avg_price", 0) or getattr(order, "limit_price", 0) or getattr(order, "stop_price", 0) or 0),
-                    "timestamp": (
-                        order.created_at.isoformat()
-                        if getattr(order, "created_at", None)
-                        else datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
-                    ),
-                    "profit_loss": profit_loss,
-                    "status": (
-                        "executed"
-                        if order.status == OrderStatus.FILLED
-                        else "pending"
-                        if order.status in {OrderStatus.NEW, OrderStatus.PARTIALLY_FILLED, OrderStatus.ACCEPTED}
-                        else "failed"
-                    ),
-                    "order_type": str(getattr(order, "order_type", "market")).lower(),
-                    "time_in_force": str(getattr(order, "time_in_force", "day")).lower(),
-                }
-            )
-
+        
         win_rate = (winning_trades / executed_trades) if executed_trades > 0 else 0.0
+        
         stats = {
             "total_trades": len(trades),
             "executed_trades": executed_trades,
@@ -200,18 +172,10 @@ async def get_trades(
             "win_rate": win_rate,
             "avg_trade_duration": 1.0,  # Would calculate from actual trade data
         }
-
-        logger.info(f"📊 Trade stats: {executed_trades} executed, {win_rate:.1%} win rate, ${total_profit_loss:.2f} P&L")
+        
+        logger.info(f"📊 Trade stats from Supabase: {executed_trades} executed, {win_rate:.1%} win rate, ${total_profit_loss:.2f} P&L")
         return {"trades": trades, "stats": stats}
 
-    except AlpacaAPIError as e:
-        if "403" in str(e):
-            raise HTTPException(
-                status_code=403,
-                detail="Alpaca Trading API denied. Check your API key permissions.",
-            )
-        logger.error("Alpaca API error for trades", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to fetch trades: {str(e)}")
     except Exception as e:
         logger.error("Error fetching trades", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch trades: {str(e)}")

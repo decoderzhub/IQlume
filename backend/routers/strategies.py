@@ -511,23 +511,117 @@ async def execute_spot_grid_strategy(strategy, trading_client, stock_client, cry
         if current_price < price_range_lower:
             # Price below range - BUY
             buy_quantity = allocated_capital * 0.05 / current_price  # 5% of capital
-            return {
-                "action": "buy",
-                "symbol": symbol,
-                "quantity": buy_quantity,
-                "price": current_price,
-                "reason": f"Price ${current_price:.2f} below grid range, buying"
-            }
+            
+            # Submit order to Alpaca
+            try:
+                # Convert crypto symbol for Alpaca if needed
+                alpaca_symbol = symbol.replace("/", "") if "/" in symbol else symbol
+                
+                order_request = MarketOrderRequest(
+                    symbol=alpaca_symbol,
+                    qty=buy_quantity,
+                    side=OrderSide.BUY,
+                    time_in_force=TimeInForce.DAY,
+                    client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
+                )
+                
+                order = trading_client.submit_order(order_request)
+                alpaca_order_id = str(order.id)
+                
+                # Record trade in Supabase
+                trade_record = {
+                    "user_id": strategy["user_id"],
+                    "strategy_id": strategy["id"],
+                    "alpaca_order_id": alpaca_order_id,
+                    "symbol": symbol,
+                    "type": "buy",
+                    "quantity": buy_quantity,
+                    "price": current_price,
+                    "status": "pending",
+                    "order_type": "market",
+                    "time_in_force": "day",
+                    "filled_qty": 0,
+                    "filled_avg_price": 0,
+                    "commission": 0,
+                    "fees": 0,
+                }
+                
+                supabase.table("trades").insert(trade_record).execute()
+                logger.info(f"✅ [GRID] BUY order submitted and recorded: {alpaca_order_id}")
+                
+                return {
+                    "action": "buy",
+                    "symbol": symbol,
+                    "quantity": buy_quantity,
+                    "price": current_price,
+                    "alpaca_order_id": alpaca_order_id,
+                    "reason": f"Price ${current_price:.2f} below grid range, buying"
+                }
+                
+            except AlpacaAPIError as e:
+                logger.error(f"❌ [GRID] Failed to submit BUY order: {e}")
+                return {
+                    "action": "error",
+                    "reason": f"Failed to submit buy order: {str(e)}"
+                }
+                
         elif current_price > price_range_upper:
             # Price above range - SELL
             sell_quantity = allocated_capital * 0.05 / current_price  # 5% of capital
-            return {
-                "action": "sell",
-                "symbol": symbol,
-                "quantity": sell_quantity,
-                "price": current_price,
-                "reason": f"Price ${current_price:.2f} above grid range, selling"
-            }
+            
+            # Submit order to Alpaca
+            try:
+                # Convert crypto symbol for Alpaca if needed
+                alpaca_symbol = symbol.replace("/", "") if "/" in symbol else symbol
+                
+                order_request = MarketOrderRequest(
+                    symbol=alpaca_symbol,
+                    qty=sell_quantity,
+                    side=OrderSide.SELL,
+                    time_in_force=TimeInForce.DAY,
+                    client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
+                )
+                
+                order = trading_client.submit_order(order_request)
+                alpaca_order_id = str(order.id)
+                
+                # Record trade in Supabase
+                trade_record = {
+                    "user_id": strategy["user_id"],
+                    "strategy_id": strategy["id"],
+                    "alpaca_order_id": alpaca_order_id,
+                    "symbol": symbol,
+                    "type": "sell",
+                    "quantity": sell_quantity,
+                    "price": current_price,
+                    "status": "pending",
+                    "order_type": "market",
+                    "time_in_force": "day",
+                    "filled_qty": 0,
+                    "filled_avg_price": 0,
+                    "commission": 0,
+                    "fees": 0,
+                }
+                
+                supabase.table("trades").insert(trade_record).execute()
+                logger.info(f"✅ [GRID] SELL order submitted and recorded: {alpaca_order_id}")
+                
+                return {
+                    "action": "sell",
+                    "symbol": symbol,
+                    "quantity": sell_quantity,
+                    "price": current_price,
+                    "alpaca_order_id": alpaca_order_id,
+                    "reason": f"Price ${current_price:.2f} above grid range, selling"
+                }
+                
+            except AlpacaAPIError as e:
+                logger.error(f"❌ [GRID] Failed to submit SELL order: {e}")
+                return {
+                    "action": "error",
+                    "reason": f"Failed to submit sell order: {str(e)}"
+                }
+                
         else:
             # Price in range - HOLD
             return {
@@ -568,13 +662,58 @@ async def execute_dca_strategy(strategy, trading_client, stock_client, crypto_cl
         # DCA always buys
         buy_quantity = investment_amount / current_price
         
-        return {
-            "action": "buy",
-            "symbol": symbol,
-            "quantity": buy_quantity,
-            "price": current_price,
-            "reason": f"DCA purchase of ${investment_amount}"
-        }
+        # Submit order to Alpaca
+        try:
+            # Convert crypto symbol for Alpaca if needed
+            alpaca_symbol = symbol.replace("/", "") if "/" in symbol else symbol
+            
+            order_request = MarketOrderRequest(
+                symbol=alpaca_symbol,
+                qty=buy_quantity,
+                side=OrderSide.BUY,
+                time_in_force=TimeInForce.DAY,
+                client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
+            )
+            
+            order = trading_client.submit_order(order_request)
+            alpaca_order_id = str(order.id)
+            
+            # Record trade in Supabase
+            trade_record = {
+                "user_id": strategy["user_id"],
+                "strategy_id": strategy["id"],
+                "alpaca_order_id": alpaca_order_id,
+                "symbol": symbol,
+                "type": "buy",
+                "quantity": buy_quantity,
+                "price": current_price,
+                "status": "pending",
+                "order_type": "market",
+                "time_in_force": "day",
+                "filled_qty": 0,
+                "filled_avg_price": 0,
+                "commission": 0,
+                "fees": 0,
+            }
+            
+            supabase.table("trades").insert(trade_record).execute()
+            logger.info(f"✅ [DCA] BUY order submitted and recorded: {alpaca_order_id}")
+            
+            return {
+                "action": "buy",
+                "symbol": symbol,
+                "quantity": buy_quantity,
+                "price": current_price,
+                "alpaca_order_id": alpaca_order_id,
+                "reason": f"DCA purchase of ${investment_amount}"
+            }
+            
+        except AlpacaAPIError as e:
+            logger.error(f"❌ [DCA] Failed to submit BUY order: {e}")
+            return {
+                "action": "error",
+                "reason": f"Failed to submit buy order: {str(e)}"
+            }
         
     except Exception as e:
         logger.error(f"Error in DCA strategy: {e}")
@@ -591,12 +730,37 @@ async def execute_covered_calls_strategy(strategy, trading_client, stock_client,
         
         logger.info(f"🤖 [COVERED_CALLS] Executing covered calls for {symbol}")
         
-        # For demo purposes, simulate selling a call option
+        # For demo purposes, simulate selling a call option (no actual Alpaca order)
+        mock_alpaca_order_id = f"mock_cc_{uuid4().hex[:8]}"
+        premium_received = 250  # Mock premium
+        
+        # Record trade in Supabase
+        trade_record = {
+            "user_id": strategy["user_id"],
+            "strategy_id": strategy["id"],
+            "alpaca_order_id": mock_alpaca_order_id,
+            "symbol": f"{symbol}_CALL",
+            "type": "sell",
+            "quantity": 1,  # 1 contract = 100 shares
+            "price": premium_received,
+            "status": "executed",  # Mock as executed for demo
+            "order_type": "market",
+            "time_in_force": "day",
+            "filled_qty": 1,
+            "filled_avg_price": premium_received,
+            "commission": 0.65,  # Typical options commission
+            "fees": 0,
+        }
+        
+        supabase.table("trades").insert(trade_record).execute()
+        logger.info(f"✅ [COVERED_CALLS] Mock option trade recorded: {mock_alpaca_order_id}")
+        
         return {
             "action": "sell",
             "symbol": f"{symbol}_CALL",
-            "quantity": 1,  # 1 contract = 100 shares
-            "price": 250,   # Premium received
+            "quantity": 1,
+            "price": premium_received,
+            "alpaca_order_id": mock_alpaca_order_id,
             "reason": f"Sold covered call on {position_size} shares of {symbol}"
         }
         
@@ -614,12 +778,37 @@ async def execute_wheel_strategy(strategy, trading_client, stock_client, crypto_
         
         logger.info(f"🤖 [WHEEL] Executing wheel strategy for {symbol}")
         
-        # For demo purposes, simulate selling a cash-secured put
+        # For demo purposes, simulate selling a cash-secured put (no actual Alpaca order)
+        mock_alpaca_order_id = f"mock_wheel_{uuid4().hex[:8]}"
+        premium_received = 180  # Mock premium
+        
+        # Record trade in Supabase
+        trade_record = {
+            "user_id": strategy["user_id"],
+            "strategy_id": strategy["id"],
+            "alpaca_order_id": mock_alpaca_order_id,
+            "symbol": f"{symbol}_PUT",
+            "type": "sell",
+            "quantity": 1,  # 1 contract = 100 shares
+            "price": premium_received,
+            "status": "executed",  # Mock as executed for demo
+            "order_type": "market",
+            "time_in_force": "day",
+            "filled_qty": 1,
+            "filled_avg_price": premium_received,
+            "commission": 0.65,  # Typical options commission
+            "fees": 0,
+        }
+        
+        supabase.table("trades").insert(trade_record).execute()
+        logger.info(f"✅ [WHEEL] Mock option trade recorded: {mock_alpaca_order_id}")
+        
         return {
             "action": "sell",
             "symbol": f"{symbol}_PUT",
-            "quantity": 1,  # 1 contract = 100 shares
-            "price": 180,   # Premium received
+            "quantity": 1,
+            "price": premium_received,
+            "alpaca_order_id": mock_alpaca_order_id,
             "reason": f"Sold cash-secured put for {symbol} wheel strategy"
         }
         
@@ -649,13 +838,59 @@ async def execute_smart_rebalance_strategy(strategy, trading_client, stock_clien
         target_allocation = first_asset.get("allocation", 0) / 100
         target_value = allocated_capital * target_allocation
         
-        return {
-            "action": "buy",
-            "symbol": first_asset.get("symbol", "AAPL"),
-            "quantity": target_value / 150,  # Assume $150 per share
-            "price": 150,
-            "reason": f"Rebalancing to {first_asset.get('allocation', 0)}% allocation"
-        }
+        rebalance_symbol = first_asset.get("symbol", "AAPL")
+        assumed_price = 150  # Assume $150 per share for demo
+        rebalance_quantity = target_value / assumed_price
+        
+        # Submit order to Alpaca
+        try:
+            order_request = MarketOrderRequest(
+                symbol=rebalance_symbol,
+                qty=rebalance_quantity,
+                side=OrderSide.BUY,
+                time_in_force=TimeInForce.DAY,
+                client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
+            )
+            
+            order = trading_client.submit_order(order_request)
+            alpaca_order_id = str(order.id)
+            
+            # Record trade in Supabase
+            trade_record = {
+                "user_id": strategy["user_id"],
+                "strategy_id": strategy["id"],
+                "alpaca_order_id": alpaca_order_id,
+                "symbol": rebalance_symbol,
+                "type": "buy",
+                "quantity": rebalance_quantity,
+                "price": assumed_price,
+                "status": "pending",
+                "order_type": "market",
+                "time_in_force": "day",
+                "filled_qty": 0,
+                "filled_avg_price": 0,
+                "commission": 0,
+                "fees": 0,
+            }
+            
+            supabase.table("trades").insert(trade_record).execute()
+            logger.info(f"✅ [REBALANCE] BUY order submitted and recorded: {alpaca_order_id}")
+            
+            return {
+                "action": "buy",
+                "symbol": rebalance_symbol,
+                "quantity": rebalance_quantity,
+                "price": assumed_price,
+                "alpaca_order_id": alpaca_order_id,
+                "reason": f"Rebalancing to {first_asset.get('allocation', 0)}% allocation"
+            }
+            
+        except AlpacaAPIError as e:
+            logger.error(f"❌ [REBALANCE] Failed to submit BUY order: {e}")
+            return {
+                "action": "error",
+                "reason": f"Failed to submit buy order: {str(e)}"
+            }
         
     except Exception as e:
         logger.error(f"Error in smart rebalance strategy: {e}")
