@@ -25,57 +25,10 @@ from dependencies import (
 import math
 from scipy.stats import norm
 import numpy as np
-from schemas import MarketCapData
 
 router = APIRouter(prefix="/api/market-data", tags=["market-data"])
 logger = logging.getLogger(__name__)
 
-# Popular assets with market cap data for allocation
-POPULAR_ASSETS = {
-    # Major stocks with approximate market caps (in billions)
-    "AAPL": {"name": "Apple Inc.", "market_cap": 3000, "exchange": "NASDAQ", "asset_class": "stock"},
-    "MSFT": {"name": "Microsoft Corporation", "market_cap": 2800, "exchange": "NASDAQ", "asset_class": "stock"},
-    "GOOGL": {"name": "Alphabet Inc.", "market_cap": 1700, "exchange": "NASDAQ", "asset_class": "stock"},
-    "AMZN": {"name": "Amazon.com Inc.", "market_cap": 1500, "exchange": "NASDAQ", "asset_class": "stock"},
-    "NVDA": {"name": "NVIDIA Corporation", "market_cap": 1200, "exchange": "NASDAQ", "asset_class": "stock"},
-    "TSLA": {"name": "Tesla Inc.", "market_cap": 800, "exchange": "NASDAQ", "asset_class": "stock"},
-    "META": {"name": "Meta Platforms Inc.", "market_cap": 750, "exchange": "NASDAQ", "asset_class": "stock"},
-    "BRK.B": {"name": "Berkshire Hathaway Inc.", "market_cap": 700, "exchange": "NYSE", "asset_class": "stock"},
-    "LLY": {"name": "Eli Lilly and Company", "market_cap": 650, "exchange": "NYSE", "asset_class": "stock"},
-    "V": {"name": "Visa Inc.", "market_cap": 500, "exchange": "NYSE", "asset_class": "stock"},
-    "JPM": {"name": "JPMorgan Chase & Co.", "market_cap": 450, "exchange": "NYSE", "asset_class": "stock"},
-    "WMT": {"name": "Walmart Inc.", "market_cap": 400, "exchange": "NYSE", "asset_class": "stock"},
-    "UNH": {"name": "UnitedHealth Group Inc.", "market_cap": 450, "exchange": "NYSE", "asset_class": "stock"},
-    "MA": {"name": "Mastercard Inc.", "market_cap": 380, "exchange": "NYSE", "asset_class": "stock"},
-    "PG": {"name": "Procter & Gamble Co.", "market_cap": 350, "exchange": "NYSE", "asset_class": "stock"},
-    "HD": {"name": "The Home Depot Inc.", "market_cap": 340, "exchange": "NYSE", "asset_class": "stock"},
-    "JNJ": {"name": "Johnson & Johnson", "market_cap": 420, "exchange": "NYSE", "asset_class": "stock"},
-    "AVGO": {"name": "Broadcom Inc.", "market_cap": 600, "exchange": "NASDAQ", "asset_class": "stock"},
-    "XOM": {"name": "Exxon Mobil Corporation", "market_cap": 450, "exchange": "NYSE", "asset_class": "stock"},
-    "CVX": {"name": "Chevron Corporation", "market_cap": 280, "exchange": "NYSE", "asset_class": "stock"},
-    "ABBV": {"name": "AbbVie Inc.", "market_cap": 300, "exchange": "NYSE", "asset_class": "stock"},
-    "PFE": {"name": "Pfizer Inc.", "market_cap": 160, "exchange": "NYSE", "asset_class": "stock"},
-    "KO": {"name": "The Coca-Cola Company", "market_cap": 260, "exchange": "NYSE", "asset_class": "stock"},
-    "PEP": {"name": "PepsiCo Inc.", "market_cap": 230, "exchange": "NASDAQ", "asset_class": "stock"},
-    "TMO": {"name": "Thermo Fisher Scientific Inc.", "market_cap": 200, "exchange": "NYSE", "asset_class": "stock"},
-    
-    # Major ETFs
-    "SPY": {"name": "SPDR S&P 500 ETF Trust", "market_cap": 400, "exchange": "NYSE", "asset_class": "etf"},
-    "QQQ": {"name": "Invesco QQQ Trust", "market_cap": 200, "exchange": "NASDAQ", "asset_class": "etf"},
-    "VTI": {"name": "Vanguard Total Stock Market ETF", "market_cap": 300, "exchange": "NYSE", "asset_class": "etf"},
-    "IWM": {"name": "iShares Russell 2000 ETF", "market_cap": 60, "exchange": "NYSE", "asset_class": "etf"},
-    
-    # Major cryptocurrencies with market caps (in billions)
-    "BTC/USD": {"name": "Bitcoin", "market_cap": 1200, "exchange": "Crypto", "asset_class": "crypto"},
-    "ETH/USD": {"name": "Ethereum", "market_cap": 400, "exchange": "Crypto", "asset_class": "crypto"},
-    "SOL/USD": {"name": "Solana", "market_cap": 80, "exchange": "Crypto", "asset_class": "crypto"},
-    "ADA/USD": {"name": "Cardano", "market_cap": 35, "exchange": "Crypto", "asset_class": "crypto"},
-    "AVAX/USD": {"name": "Avalanche", "market_cap": 25, "exchange": "Crypto", "asset_class": "crypto"},
-    "DOT/USD": {"name": "Polkadot", "market_cap": 20, "exchange": "Crypto", "asset_class": "crypto"},
-    
-    # Special assets
-    "CASH": {"name": "Cash", "market_cap": 0, "exchange": "N/A", "asset_class": "cash"},
-}
 # --------- helpers ---------
 STOCK_ETFS = {"SPY", "QQQ", "VTI", "IWM", "GLD", "SLV"}
 
@@ -729,63 +682,6 @@ async def get_options_chain_data(symbol: str, expiration_date: str = None) -> Di
             'implied_volatility_avg': 25.0,
             'time_to_expiration': 0.1
         }
-@router.get("/asset-lookup")
-async def asset_lookup(
-    query: str = Query(..., description="Search query for asset symbols or names"),
-    limit: int = Query(10, description="Maximum number of results"),
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-):
-    """Search for assets with market cap data for allocation"""
-    try:
-        query_lower = query.lower()
-        results = []
-        
-        # Search through popular assets
-        for symbol, data in POPULAR_ASSETS.items():
-            # Match symbol or name
-            if (query_lower in symbol.lower() or 
-                query_lower in data["name"].lower()):
-                
-                # Get current price
-                current_price = 0
-                try:
-                    if data["asset_class"] == "crypto" and "/" in symbol:
-                        price_data = await get_live_prices_data([symbol], credentials)
-                        current_price = price_data.get(symbol, {}).get("price", 0)
-                    elif data["asset_class"] in ["stock", "etf"]:
-                        price_data = await get_live_prices_data([symbol], credentials)
-                        current_price = price_data.get(symbol, {}).get("price", 0)
-                    elif symbol == "CASH":
-                        current_price = 1.0  # Cash is always $1
-                except Exception as e:
-                    logger.warning(f"Could not fetch price for {symbol}: {e}")
-                    # Use fallback prices
-                    if symbol == "AAPL":
-                        current_price = 185.0
-                    elif symbol == "BTC/USD":
-                        current_price = 65000.0
-                    elif symbol == "CASH":
-                        current_price = 1.0
-                    else:
-                        current_price = 100.0
-                
-                results.append(MarketCapData(
-                    symbol=symbol,
-                    market_cap=data["market_cap"],
-                    price=current_price,
-                    name=data["name"],
-                    exchange=data["exchange"],
-                    asset_class=data["asset_class"]
-                ))
-        
-        # Sort by market cap (descending) and limit results
-        results.sort(key=lambda x: x.market_cap, reverse=True)
-        return {"assets": results[:limit]}
-        
-    except Exception as e:
-        logger.error(f"Error in asset lookup: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to search assets: {str(e)}")
 
 @router.get("/options-chain")
 async def get_options_chain(

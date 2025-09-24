@@ -127,25 +127,15 @@ const strategiesToSeed = [
     min_capital: 5000,
     is_active: false,
     configuration: {
-      total_capital: 5000,
-      allocation_mode: 'manual',
+      allocated_capital: 5000,
       assets: [
-        { symbol: 'BTC/USD', allocation_percent: 40, asset_class: 'crypto', market_cap: 1200, name: 'Bitcoin' },
-        { symbol: 'ETH/USD', allocation_percent: 30, asset_class: 'crypto', market_cap: 400, name: 'Ethereum' },
-        { symbol: 'CASH', allocation_percent: 30, asset_class: 'cash', market_cap: 0, name: 'Cash' },
+        { symbol: 'BTC', allocation: 40 },
+        { symbol: 'ETH', allocation: 30 },
+        { symbol: 'USDT', allocation: 30 },
       ],
-      rebalance_threshold: 5.0,
+      trigger_type: 'threshold',
+      threshold_deviation_percent: 5,
       rebalance_frequency: 'weekly'
-    },
-    capital_allocation: {
-      mode: 'fixed_amount_usd',
-      value: 5000,
-      assets: [
-        { symbol: 'BTC/USD', allocation_percent: 40, asset_class: 'crypto', market_cap: 1200, name: 'Bitcoin' },
-        { symbol: 'ETH/USD', allocation_percent: 30, asset_class: 'crypto', market_cap: 400, name: 'Ethereum' },
-        { symbol: 'CASH', allocation_percent: 30, asset_class: 'cash', market_cap: 0, name: 'Cash' },
-      ],
-      allocation_mode: 'manual',
     },
     performance: {
       total_return: 0.078,

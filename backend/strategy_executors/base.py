@@ -15,7 +15,6 @@ from alpaca.data.requests import StockLatestQuoteRequest, CryptoLatestQuoteReque
 from alpaca.data.enums import DataFeed
 
 from supabase import Client
-from technical_indicators import TechnicalIndicators as TI
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +65,7 @@ class BaseStrategyExecutor:
     def get_open_orders(self, strategy_id: str):
         """Get open orders for this strategy"""
         try:
-            from alpaca.trading.enums import QueryOrderStatus
-            open_orders_request = GetOrdersRequest(status=QueryOrderStatus.OPEN)
+            open_orders_request = GetOrdersRequest(status=OrderStatus.OPEN)
             open_orders = self.trading_client.get_orders(open_orders_request)
             return [o for o in open_orders if o.client_order_id and strategy_id in o.client_order_id]
         except Exception as e:

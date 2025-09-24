@@ -31,38 +31,6 @@ class TechnicalIndicators(BaseModel):
         enabled=False, period=20, additional_params={"std_dev": 2}
     ))
 
-# Asset allocation models
-class AssetAllocationItem(BaseModel):
-    symbol: str = Field(..., description="Asset symbol (e.g., AAPL, BTC/USD, CASH)")
-    allocation_percent: float = Field(..., ge=0, le=100, description="Target allocation percentage")
-    asset_class: Optional[str] = Field(None, description="Asset class (stock, crypto, cash)")
-    market_cap: Optional[float] = Field(None, description="Market capitalization for weighting")
-    name: Optional[str] = Field(None, description="Human-readable asset name")
-    exchange: Optional[str] = Field(None, description="Exchange or platform")
-
-class AllocationMode(str, Enum):
-    MANUAL = "manual"
-    EVEN_SPLIT = "even_split"
-    MARKET_CAP_WEIGHTED = "market_cap_weighted"
-    MAJORITY_CASH_EVEN = "majority_cash_even"
-    MAJORITY_CASH_MARKET_CAP = "majority_cash_market_cap"
-
-class CapitalAllocation(BaseModel):
-    mode: AllocationMode = AllocationMode.MANUAL
-    total_capital: float = Field(..., ge=0, description="Total capital allocated to strategy")
-    assets: List[AssetAllocationItem] = Field(default_factory=list, description="Asset allocation breakdown")
-    cash_percentage: Optional[float] = Field(None, ge=0, le=100, description="Cash percentage for majority cash modes")
-    rebalance_threshold: float = Field(5.0, ge=0, le=50, description="Percentage deviation to trigger rebalance")
-    rebalance_frequency: str = Field("weekly", description="Rebalancing frequency")
-
-class MarketCapData(BaseModel):
-    symbol: str
-    market_cap: float
-    price: float
-    name: Optional[str] = None
-    exchange: Optional[str] = None
-    asset_class: str
-
 class TelemetryData(BaseModel):
     allocated_capital_usd: float = 0
     allocated_capital_base: float = 0
