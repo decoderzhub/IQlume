@@ -106,7 +106,7 @@ export function useRealTimeUpdates() {
         const { data: { session } } = await import('../lib/supabase').then(m => m.supabase.auth.getSession());
         if (!session?.access_token) return;
 
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
