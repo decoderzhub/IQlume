@@ -183,14 +183,62 @@ async def get_tradable_assets(trading_client: TradingClient) -> Dict[str, List[D
 @router.get("/tradable-assets")
 async def get_tradable_assets_endpoint(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-):
+    current_user=Depends(get_current_user)
+) -> Dict[str, List[Dict[str, Any]]]:
     """Get list of tradable assets from Alpaca"""
     try:
-        trading_client = await get_alpaca_trading_client(current_user, supabase)
-        assets = await get_tradable_assets(trading_client)
-        return assets
+        # Popular stocks and ETFs with simulated market cap data
+        popular_stocks = [
+            {"symbol": "AAPL", "name": "Apple Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 3000000000000},
+            {"symbol": "MSFT", "name": "Microsoft Corporation", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 2800000000000},
+            {"symbol": "GOOGL", "name": "Alphabet Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 1700000000000},
+            {"symbol": "AMZN", "name": "Amazon.com Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 1500000000000},
+            {"symbol": "TSLA", "name": "Tesla Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 800000000000},
+            {"symbol": "META", "name": "Meta Platforms Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 750000000000},
+            {"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 1800000000000},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF Trust", "exchange": "NYSE", "asset_class": "equity", "market_cap": 500000000000},
+            {"symbol": "QQQ", "name": "Invesco QQQ Trust", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 200000000000},
+            {"symbol": "VTI", "name": "Vanguard Total Stock Market ETF", "exchange": "NYSE", "asset_class": "equity", "market_cap": 300000000000},
+            {"symbol": "IWM", "name": "iShares Russell 2000 ETF", "exchange": "NYSE", "asset_class": "equity", "market_cap": 50000000000},
+            {"symbol": "GLD", "name": "SPDR Gold Shares", "exchange": "NYSE", "asset_class": "equity", "market_cap": 60000000000},
+            {"symbol": "SLV", "name": "iShares Silver Trust", "exchange": "NYSE", "asset_class": "equity", "market_cap": 12000000000},
+            {"symbol": "TLT", "name": "iShares 20+ Year Treasury Bond ETF", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 15000000000},
+            {"symbol": "NFLX", "name": "Netflix Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 180000000000},
+            {"symbol": "DIS", "name": "The Walt Disney Company", "exchange": "NYSE", "asset_class": "equity", "market_cap": 200000000000},
+            {"symbol": "BABA", "name": "Alibaba Group Holding Limited", "exchange": "NYSE", "asset_class": "equity", "market_cap": 220000000000},
+            {"symbol": "AMD", "name": "Advanced Micro Devices Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 240000000000},
+            {"symbol": "INTC", "name": "Intel Corporation", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 190000000000},
+            {"symbol": "CRM", "name": "Salesforce Inc.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 250000000000},
+            {"symbol": "ORCL", "name": "Oracle Corporation", "exchange": "NYSE", "asset_class": "equity", "market_cap": 300000000000},
+            {"symbol": "IBM", "name": "International Business Machines Corporation", "exchange": "NYSE", "asset_class": "equity", "market_cap": 130000000000},
+            {"symbol": "UBER", "name": "Uber Technologies Inc.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 120000000000},
+            {"symbol": "LYFT", "name": "Lyft Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 8000000000},
+            {"symbol": "SNAP", "name": "Snap Inc.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 25000000000},
+            {"symbol": "TWTR", "name": "Twitter Inc.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 40000000000},
+            {"symbol": "SPOT", "name": "Spotify Technology S.A.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 30000000000},
+            {"symbol": "ZM", "name": "Zoom Video Communications Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 35000000000},
+            {"symbol": "ROKU", "name": "Roku Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 6000000000},
+            {"symbol": "SQ", "name": "Block Inc.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 40000000000},
+        ]
+        
+        # Major crypto pairs available on Alpaca
+        crypto_assets = [
+            {"symbol": "BTC/USD", "name": "Bitcoin", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 1200000000000},
+            {"symbol": "ETH/USD", "name": "Ethereum", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 400000000000},
+            {"symbol": "LTC/USD", "name": "Litecoin", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 8000000000},
+            {"symbol": "BCH/USD", "name": "Bitcoin Cash", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 10000000000},
+            {"symbol": "LINK/USD", "name": "Chainlink", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 15000000000},
+            {"symbol": "UNI/USD", "name": "Uniswap", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 8000000000},
+            {"symbol": "AAVE/USD", "name": "Aave", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 2000000000},
+            {"symbol": "DOT/USD", "name": "Polkadot", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 9000000000},
+            {"symbol": "ADA/USD", "name": "Cardano", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 12000000000},
+            {"symbol": "MATIC/USD", "name": "Polygon", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 7000000000},
+        ]
+        
+        return {
+            "stocks": popular_stocks,
+            "crypto": crypto_assets
+        }
     except Exception as e:
         logger.error(f"Error fetching tradable assets: {e}")
         # Return fallback data

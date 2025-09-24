@@ -201,6 +201,98 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     setShowSuggestions(false);
   };
 
+  // Smart Rebalance allocation helpers
+  const normalizeAllocationsEvenly = (assets: any[], cashAllocation = 0) => {
+    const nonCashAssets = assets.filter(asset => asset.symbol.toUpperCase() !== 'CASH');
+    const remainingPercentage = 100 - cashAllocation;
+    const evenAllocation = remainingPercentage / nonCashAssets.length;
+    
+    return assets.map(asset => ({
+      ...asset,
+      allocation: asset.symbol.toUpperCase() === 'CASH' ? cashAllocation : Math.round(evenAllocation * 100) / 100
+    }));
+  };
+
+  const normalizeAllocationsByMarketCap = (assets: any[], cashAllocation = 0) => {
+    const nonCashAssets = assets.filter(asset => asset.symbol.toUpperCase() !== 'CASH');
+    const remainingPercentage = 100 - cashAllocation;
+    
+    // Get market cap data for non-cash assets
+    const assetsWithMarketCap = nonCashAssets.map(asset => {
+      const assetData = [...tradableAssets.stocks, ...tradableAssets.crypto].find(
+        a => a.symbol === asset.symbol
+      );
+      return {
+        ...asset,
+        market_cap: assetData?.market_cap || 100000000000 // Default market cap if not found
+      };
+    });
+    
+    const totalMarketCap = assetsWithMarketCap.reduce((sum, asset) => sum + asset.market_cap, 0);
+    
+    return assets.map(asset => {
+      if (asset.symbol.toUpperCase() === 'CASH') {
+        return { ...asset, allocation: cashAllocation };
+      }
+      
+      const assetWithMarketCap = assetsWithMarketCap.find(a => a.symbol === asset.symbol);
+      const marketCapWeight = (assetWithMarketCap?.market_cap || 0) / totalMarketCap;
+      const allocation = remainingPercentage * marketCapWeight;
+      
+      return {
+        ...asset,
+        allocation: Math.round(allocation * 100) / 100
+      };
+    });
+  };
+
+  const applyMajorityCash = (assets: any[], cashPercentage: number, distributionMethod: 'even' | 'marketcap') => {
+    // Ensure cash asset exists
+    const hasCash = assets.some(asset => asset.symbol.toUpperCase() === 'CASH');
+    let updatedAssets = [...assets];
+    
+    if (!hasCache) {
+      updatedAssets.push({ symbol: 'CASH', allocation: cashPercentage });
+    } else {
+      updatedAssets = updatedAssets.map(asset => 
+        asset.symbol.toUpperCase() === 'CASH' 
+          ? { ...asset, allocation: cashPercentage }
+          : asset
+      );
+    }
+    
+    // Apply distribution method to remaining assets
+    if (distributionMethod === 'even') {
+      return normalizeAllocationsEvenly(updatedAssets, cashPercentage);
+    } else {
+      return normalizeAllocationsByMarketCap(updatedAssets, cashPercentage);
+    }
+  };
+
+  const handleNormalization = (method: 'even' | 'marketcap' | 'majority_cash_even' | 'majority_cash_marketcap') => {
+    const currentAssets = configuration.assets || [];
+    let normalizedAssets;
+    
+    switch (method) {
+      case 'even':
+        normalizedAssets = normalizeAllocationsEvenly(currentAssets);
+        break;
+      case 'marketcap':
+        normalizedAssets = normalizeAllocationsByMarketCap(currentAssets);
+        break;
+      case 'majority_cash_even':
+        normalizedAssets = applyMajorityCash(currentAssets, 60, 'even');
+        break;
+      case 'majority_cash_marketcap':
+        normalizedAssets = applyMajorityCash(currentAssets, 60, 'marketcap');
+        break;
+      default:
+        normalizedAssets = currentAssets;
+    }
+    
+    setConfiguration(prev => ({ ...prev, assets: normalizedAssets }));
+  };
+
   const selectedCategoryData = strategyTypes.find(c => c.category === selectedCategory);
   const selectedStrategyType = selectedCategoryData?.strategies.find(s => s.type === selectedType);
   const selectedAccountData = brokerageAccounts.find(acc => acc.id === selectedAccount);
