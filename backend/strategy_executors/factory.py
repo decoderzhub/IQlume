@@ -2,7 +2,7 @@
 Strategy Executor Factory
 """
 
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any
 from .base import BaseStrategyExecutor
 from .spot_grid import SpotGridExecutor
 from .dca import DCAExecutor

@@ -3,7 +3,7 @@ Spot Grid Strategy Executor
 """
 
 import logging
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any
 from datetime import datetime, timezone
 
 from alpaca.trading.enums import OrderSide

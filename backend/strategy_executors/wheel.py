@@ -3,7 +3,7 @@ The Wheel Strategy Executor
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from .base import BaseStrategyExecutor
 
 logger = logging.getLogger(__name__)
