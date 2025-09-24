@@ -38,6 +38,7 @@ interface AssetAllocationItem {
   name?: string;
   exchange?: string;
 }
+
 export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: StrategyDetailsModalProps) {
   const [editedStrategy, setEditedStrategy] = useState<TradingStrategy>({ ...strategy });
   const [activeTab, setActiveTab] = useState<'overview' | 'configuration' | 'performance' | 'risk'>('overview');
@@ -428,84 +429,83 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
           </div>
         )}
       </div>
+    );
+  };
       
-      {/* Smart Rebalance Asset Allocation */}
-      {strategy.type === 'smart_rebalance' && (
-        <div className="space-y-6">
-          <h4 className="font-medium text-white">Asset Allocation Configuration</h4>
-          
-          {isEditing ? (
-            <AssetAllocationManager
-              totalCapital={totalCapital}
-              onTotalCapitalChange={setTotalCapital}
-              assets={assets}
-              onAssetsChange={setAssets}
-              allocationMode={allocationMode}
-              onAllocationModeChange={setAllocationMode}
-            />
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <DollarSign className="w-4 h-4 text-green-400" />
-                    <span className="text-sm text-gray-400">Total Capital</span>
-                  </div>
-                  <p className="text-lg font-bold text-white">
-                    {formatCurrency(strategy.capital_allocation?.value || strategy.min_capital)}
-                  </p>
-                </Card>
-                
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target className="w-4 h-4 text-blue-400" />
-                    <span className="text-sm text-gray-400">Allocation Mode</span>
-                  </div>
-                  <p className="text-lg font-bold text-white capitalize">
-                    {(strategy.capital_allocation?.allocation_mode || 'manual').replace('_', ' ')}
-                  </p>
-                </Card>
-                
-                <Card className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-purple-400" />
-                    <span className="text-sm text-gray-400">Assets</span>
-                  </div>
-                  <p className="text-lg font-bold text-white">
-                    {strategy.capital_allocation?.assets?.length || 0}
-                  </p>
-                </Card>
+  const renderSmartRebalanceTab = () => (
+    <div className="space-y-6">
+      <h4 className="font-medium text-white">Asset Allocation Configuration</h4>
+      
+      {isEditing ? (
+        <AssetAllocationManager
+          totalCapital={totalCapital}
+          onTotalCapitalChange={setTotalCapital}
+          assets={assets}
+          onAssetsChange={setAssets}
+          allocationMode={allocationMode}
+          onAllocationModeChange={setAllocationMode}
+        />
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="w-4 h-4 text-green-400" />
+                <span className="text-sm text-gray-400">Total Capital</span>
               </div>
-              
-              {strategy.capital_allocation?.assets && strategy.capital_allocation.assets.length > 0 && (
-                <Card className="p-4">
-                  <h5 className="font-medium text-white mb-3">Current Allocation</h5>
-                  <div className="space-y-2">
-                    {strategy.capital_allocation.assets.map((asset: any) => (
-                      <div key={asset.symbol} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-white">{asset.symbol}</span>
-                          {asset.name && (
-                            <span className="text-sm text-gray-400">({asset.name})</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-gray-400">{asset.allocation_percent.toFixed(2)}%</span>
-                          <span className="font-medium text-white min-w-[80px] text-right">
-                            {formatCurrency((strategy.capital_allocation.value * asset.allocation_percent) / 100)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+              <p className="text-lg font-bold text-white">
+                {formatCurrency(strategy.capital_allocation?.value || strategy.min_capital)}
+              </p>
+            </Card>
+            
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-4 h-4 text-blue-400" />
+                <span className="text-sm text-gray-400">Allocation Mode</span>
+              </div>
+              <p className="text-lg font-bold text-white capitalize">
+                {(strategy.capital_allocation?.allocation_mode || 'manual').replace('_', ' ')}
+              </p>
+            </Card>
+            
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-4 h-4 text-purple-400" />
+                <span className="text-sm text-gray-400">Assets</span>
+              </div>
+              <p className="text-lg font-bold text-white">
+                {strategy.capital_allocation?.assets?.length || 0}
+              </p>
+            </Card>
+          </div>
+          
+          {strategy.capital_allocation?.assets && strategy.capital_allocation.assets.length > 0 && (
+            <Card className="p-4">
+              <h5 className="font-medium text-white mb-3">Current Allocation</h5>
+              <div className="space-y-2">
+                {strategy.capital_allocation.assets.map((asset: any) => (
+                  <div key={asset.symbol} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-white">{asset.symbol}</span>
+                      {asset.name && (
+                        <span className="text-sm text-gray-400">({asset.name})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-400">{asset.allocation_percent.toFixed(2)}%</span>
+                      <span className="font-medium text-white min-w-[80px] text-right">
+                        {formatCurrency((strategy.capital_allocation.value * asset.allocation_percent) / 100)}
+                      </span>
+                    </div>
                   </div>
-                </Card>
-              )}
-            </div>
+                ))}
+              </div>
+            </Card>
           )}
         </div>
       )}
-    );
-  };
+    </div>
+  );
 
   const renderRiskTab = () => (
     <div className="space-y-6">
@@ -525,34 +525,37 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
 
       {/* Risk Controls */}
       <div>
-      {strategy.type !== 'smart_rebalance' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div key={key} className={key === 'assets' ? 'md:col-span-2' : ''}>
-            <div key={key} className="flex justify-between items-center p-3 bg-gray-800/30 rounded-lg">
-              <span className="text-gray-400 capitalize">{key.replace('_', ' ')}</span>
-              <span className="text-white font-medium">
-                {typeof value === 'number' && key.includes('percent') ? `${value}%` : 
-                 typeof value === 'number' && key.includes('usd') ? formatCurrency(value) :
-                {key === 'assets' && Array.isArray(value) ? (
-                  <div className="space-y-1">
-                    {value.map((asset: any, index: number) => (
-                      <div key={index} className="text-sm">
-                        {asset.symbol}: {asset.allocation_percent?.toFixed(2)}%
-                      </div>
-                    ))}
+        {strategy.type !== 'smart_rebalance' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(strategy.configuration || {}).map(([key, value]) => (
+                <div key={key} className={key === 'assets' ? 'md:col-span-2' : ''}>
+                  <div className="flex justify-between items-center p-3 bg-gray-800/30 rounded-lg">
+                    <span className="text-gray-400 capitalize">{key.replace('_', ' ')}</span>
+                    <span className="text-white font-medium">
+                      {typeof value === 'number' && key.includes('percent') ? `${value}%` : 
+                       typeof value === 'number' && key.includes('usd') ? formatCurrency(value) :
+                       key === 'assets' && Array.isArray(value) ? (
+                        <div className="space-y-1">
+                          {value.map((asset: any, index: number) => (
+                            <div key={index} className="text-sm">
+                              {asset.symbol}: {asset.allocation_percent?.toFixed(2)}%
+                            </div>
+                          ))}
+                        </div>
+                      ) : typeof value === 'object' ? (
+                        <pre className="text-xs overflow-x-auto">{JSON.stringify(value, null, 2)}</pre>
+                      ) : (
+                        String(value)
+                      )}
+                    </span>
                   </div>
-                ) : typeof value === 'object' ? (
-                  <pre className="text-xs overflow-x-auto">{JSON.stringify(value, null, 2)}</pre>
-                ) : (
-                  String(value)
-                )}
-              </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -614,7 +617,12 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
             {activeTab === 'overview' && renderOverviewTab()}
             {activeTab === 'telemetry' && <TelemetryDashboard strategy={strategy} />}
             {activeTab === 'configuration' && renderConfigurationTab()}
-            {activeTab === 'performance' && renderPerformanceTab()}
+            {activeTab === 'performance' && (
+              <>
+                {renderPerformanceTab()}
+                {strategy.type === 'smart_rebalance' && renderSmartRebalanceTab()}
+              </>
+            )}
             {activeTab === 'risk' && renderRiskTab()}
           </div>
 
