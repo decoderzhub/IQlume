@@ -1,1159 +1,1219 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
-from fastapi.security import HTTPAuthorizationCredentials
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone, timedelta
-import logging
-import uuid
-import json
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { 
+  X, 
+  TrendingUp, 
+  Shield, 
+  DollarSign, 
+  Settings,
+  AlertTriangle,
+  Building,
+  Grid3X3,
+  Calculator,
+  Target,
+  BarChart3,
+  Search,
+  ChevronDown,
+  Plus
+} from 'lucide-react';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
+import { TradingStrategy, BrokerageAccount } from '../../types';
+import { formatCurrency } from '../../lib/utils';
+import { useStore } from '../../store/useStore';
+import { supabase } from '../../lib/supabase';
 
-from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
-from alpaca.trading.enums import OrderSide, TimeInForce
-from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
-from alpaca.data.requests import StockLatestQuoteRequest, CryptoLatestQuoteRequest
-from alpaca.data.enums import DataFeed
-from alpaca.common.exceptions import APIError as AlpacaAPIError
-from alpaca.trading.requests import GetAssetsRequest
-from alpaca.trading.enums import AssetClass, AssetStatus
+interface TradableAsset {
+  symbol: string;
+  name: string;
+  exchange: string;
+  asset_class: 'equity' | 'crypto';
+}
 
-from supabase import Client
-from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse, StrategiesListResponse
-from dependencies import (
-    get_current_user,
-    get_supabase_client,
-    get_alpaca_trading_client,
-    get_alpaca_stock_data_client,
-    get_alpaca_crypto_data_client,
-    security,
-)
+interface CreateStrategyModalProps {
+  onClose: () => void;
+  onSave: (strategy: Omit<TradingStrategy, 'id'>) => void;
+}
 
-router = APIRouter(prefix="/api/strategies", tags=["strategies"])
-logger = logging.getLogger(__name__)
+const strategyTypes = [
+  // Grid Trading Bots
+  {
+    category: 'Grid Trading Bots',
+    icon: Grid3X3,
+    description: 'Automated buy-low/sell-high trading within defined ranges',
+    strategies: [
+      {
+        type: 'spot_grid',
+        name: 'Spot Grid Bot',
+        description: 'Automate buy-low/sell-high trades within a price range',
+        risk_level: 'low' as const,
+        min_capital: 1000,
+        tier: 'pro' as const,
+      },
+      {
+        type: 'futures_grid',
+        name: 'Futures Grid Bot',
+        description: 'Grid trading on futures with leverage support',
+        risk_level: 'medium' as const,
+        min_capital: 2000,
+        tier: 'elite' as const,
+      },
+      {
+        type: 'infinity_grid',
+        name: 'Infinity Grid Bot',
+        description: 'Grid trading without upper price limit for trending markets',
+        risk_level: 'medium' as const,
+        min_capital: 1500,
+        tier: 'elite' as const,
+      },
+    ]
+  },
+  // Options Income Strategies
+  {
+    category: 'Options Income Strategies',
+    icon: TrendingUp,
+    description: 'Generate consistent income through options trading',
+    strategies: [
+      {
+        type: 'covered_calls',
+        name: 'Covered Calls',
+        description: 'Generate income by selling call options on owned stocks',
+        risk_level: 'low' as const,
+        min_capital: 15000,
+        tier: 'pro' as const,
+      },
+      {
+        type: 'wheel',
+        name: 'The Wheel',
+        description: 'Systematic approach combining cash-secured puts and covered calls',
+        risk_level: 'low' as const,
+        min_capital: 20000,
+        tier: 'pro' as const,
+      },
+      {
+        type: 'short_put',
+        name: 'Cash-Secured Put',
+        description: 'Generate income by selling put options with cash backing',
+        risk_level: 'medium' as const,
+        min_capital: 10000,
+        tier: 'pro' as const,
+      },
+    ]
+  },
+  // Portfolio Management
+  {
+    category: 'Portfolio Management',
+    icon: BarChart3,
+    description: 'Systematic investing and portfolio optimization',
+    strategies: [
+      {
+        type: 'dca',
+        name: 'DCA Bot',
+        description: 'Dollar-cost averaging for systematic investing',
+        risk_level: 'low' as const,
+        min_capital: 500,
+        tier: 'starter' as const,
+      },
+      {
+        type: 'smart_rebalance',
+        name: 'Smart Rebalance',
+        description: 'Maintain target allocations through automatic rebalancing',
+        risk_level: 'low' as const,
+        min_capital: 5000,
+        tier: 'starter' as const,
+      },
+    ]
+  },
+];
 
-def normalize_crypto_symbol(symbol: str) -> str:
-    """Normalize crypto symbol for Alpaca API"""
-    s = symbol.upper().replace("USDT", "USD")
-    if s in ("BTC", "BITCOIN", "BTCUSD", "BTC/USD"):
-        return "BTC/USD"
-    if s in ("ETH", "ETHEREUM", "ETHUSD", "ETH/USD"):
-        return "ETH/USD"
-    if s.endswith("USD") and "/" not in s:
-        return f"{s[:-3]}/USD"
-    return s
+export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
+  const { brokerageAccounts, getEffectiveSubscriptionTier } = useStore();
+  const [step, setStep] = useState<'category' | 'strategy' | 'configure' | 'review'>('category');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [strategyName, setStrategyName] = useState('');
+  const [selectedAccount, setSelectedAccount] = useState<string>('');
+  const [configuration, setConfiguration] = useState<Record<string, any>>({});
+  const [tradableAssets, setTradableAssets] = useState<{ stocks: TradableAsset[], crypto: TradableAsset[] }>({ stocks: [], crypto: [] });
+  const [symbolSuggestions, setSymbolSuggestions] = useState<TradableAsset[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [symbolSearchTerm, setSymbolSearchTerm] = useState('');
 
-def is_stock_symbol(symbol: str) -> bool:
-    """Check if symbol is a stock (vs crypto)"""
-    s = symbol.upper()
-    stock_etfs = {"SPY", "QQQ", "VTI", "IWM", "GLD", "SLV", "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA"}
-    if s in stock_etfs:
-        return True
-    return len(s) <= 5 and s.isalpha() and "/" not in s
+  // Load tradable assets on component mount
+  React.useEffect(() => {
+    const loadTradableAssets = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
 
-def is_crypto_symbol(symbol: str) -> bool:
-    """Check if symbol is a crypto asset"""
-    s = symbol.upper()
-    crypto_symbols = {"BTC", "ETH", "BITCOIN", "ETHEREUM", "BTC/USD", "ETH/USD", "BTCUSD", "ETHUSD"}
-    return s in crypto_symbols or normalize_crypto_symbol(s) != s
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/tradable-assets`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
 
-def calculate_crypto_quantity(dollar_amount: float, price: float, symbol: str) -> float:
-    """Calculate appropriate quantity for crypto trading (avoiding fractional share issues)"""
-    raw_quantity = dollar_amount / price
-    
-    # For BTC, round to 6 decimal places (Alpaca's precision)
-    if symbol.upper() in ["BTC", "BITCOIN", "BTC/USD", "BTCUSD"]:
-        return round(raw_quantity, 6)
-    
-    # For ETH, round to 4 decimal places
-    if symbol.upper() in ["ETH", "ETHEREUM", "ETH/USD", "ETHUSD"]:
-        return round(raw_quantity, 4)
-    
-    # For other crypto, round to 2 decimal places
-    return round(raw_quantity, 2)
-
-async def get_current_price(symbol: str, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient) -> float:
-    """Get current price for a symbol"""
-    try:
-        if is_stock_symbol(symbol):
-            # Stock price
-            from alpaca.data.requests import StockLatestQuoteRequest
-            req = StockLatestQuoteRequest(symbol_or_symbols=[symbol.upper()], feed=DataFeed.IEX)
-            resp = stock_client.get_stock_latest_quote(req)
-            quote = resp.get(symbol.upper())
-            if quote and hasattr(quote, 'ask_price') and quote.ask_price:
-                return float(quote.ask_price)
-            elif quote and hasattr(quote, 'bid_price') and quote.bid_price:
-                return float(quote.bid_price)
-        else:
-            # Crypto price
-            normalized_symbol = normalize_crypto_symbol(symbol)
-            req = CryptoLatestQuoteRequest(symbol_or_symbols=[normalized_symbol])
-            resp = crypto_client.get_crypto_latest_quote(req)
-            quote = resp.get(normalized_symbol)
-            if quote and hasattr(quote, 'ask_price') and quote.ask_price:
-                return float(quote.ask_price)
-            elif quote and hasattr(quote, 'bid_price') and quote.bid_price:
-                return float(quote.bid_price)
-    except Exception as e:
-        logger.warning(f"Failed to get real price for {symbol}: {e}")
-    
-    # Use dynamic fallback prices that will trigger grid actions
-    symbol_upper = symbol.upper()
-    if symbol_upper in ["BTC", "BITCOIN", "BTC/USD", "BTCUSD"]:
-        # Return price that alternates between buy and sell zones
-        import time
-        cycle = int(time.time() / 300) % 4  # 5-minute cycles
-        if cycle == 0:
-            return 44.0  # Below lower bound - should trigger BUY
-        elif cycle == 1:
-            return 47.5  # Middle of range - should HOLD
-        elif cycle == 2:
-            return 51.0  # Above upper bound - should trigger SELL (or initial BUY)
-        else:
-            return 48.0  # Middle of range - should HOLD
-    elif symbol_upper in ["ETH", "ETHEREUM", "ETH/USD", "ETHUSD"]:
-        return 2800.0 + (hash(symbol_upper) % 400)  # $2800-3200 range
-    elif symbol_upper == "AAPL":
-        return 240.0 + (hash(symbol_upper) % 20)  # $240-260 range
-    elif symbol_upper == "MSFT":
-        return 420.0 + (hash(symbol_upper) % 30)  # $420-450 range
-    else:
-        return 100.0 + (hash(symbol_upper) % 50)  # Generic fallback
-
-async def get_tradable_assets(trading_client: TradingClient) -> Dict[str, List[Dict[str, Any]]]:
-    """Get list of tradable assets from Alpaca"""
-    try:
-        # Get tradable stocks
-        stock_request = GetAssetsRequest(
-            status=AssetStatus.ACTIVE,
-            asset_class=AssetClass.US_EQUITY
-        )
-        stocks = trading_client.get_all_assets(stock_request)
-        
-        # Filter to popular/liquid stocks and ETFs
-        popular_stocks = []
-        popular_symbols = {
-            'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'NFLX', 'AMD', 'INTC',
-            'SPY', 'QQQ', 'VTI', 'IWM', 'GLD', 'SLV', 'TLT', 'XLF', 'XLE', 'XLK',
-            'JPM', 'BAC', 'WMT', 'JNJ', 'PG', 'KO', 'PFE', 'DIS', 'V', 'MA'
+        if (response.ok) {
+          const assets = await response.json();
+          setTradableAssets(assets);
         }
-        
-        for stock in stocks:
-            if stock.symbol in popular_symbols and stock.tradable:
-                popular_stocks.append({
-                    'symbol': stock.symbol,
-                    'name': getattr(stock, 'name', stock.symbol),
-                    'exchange': getattr(stock, 'exchange', 'NASDAQ'),
-                    'asset_class': 'equity'
-                })
-        
-        # Add popular crypto pairs (these are available on Alpaca)
-        crypto_assets = [
-            {'symbol': 'BTC/USD', 'name': 'Bitcoin', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
-            {'symbol': 'ETH/USD', 'name': 'Ethereum', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
-            {'symbol': 'LTC/USD', 'name': 'Litecoin', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
-            {'symbol': 'BCH/USD', 'name': 'Bitcoin Cash', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
-            {'symbol': 'LINK/USD', 'name': 'Chainlink', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
-            {'symbol': 'UNI/USD', 'name': 'Uniswap', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
-        ]
-        
-        return {
-            'stocks': sorted(popular_stocks, key=lambda x: x['symbol']),
-            'crypto': crypto_assets
-        }
-        
-    except Exception as e:
-        logger.error(f"Error fetching tradable assets: {e}")
-        # Return fallback list
-        return {
-            'stocks': [
-                {'symbol': 'AAPL', 'name': 'Apple Inc.', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
-                {'symbol': 'MSFT', 'name': 'Microsoft Corporation', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
-                {'symbol': 'GOOGL', 'name': 'Alphabet Inc.', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
-                {'symbol': 'AMZN', 'name': 'Amazon.com Inc.', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
-                {'symbol': 'TSLA', 'name': 'Tesla Inc.', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
-                {'symbol': 'SPY', 'name': 'SPDR S&P 500 ETF', 'exchange': 'NYSE', 'asset_class': 'equity'},
-                {'symbol': 'QQQ', 'name': 'Invesco QQQ ETF', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
-            ],
-            'crypto': [
-                {'symbol': 'BTC/USD', 'name': 'Bitcoin', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
-                {'symbol': 'ETH/USD', 'name': 'Ethereum', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
-            ]
-        }
+      } catch (error) {
+        console.error('Error loading tradable assets:', error);
+      }
+    };
 
-@router.get("/tradable-assets")
-async def get_tradable_assets_endpoint(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user)
-) -> Dict[str, List[Dict[str, Any]]]:
-    """Get list of tradable assets from Alpaca"""
-    try:
-        # Popular stocks and ETFs with simulated market cap data
-        popular_stocks = [
-            {"symbol": "AAPL", "name": "Apple Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 3000000000000},
-            {"symbol": "MSFT", "name": "Microsoft Corporation", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 2800000000000},
-            {"symbol": "GOOGL", "name": "Alphabet Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 1700000000000},
-            {"symbol": "AMZN", "name": "Amazon.com Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 1500000000000},
-            {"symbol": "TSLA", "name": "Tesla Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 800000000000},
-            {"symbol": "META", "name": "Meta Platforms Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 750000000000},
-            {"symbol": "NVDA", "name": "NVIDIA Corporation", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 1800000000000},
-            {"symbol": "SPY", "name": "SPDR S&P 500 ETF Trust", "exchange": "NYSE", "asset_class": "equity", "market_cap": 500000000000},
-            {"symbol": "QQQ", "name": "Invesco QQQ Trust", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 200000000000},
-            {"symbol": "VTI", "name": "Vanguard Total Stock Market ETF", "exchange": "NYSE", "asset_class": "equity", "market_cap": 300000000000},
-            {"symbol": "IWM", "name": "iShares Russell 2000 ETF", "exchange": "NYSE", "asset_class": "equity", "market_cap": 50000000000},
-            {"symbol": "GLD", "name": "SPDR Gold Shares", "exchange": "NYSE", "asset_class": "equity", "market_cap": 60000000000},
-            {"symbol": "SLV", "name": "iShares Silver Trust", "exchange": "NYSE", "asset_class": "equity", "market_cap": 12000000000},
-            {"symbol": "TLT", "name": "iShares 20+ Year Treasury Bond ETF", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 15000000000},
-            {"symbol": "NFLX", "name": "Netflix Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 180000000000},
-            {"symbol": "DIS", "name": "The Walt Disney Company", "exchange": "NYSE", "asset_class": "equity", "market_cap": 200000000000},
-            {"symbol": "BABA", "name": "Alibaba Group Holding Limited", "exchange": "NYSE", "asset_class": "equity", "market_cap": 220000000000},
-            {"symbol": "AMD", "name": "Advanced Micro Devices Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 240000000000},
-            {"symbol": "INTC", "name": "Intel Corporation", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 190000000000},
-            {"symbol": "CRM", "name": "Salesforce Inc.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 250000000000},
-            {"symbol": "ORCL", "name": "Oracle Corporation", "exchange": "NYSE", "asset_class": "equity", "market_cap": 300000000000},
-            {"symbol": "IBM", "name": "International Business Machines Corporation", "exchange": "NYSE", "asset_class": "equity", "market_cap": 130000000000},
-            {"symbol": "UBER", "name": "Uber Technologies Inc.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 120000000000},
-            {"symbol": "LYFT", "name": "Lyft Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 8000000000},
-            {"symbol": "SNAP", "name": "Snap Inc.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 25000000000},
-            {"symbol": "TWTR", "name": "Twitter Inc.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 40000000000},
-            {"symbol": "SPOT", "name": "Spotify Technology S.A.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 30000000000},
-            {"symbol": "ZM", "name": "Zoom Video Communications Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 35000000000},
-            {"symbol": "ROKU", "name": "Roku Inc.", "exchange": "NASDAQ", "asset_class": "equity", "market_cap": 6000000000},
-            {"symbol": "SQ", "name": "Block Inc.", "exchange": "NYSE", "asset_class": "equity", "market_cap": 40000000000},
-        ]
-        
-        # Major crypto pairs available on Alpaca
-        crypto_assets = [
-            {"symbol": "BTC/USD", "name": "Bitcoin", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 1200000000000},
-            {"symbol": "ETH/USD", "name": "Ethereum", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 400000000000},
-            {"symbol": "LTC/USD", "name": "Litecoin", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 8000000000},
-            {"symbol": "BCH/USD", "name": "Bitcoin Cash", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 10000000000},
-            {"symbol": "LINK/USD", "name": "Chainlink", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 15000000000},
-            {"symbol": "UNI/USD", "name": "Uniswap", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 8000000000},
-            {"symbol": "AAVE/USD", "name": "Aave", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 2000000000},
-            {"symbol": "DOT/USD", "name": "Polkadot", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 9000000000},
-            {"symbol": "ADA/USD", "name": "Cardano", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 12000000000},
-            {"symbol": "MATIC/USD", "name": "Polygon", "exchange": "Alpaca Crypto", "asset_class": "crypto", "market_cap": 7000000000},
-        ]
-        
-        return {
-            "stocks": popular_stocks,
-            "crypto": crypto_assets
-        }
-    except Exception as e:
-        logger.error(f"Error fetching tradable assets: {e}")
-        # Return fallback data
-        return {
-            'stocks': [
-                {'symbol': 'AAPL', 'name': 'Apple Inc.', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
-                {'symbol': 'MSFT', 'name': 'Microsoft Corporation', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
-                {'symbol': 'SPY', 'name': 'SPDR S&P 500 ETF', 'exchange': 'NYSE', 'asset_class': 'equity'},
-            ],
-            'crypto': [
-                {'symbol': 'BTC/USD', 'name': 'Bitcoin', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
-                {'symbol': 'ETH/USD', 'name': 'Ethereum', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
-            ]
-        }
+    loadTradableAssets();
+  }, []);
 
-def save_trade_to_supabase(
-    user_id: str,
-    strategy_id: str,
-    alpaca_order_id: str,
-    symbol: str,
-    trade_type: str,
-    quantity: float,
-    price: float,
-    order_type: str,
-    time_in_force: str,
-    supabase: Client
-) -> bool:
-    """Save a trade to Supabase trades table"""
-    try:
-        logger.info(f"💾 Saving trade to Supabase: {symbol} {trade_type} x{quantity:.6f} @ ${price:.2f}")
-        
-        trade_data = {
-            "user_id": user_id,
-            "strategy_id": strategy_id,
-            "alpaca_order_id": alpaca_order_id,
-            "symbol": symbol,
-            "type": trade_type,
-            "quantity": quantity,
-            "price": price,
-            "profit_loss": 0,  # Will be calculated later when trade is filled
-            "status": "pending",
-            "order_type": order_type,
-            "time_in_force": time_in_force,
-            "filled_qty": 0,
-            "filled_avg_price": 0,
-            "commission": 0,
-            "fees": 0,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-        
-        logger.info(f"📝 Trade data to insert: {trade_data}")
-        
-        result = supabase.table("trades").insert(trade_data).execute()
-        
-        logger.info(f"📊 Supabase insert result: {result}")
-        
-        if result.data:
-            logger.info(f"✅ Trade saved to database: {symbol} {trade_type} x{quantity} @ ${price:.2f}")
-            return True
-        else:
-            logger.error(f"❌ Failed to save trade to database: No data returned")
-            return False
-            
-    except Exception as e:
-        logger.error(f"❌ Error saving trade to database: {e}", exc_info=True)
-        return False
+  // Filter suggestions based on search term
+  React.useEffect(() => {
+    if (!symbolSearchTerm) {
+      setSymbolSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
 
-@router.get("/")
-async def get_strategies(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-):
-    """Get all trading strategies for the current user"""
-    try:
-        resp = supabase.table("trading_strategies").select("*").eq("user_id", current_user.id).order("created_at", desc=True).execute()
-        
-        strategies = []
-        for strategy_data in resp.data or []:
-            strategy = TradingStrategyResponse(
-                id=strategy_data["id"],
-                user_id=strategy_data["user_id"],
-                name=strategy_data["name"],
-                type=strategy_data["type"],
-                description=strategy_data.get("description", ""),
-                risk_level=strategy_data["risk_level"],
-                min_capital=float(strategy_data["min_capital"]),
-                is_active=strategy_data["is_active"],
-                account_id=strategy_data.get("account_id"),
-                asset_class=strategy_data.get("asset_class"),
-                base_symbol=strategy_data.get("base_symbol"),
-                quote_currency=strategy_data.get("quote_currency"),
-                time_horizon=strategy_data.get("time_horizon"),
-                automation_level=strategy_data.get("automation_level"),
-                capital_allocation=strategy_data.get("capital_allocation", {}),
-                position_sizing=strategy_data.get("position_sizing", {}),
-                trade_window=strategy_data.get("trade_window", {}),
-                order_execution=strategy_data.get("order_execution", {}),
-                risk_controls=strategy_data.get("risk_controls", {}),
-                data_filters=strategy_data.get("data_filters", {}),
-                notifications=strategy_data.get("notifications", {}),
-                backtest_mode=strategy_data.get("backtest_mode"),
-                backtest_params=strategy_data.get("backtest_params", {}),
-                telemetry_id=strategy_data.get("telemetry_id"),
-                configuration=strategy_data.get("configuration", {}),
-                performance=strategy_data.get("performance"),
-                created_at=datetime.fromisoformat(strategy_data["created_at"]),
-                updated_at=datetime.fromisoformat(strategy_data["updated_at"]),
-            )
-            strategies.append(strategy)
-        
-        return StrategiesListResponse(strategies=strategies)
-        
-    except Exception as e:
-        logger.error("Error fetching strategies", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to fetch strategies: {str(e)}")
+    const allAssets = [...tradableAssets.stocks, ...tradableAssets.crypto];
+    const filtered = allAssets.filter(asset => 
+      asset.symbol.toLowerCase().includes(symbolSearchTerm.toLowerCase()) ||
+      asset.name.toLowerCase().includes(symbolSearchTerm.toLowerCase())
+    ).slice(0, 10); // Limit to 10 suggestions
 
-@router.post("/")
-@router.post("")
-async def create_strategy(
-    strategy_data: TradingStrategyCreate,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-):
-    """Create a new trading strategy"""
-    try:
-        # Convert Pydantic model to dict for database insertion
-        strategy_dict = strategy_data.model_dump()
-        strategy_dict["user_id"] = current_user.id
-        
-        resp = supabase.table("trading_strategies").insert(strategy_dict).select().single().execute()
-        
-        if not resp.data:
-            raise HTTPException(status_code=500, detail="Failed to create strategy")
-        
-        return TradingStrategyResponse(**resp.data)
-        
-    except Exception as e:
-        logger.error("Error creating strategy", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create strategy: {str(e)}")
+    setSymbolSuggestions(filtered);
+    setShowSuggestions(filtered.length > 0);
+  }, [symbolSearchTerm, tradableAssets]);
 
-@router.get("/{strategy_id}")
-async def get_strategy(
-    strategy_id: str,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-):
-    """Get a specific trading strategy"""
-    try:
-        resp = supabase.table("trading_strategies").select("*").eq("id", strategy_id).eq("user_id", current_user.id).single().execute()
-        
-        if not resp.data:
-            raise HTTPException(status_code=404, detail="Strategy not found")
-        
-        return TradingStrategyResponse(**resp.data)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Error fetching strategy", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to fetch strategy: {str(e)}")
+  // Close suggestions when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.symbol-input-container')) {
+        setShowSuggestions(false);
+      }
+    };
 
-@router.put("/{strategy_id}")
-async def update_strategy(
-    strategy_id: str,
-    strategy_update: TradingStrategyUpdate,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-):
-    """Update a trading strategy"""
-    try:
-        # Only include non-None values in the update
-        update_data = {k: v for k, v in strategy_update.model_dump().items() if v is not None}
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-        
-        resp = supabase.table("trading_strategies").update(update_data).eq("id", strategy_id).eq("user_id", current_user.id).select().single().execute()
-        
-        if not resp.data:
-            raise HTTPException(status_code=404, detail="Strategy not found")
-        
-        return TradingStrategyResponse(**resp.data)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Error updating strategy", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to update strategy: {str(e)}")
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-@router.delete("/{strategy_id}")
-async def delete_strategy(
-    strategy_id: str,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-):
-    """Delete a trading strategy"""
-    try:
-        resp = supabase.table("trading_strategies").delete().eq("id", strategy_id).eq("user_id", current_user.id).execute()
-        
-        return {"message": "Strategy deleted successfully"}
-        
-    except Exception as e:
-        logger.error("Error deleting strategy", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to delete strategy: {str(e)}")
+  const handleSymbolSelect = (asset: TradableAsset) => {
+    setConfiguration(prev => ({ ...prev, symbol: asset.symbol }));
+    setSymbolSearchTerm(asset.symbol);
+    setShowSuggestions(false);
+  };
 
-@router.post("/{strategy_id}/execute")
-async def execute_strategy(
-    strategy_id: str,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client),
-):
-    """Manually execute a strategy once"""
-    try:
-        # Get strategy from database
-        resp = supabase.table("trading_strategies").select("*").eq("id", strategy_id).eq("user_id", current_user.id).single().execute()
-        
-        if not resp.data:
-            raise HTTPException(status_code=404, detail="Strategy not found")
-        
-        strategy = resp.data
-        
-        # Get trading clients
-        trading_client = await get_alpaca_trading_client(current_user, supabase)
-        stock_client = get_alpaca_stock_data_client()
-        crypto_client = get_alpaca_crypto_data_client()
-        
-        # Execute strategy based on type
-        result = None
-        if strategy["type"] == "spot_grid":
-            result = await execute_spot_grid_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
-        elif strategy["type"] == "dca":
-            result = await execute_dca_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
-        elif strategy["type"] == "covered_calls":
-            result = await execute_covered_calls_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
-        elif strategy["type"] == "wheel":
-            result = await execute_wheel_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
-        elif strategy["type"] == "smart_rebalance":
-            result = await execute_smart_rebalance_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
-        else:
-            result = {
-                "action": "error",
-                "reason": f"Strategy type {strategy['type']} not implemented"
-            }
-        
-        # Log the execution result
-        if result:
-            logger.info(f"🤖 Strategy execution result for {strategy['name']}: {result}")
-        
-        return {
-            "message": "Strategy executed successfully",
-            "result": result
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Error executing strategy", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to execute strategy: {str(e)}")
+  const selectedCategoryData = strategyTypes.find(c => c.category === selectedCategory);
+  const selectedStrategyType = selectedCategoryData?.strategies.find(s => s.type === selectedType);
+  const selectedAccountData = brokerageAccounts.find(acc => acc.id === selectedAccount);
+  const userTier = getEffectiveSubscriptionTier();
 
-async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient, supabase: Client) -> dict:
-    """Execute spot grid trading strategy"""
-    try:
-        config = strategy.get("configuration", {})
-        symbol = config.get("symbol", "BTC")
-        lower_bound = config.get("price_range_lower", 47)
-        upper_bound = config.get("price_range_upper", 53)
-        allocated_capital = config.get("allocated_capital", 1000)
-        number_of_grids = config.get("number_of_grids", 20)
-        
-        logger.info(f"🤖 Executing spot grid for {symbol}: Range ${lower_bound}-${upper_bound}, {number_of_grids} grids")
-        
-        # Get current price
-        current_price = await get_current_price(symbol, stock_client, crypto_client)
-        logger.info(f"💰 Current {symbol} price: ${current_price:.2f}")
-        logger.info(f"📊 Grid bounds: Lower=${lower_bound}, Upper=${upper_bound}")
-        
-        # Get current positions
-        positions = trading_client.get_all_positions()
-        current_position = None
-        for pos in positions or []:
-            # Handle both stock and crypto symbols
-            pos_symbol = pos.symbol.upper()
-            target_symbol = symbol.upper()
-            
-            # For crypto, check multiple formats
-            if (pos_symbol == target_symbol or 
-                pos_symbol == normalize_crypto_symbol(target_symbol) or
-                normalize_crypto_symbol(pos_symbol) == normalize_crypto_symbol(target_symbol)):
-                current_position = pos
-                break
-        
-        current_qty = float(current_position.qty) if current_position else 0
-        logger.info(f"📊 Current {symbol} position: {current_qty}")
-        
-        # If no position exists, make initial purchase to start the grid
-        if current_qty == 0:
-            logger.info(f"🎯 No position found for {symbol} - making initial purchase")
-            initial_buy_amount = allocated_capital / number_of_grids  # Start with one grid level
-            
-            # Calculate appropriate quantity based on asset type
-            if is_crypto_symbol(symbol):
-                quantity = calculate_crypto_quantity(initial_buy_amount, current_price, symbol)
-            else:
-                quantity = int(initial_buy_amount / current_price)  # Whole shares for stocks
-            
-            logger.info(f"🟢 INITIAL BUY: {symbol} x{quantity:.6f} @ ${current_price:.2f} (${initial_buy_amount:.2f})")
-            
-            # Submit initial buy order to Alpaca
-            order_request = MarketOrderRequest(
-                symbol=order_symbol,
-                qty=quantity,
-                side=OrderSide.BUY,
-                time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
-                client_order_id=f"{strategy['id']}-initial-{uuid.uuid4().hex[:8]}"
-            )
-            
-            order = trading_client.submit_order(order_request)
-            logger.info(f"✅ INITIAL BUY order submitted to Alpaca: {order_symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
-            
-            # Save trade to Supabase
-            trade_saved = save_trade_to_supabase(
-                user_id=strategy["user_id"],
-                strategy_id=strategy["id"],
-                alpaca_order_id=str(order.id),
-                symbol=symbol.upper(),
-                trade_type="buy",
-                quantity=quantity,
-                price=current_price,
-                order_type="market",
-                time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
-                supabase=self.supabase
-            )
-            
-            if trade_saved:
-                logger.info(f"✅ Initial trade saved to Supabase database")
-            else:
-                logger.error(f"❌ Failed to save initial trade to Supabase database")
-            
-            return {
-                "action": "buy",
-                "symbol": symbol,
-                "quantity": quantity,
-                "price": current_price,
-                "order_id": str(order.id),
-                "reason": f"Initial position purchase to start grid trading"
-            }
-        
-        # Calculate position value for comparison
-        position_value = current_qty * current_price
-        max_position_value = allocated_capital * 0.8  # Don't use more than 80% of allocated capital
-        
-        # Determine the correct symbol format for Alpaca orders
-        order_symbol = normalize_crypto_symbol(symbol) if is_crypto_symbol(symbol) else symbol.upper()
-        logger.info(f"📝 Using order symbol: {order_symbol}")
-        
-        # Grid trading logic
-        if current_price <= lower_bound:
-            # Price below grid - BUY
-            if position_value < max_position_value:  # Don't over-buy
-                buy_amount = min(allocated_capital / number_of_grids, allocated_capital / 4)  # Buy 1/4 of capital max
-                
-                # Calculate appropriate quantity based on asset type
-                if is_crypto_symbol(symbol):
-                    quantity = calculate_crypto_quantity(buy_amount, current_price, symbol)
-                else:
-                    quantity = int(buy_amount / current_price)  # Whole shares for stocks
-                
-                logger.info(f"🟢 BUY SIGNAL: Price ${current_price:.2f} <= Lower bound ${lower_bound}")
-                logger.info(f"💵 Buy amount: ${buy_amount:.2f}, Quantity: {quantity:.6f}")
-                
-                # Submit buy order to Alpaca
-                order_request = MarketOrderRequest(
-                    symbol=order_symbol,
-                    qty=quantity,
-                    side=OrderSide.BUY,
-                    time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
-                    client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
-                )
-                
-                order = trading_client.submit_order(order_request)
-                logger.info(f"✅ BUY order submitted to Alpaca: {order_symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
-                
-                # Save trade to Supabase
-                trade_saved = await save_trade_to_supabase(
-                    user_id=strategy["user_id"],
-                    strategy_id=strategy["id"],
-                    alpaca_order_id=str(order.id),
-                    symbol=symbol.upper(),
-                    trade_type="buy",
-                    quantity=quantity,
-                    price=current_price,
-                    order_type="market",
-                    time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
-                    supabase=supabase
-                )
-                
-                if trade_saved:
-                    logger.info(f"✅ Trade saved to Supabase database")
-                else:
-                    logger.error(f"❌ Failed to save trade to Supabase database")
-                
-                return {
-                    "action": "buy",
-                    "symbol": symbol,
-                    "quantity": quantity,
-                    "price": current_price,
-                    "order_id": str(order.id),
-                    "reason": f"Price ${current_price:.2f} at/below lower bound ${lower_bound}"
-                }
-            else:
-                logger.info(f"⏸️ HOLD: Already holding maximum position (${position_value:.2f} >= ${max_position_value:.2f})")
-                return {
-                    "action": "hold",
-                    "reason": f"Already holding maximum position (${position_value:.2f} of ${max_position_value:.2f} max)"
-                }
-                
-        elif current_price >= upper_bound:
-            # Price above grid - SELL
-            if current_qty > 0:
-                # Calculate appropriate sell quantity
-                if is_crypto_symbol(symbol):
-                    sell_quantity = round(min(current_qty, current_qty / 4), 6)  # Sell 1/4 of position max, rounded for crypto
-                else:
-                    sell_quantity = int(min(current_qty, current_qty / 4))  # Whole shares for stocks
-                
-                logger.info(f"🔴 SELL SIGNAL: Price ${current_price:.2f} >= Upper bound ${upper_bound}")
-                logger.info(f"📦 Sell quantity: {sell_quantity:.6f} (from total {current_qty:.6f})")
-                
-                # Submit sell order to Alpaca
-                order_request = MarketOrderRequest(
-                    symbol=order_symbol,
-                    qty=sell_quantity,
-                    side=OrderSide.SELL,
-                    time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
-                    client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
-                )
-                
-                order = trading_client.submit_order(order_request)
-                logger.info(f"✅ SELL order submitted to Alpaca: {order_symbol} x{sell_quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
-                
-                # Save trade to Supabase
-                trade_saved = await save_trade_to_supabase(
-                    user_id=strategy["user_id"],
-                    strategy_id=strategy["id"],
-                    alpaca_order_id=str(order.id),
-                    symbol=order_symbol,
-                    trade_type="sell",
-                    quantity=sell_quantity,
-                    price=current_price,
-                    order_type="market",
-                    time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
-                    supabase=supabase
-                )
-                
-                if trade_saved:
-                    logger.info(f"✅ Trade saved to Supabase database")
-                else:
-                    logger.error(f"❌ Failed to save trade to Supabase database")
-                
-                return {
-                    "action": "sell",
-                    "symbol": order_symbol,
-                    "quantity": sell_quantity,
-                    "price": current_price,
-                    "order_id": str(order.id),
-                    "reason": f"Price ${current_price:.2f} at/above upper bound ${upper_bound}"
-                }
-            else:
-                logger.info(f"🟢 BUY SIGNAL: Price ${current_price:.2f} >= Upper bound ${upper_bound} but no position - buying initial position")
-                
-                # Buy initial position when price is at upper bound
-                buy_amount = allocated_capital / number_of_grids
-                
-                # Calculate appropriate quantity based on asset type
-                if is_crypto_symbol(symbol):
-                    quantity = calculate_crypto_quantity(buy_amount, current_price, symbol)
-                else:
-                    quantity = int(buy_amount / current_price)  # Whole shares for stocks
-                
-                logger.info(f"💵 Initial buy amount: ${buy_amount:.2f}, Quantity: {quantity:.6f}")
-                
-                # Submit buy order to Alpaca
-                order_request = MarketOrderRequest(
-                    symbol=order_symbol,
-                    qty=quantity,
-                    side=OrderSide.BUY,
-                    time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
-                    client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
-                )
-                
-                order = trading_client.submit_order(order_request)
-                logger.info(f"✅ INITIAL BUY order submitted to Alpaca: {order_symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
-                
-                # Save trade to Supabase
-                trade_saved = await save_trade_to_supabase(
-                    user_id=strategy["user_id"],
-                    strategy_id=strategy["id"],
-                    alpaca_order_id=str(order.id),
-                    symbol=order_symbol,
-                    trade_type="buy",
-                    quantity=quantity,
-                    price=current_price,
-                    order_type="market",
-                    time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
-                    supabase=supabase
-                )
-                
-                if trade_saved:
-                    logger.info(f"✅ Initial trade saved to Supabase database")
-                else:
-                    logger.error(f"❌ Failed to save initial trade to Supabase database")
-                
-                return {
-                    "action": "buy",
-                    "symbol": order_symbol,
-                    "quantity": quantity,
-                    "price": current_price,
-                    "order_id": str(order.id),
-                    "reason": f"Initial position purchase at upper bound ${upper_bound}"
-                }
-        else:
-            # Price within grid - HOLD
-            logger.info(f"⏸️ HOLD: Price ${current_price:.2f} within grid range ${lower_bound}-${upper_bound}")
-            return {
-                "action": "hold",
-                "reason": f"Price ${current_price:.2f} within grid range ${lower_bound}-${upper_bound}"
-            }
-            
-    except AlpacaAPIError as e:
-        logger.error(f"❌ Alpaca API error in spot grid strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Alpaca API error: {str(e)}"
-        }
-    except Exception as e:
-        logger.error(f"❌ Error in spot grid strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}"
-        }
+  const tierOrder = { starter: 0, pro: 1, elite: 2 };
+  const hasAccess = (requiredTier: string) => tierOrder[userTier] >= tierOrder[requiredTier as keyof typeof tierOrder];
 
-async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient, supabase: Client) -> dict:
-    """Execute DCA (Dollar Cost Averaging) strategy"""
-    try:
-        config = strategy.get("configuration", {})
-        symbol = config.get("symbol", "BTC")
-        investment_amount = config.get("investment_amount_per_interval", 100)
-        
-        logger.info(f"🤖 Executing DCA for {symbol}: ${investment_amount} investment")
-        
-        # Get current price
-        current_price = await get_current_price(symbol, stock_client, crypto_client)
-        quantity = investment_amount / current_price
-        
-        # Submit buy order
-        order_request = MarketOrderRequest(
-            symbol=normalize_crypto_symbol(symbol) if is_crypto_symbol(symbol) else symbol.upper(),
-            qty=quantity,
-            side=OrderSide.BUY,
-            time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
-            client_order_id=f"{strategy['id']}-{uuid.uuid4().hex[:8]}"
-        )
-        
-        order = trading_client.submit_order(order_request)
-        logger.info(f"📈 DCA BUY order submitted: {symbol} x{quantity:.4f} @ ${current_price:.2f}")
-        
-        # Save trade to Supabase
-        trade_saved = save_trade_to_supabase(
-            user_id=strategy["user_id"],
-            strategy_id=strategy["id"],
-            alpaca_order_id=str(order.id),
-            symbol=symbol.upper(),
-            trade_type="buy",
-            quantity=quantity,
-            price=current_price,
-            order_type="market",
-            time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
-            supabase=supabase
-        )
-        
-        return {
-            "action": "buy",
-            "symbol": symbol,
-            "quantity": quantity,
-            "price": current_price,
-            "order_id": str(order.id),
-            "reason": f"DCA scheduled purchase of ${investment_amount}"
-        }
-        
-    except AlpacaAPIError as e:
-        logger.error(f"❌ Alpaca API error in DCA strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Alpaca API error: {str(e)}"
-        }
-    except Exception as e:
-        logger.error(f"❌ Error in DCA strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}"
-        }
+  const handleNext = () => {
+    if (step === 'category' && selectedCategory) {
+      setStep('strategy');
+    } else if (step === 'strategy' && selectedType) {
+      setStep('configure');
+      // Set default strategy name
+      if (!strategyName) {
+        setStrategyName(`${selectedStrategyType?.name} Strategy`);
+      }
+    } else if (step === 'configure') {
+      setStep('review');
+    }
+  };
 
-async def execute_covered_calls_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient, supabase: Client) -> dict:
-    """Execute covered calls strategy"""
-    try:
-        config = strategy.get("configuration", {})
-        symbol = config.get("symbol", "AAPL")
-        
-        logger.info(f"🤖 Executing covered calls for {symbol}")
-        
-        # Get current price
-        current_price = await get_current_price(symbol, stock_client, crypto_client)
-        
-        # For demo purposes, simulate covered calls logic
-        return {
-            "action": "hold",
-            "reason": f"Covered calls strategy monitoring {symbol} @ ${current_price:.2f}"
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Error in covered calls strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}"
-        }
+  const handleBack = () => {
+    if (step === 'review') {
+      setStep('configure');
+    } else if (step === 'configure') {
+      setStep('strategy');
+    } else if (step === 'strategy') {
+      setStep('category');
+    }
+  };
 
-async def execute_wheel_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient, supabase: Client) -> dict:
-    """Execute wheel strategy"""
-    try:
-        config = strategy.get("configuration", {})
-        symbol = config.get("symbol", "AAPL")
-        
-        logger.info(f"🤖 Executing wheel strategy for {symbol}")
-        
-        # Get current price
-        current_price = await get_current_price(symbol, stock_client, crypto_client)
-        
-        # For demo purposes, simulate wheel logic
-        return {
-            "action": "hold",
-            "reason": f"Wheel strategy monitoring {symbol} @ ${current_price:.2f}"
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Error in wheel strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}"
-        }
+  const handleCreate = () => {
+    if (!selectedType || !selectedStrategyType || !selectedAccount) return;
 
-async def execute_smart_rebalance_strategy(strategy: dict, trading_client: TradingClient, stock_client: StockHistoricalDataClient, crypto_client: CryptoHistoricalDataClient, supabase: Client) -> dict:
-    """Execute smart rebalance strategy"""
-    try:
-        config = strategy.get("configuration", {})
-        assets = config.get("assets", [])
-        allocated_capital = config.get("allocated_capital", 10000)
-        threshold_deviation_percent = config.get("threshold_deviation_percent", 5)
-        
-        logger.info(f"🤖 Executing smart rebalance strategy with {len(assets)} assets")
-        
-        if not assets:
-            return {
-                "action": "error",
-                "reason": "No assets configured for rebalancing"
-            }
-        
-        # Get current positions
-        positions = trading_client.get_all_positions()
-        position_map = {}
-        for pos in positions or []:
-            symbol = pos.symbol.upper()
-            # Handle crypto symbol normalization
-            if "/" in symbol:
-                symbol = symbol.replace("/", "")
-            position_map[symbol] = {
-                "qty": float(pos.qty),
-                "market_value": float(pos.market_value or 0),
-                "current_price": float(pos.current_price or 0)
-            }
-        
-        logger.info(f"📊 Current positions: {list(position_map.keys())}")
-        
-        # Calculate total portfolio value
-        total_portfolio_value = sum(pos["market_value"] for pos in position_map.values())
-        
-        # If portfolio is empty or very small, make initial purchases
-        if total_portfolio_value < allocated_capital * 0.1:  # Less than 10% of target
-            logger.info(f"🎯 Portfolio value ${total_portfolio_value:.2f} too low - making initial purchases")
-            
-            # Make initial purchases for each asset
-            for asset in assets:
-                symbol = asset.get("symbol", "").upper()
-                allocation_percent = asset.get("allocation", 0) / 100
-                target_value = allocated_capital * allocation_percent
-                
-                if target_value < 100:  # Skip very small allocations
-                    continue
-                
-                logger.info(f"🟢 INITIAL BUY: {symbol} target allocation {allocation_percent:.1%} = ${target_value:.2f}")
-                
-                # Get current price
-                current_price = await get_current_price(symbol, stock_client, crypto_client)
-                
-                # Calculate quantity
-                if is_crypto_symbol(symbol):
-                    quantity = calculate_crypto_quantity(target_value, current_price, symbol)
-                    order_symbol = normalize_crypto_symbol(symbol)
-                else:
-                    quantity = int(target_value / current_price)
-                    order_symbol = symbol
-                
-                if quantity <= 0:
-                    continue
-                
-                logger.info(f"💵 Initial buy: {symbol} x{quantity:.6f} @ ${current_price:.2f}")
-                
-                # Submit buy order
-                order_request = MarketOrderRequest(
-                    symbol=order_symbol,
-                    qty=quantity,
-                    side=OrderSide.BUY,
-                    time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
-                    client_order_id=f"{strategy['id']}-rebalance-{uuid.uuid4().hex[:8]}"
-                )
-                
-                order = trading_client.submit_order(order_request)
-                logger.info(f"✅ INITIAL BUY order submitted: {order_symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
-                
-                # Save trade to Supabase
-                trade_saved = save_trade_to_supabase(
-                    user_id=strategy["user_id"],
-                    strategy_id=strategy["id"],
-                    alpaca_order_id=str(order.id),
-                    symbol=symbol,
-                    trade_type="buy",
-                    quantity=quantity,
-                    price=current_price,
-                    order_type="market",
-                    time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
-                    supabase=supabase
-                )
-                
-                if trade_saved:
-                    logger.info(f"✅ Initial rebalance trade saved to database")
-            
-            return {
-                "action": "buy",
-                "reason": f"Initial portfolio setup - purchased {len(assets)} assets"
-            }
-        
-        # Calculate current allocations vs target allocations
-        rebalance_needed = False
-        trades_to_execute = []
-        
-        for asset in assets:
-            symbol = asset.get("symbol", "").upper()
-            target_allocation = asset.get("allocation", 0) / 100
-            target_value = total_portfolio_value * target_allocation
-            
-            # Check current position
-            current_position = position_map.get(symbol, {"market_value": 0, "qty": 0})
-            current_value = current_position["market_value"]
-            current_allocation = current_value / total_portfolio_value if total_portfolio_value > 0 else 0
-            
-            # Calculate deviation
-            allocation_deviation = abs(current_allocation - target_allocation) * 100
-            
-            logger.info(f"📊 {symbol}: Current {current_allocation:.1%} vs Target {target_allocation:.1%} (deviation: {allocation_deviation:.1f}%)")
-            
-            if allocation_deviation > threshold_deviation_percent:
-                rebalance_needed = True
-                value_difference = target_value - current_value
-                
-                if value_difference > 100:  # Need to buy more
-                    trades_to_execute.append({
-                        "symbol": symbol,
-                        "action": "buy",
-                        "value": value_difference,
-                        "reason": f"Underweight by {allocation_deviation:.1f}%"
-                    })
-                elif value_difference < -100:  # Need to sell some
-                    trades_to_execute.append({
-                        "symbol": symbol,
-                        "action": "sell",
-                        "value": abs(value_difference),
-                        "reason": f"Overweight by {allocation_deviation:.1f}%"
-                    })
-        
-        if not rebalance_needed:
-            logger.info(f"⏸️ HOLD: Portfolio within target allocation thresholds")
-            return {
-                "action": "hold",
-                "reason": "Portfolio within target allocation thresholds"
-            }
-        
-        # Execute rebalancing trades (limit to 1 trade per execution to avoid over-trading)
-        if trades_to_execute:
-            trade = trades_to_execute[0]  # Execute one trade at a time
-            symbol = trade["symbol"]
-            action = trade["action"]
-            value = trade["value"]
-            
-            # Get current price
-            current_price = await get_current_price(symbol, stock_client, crypto_client)
-            
-            # Calculate quantity
-            if is_crypto_symbol(symbol):
-                quantity = calculate_crypto_quantity(value, current_price, symbol)
-                order_symbol = normalize_crypto_symbol(symbol)
-            else:
-                quantity = int(value / current_price)
-                order_symbol = symbol
-            
-            if quantity <= 0:
-                return {
-                    "action": "hold",
-                    "reason": f"Calculated quantity too small for {symbol}"
-                }
-            
-            # Submit order
-            order_side = OrderSide.BUY if action == "buy" else OrderSide.SELL
-            order_request = MarketOrderRequest(
-                symbol=order_symbol,
-                qty=quantity,
-                side=order_side,
-                time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
-                client_order_id=f"{strategy['id']}-rebalance-{uuid.uuid4().hex[:8]}"
-            )
-            
-            order = trading_client.submit_order(order_request)
-            logger.info(f"✅ REBALANCE {action.upper()} order submitted: {order_symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
-            
-            # Save trade to Supabase
-            trade_saved = save_trade_to_supabase(
-                user_id=strategy["user_id"],
-                strategy_id=strategy["id"],
-                alpaca_order_id=str(order.id),
-                symbol=symbol,
-                trade_type=action,
-                quantity=quantity,
-                price=current_price,
-                order_type="market",
-                time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
-                supabase=supabase
-            )
-            
-            return {
-                "action": action,
-                "symbol": symbol,
-                "quantity": quantity,
-                "price": current_price,
-                "order_id": str(order.id),
-                "reason": trade["reason"]
-            }
-        
-        return {
-            "action": "hold",
-            "reason": "No rebalancing trades needed at this time"
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Error in smart rebalance strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}"
-        }
+    const strategy: Omit<TradingStrategy, 'id'> = {
+      name: strategyName,
+      type: selectedType as TradingStrategy['type'],
+      description: selectedStrategyType.description,
+      risk_level: selectedStrategyType.risk_level,
+      min_capital: selectedStrategyType.min_capital,
+      is_active: false,
+      account_id: selectedAccount,
+      asset_class: 'equity',
+      base_symbol: configuration.symbol || 'AAPL',
+      quote_currency: 'USD',
+      time_horizon: 'swing',
+      automation_level: 'fully_auto',
+      capital_allocation: {
+        mode: 'fixed_amount_usd',
+        value: configuration.allocated_capital || selectedStrategyType.min_capital,
+        max_positions: 1,
+        max_exposure_usd: configuration.allocated_capital || selectedStrategyType.min_capital,
+      },
+      position_sizing: {
+        mode: 'fixed_units',
+        value: 1,
+      },
+      trade_window: {
+        enabled: false,
+        start_time: '09:30',
+        end_time: '16:00',
+        days_of_week: [1, 2, 3, 4, 5],
+      },
+      order_execution: {
+        order_type_default: 'market',
+        limit_tolerance_percent: 0.1,
+        allow_partial_fill: false,
+        combo_execution: 'atomic',
+      },
+      risk_controls: {
+        stop_loss_usd: 0,
+        take_profit_usd: 0,
+        max_daily_loss_usd: 0,
+        max_drawdown_percent: 0,
+      },
+      data_filters: {},
+      notifications: {
+        email_alerts: true,
+        push_notifications: false,
+        webhook_url: '',
+      },
+      backtest_mode: 'paper',
+      backtest_params: {},
+      base_symbol: configuration.symbol || 'BTC',
+      configuration,
+    };
 
-async def update_strategy_performance(strategy_id: str, user_id: str, supabase: Client, trading_client: TradingClient):
-    """Update strategy performance metrics based on recent trades"""
-    try:
-        # Get recent trades for this strategy
-        resp = supabase.table("trades").select("*").eq("strategy_id", strategy_id).eq("user_id", user_id).order("created_at", desc=True).limit(100).execute()
-        
-        trades = resp.data or []
-        if not trades:
-            return
-        
-        # Calculate basic performance metrics
-        executed_trades = [t for t in trades if t["status"] == "executed"]
-        total_trades = len(executed_trades)
-        
-        if total_trades == 0:
-            return
-        
-        # Calculate win rate and total P&L
-        profitable_trades = [t for t in executed_trades if t.get("profit_loss", 0) > 0]
-        win_rate = len(profitable_trades) / total_trades if total_trades > 0 else 0
-        total_pnl = sum(t.get("profit_loss", 0) for t in executed_trades)
-        
-        # Calculate other metrics (simplified)
-        avg_trade_duration = 1.0  # Would calculate from actual trade data
-        max_drawdown = -0.05  # Would calculate from equity curve
-        total_return = total_pnl / 10000 if total_pnl != 0 else 0  # Assuming $10K base
-        
-        performance_data = {
-            "total_return": total_return,
-            "win_rate": win_rate,
-            "max_drawdown": max_drawdown,
-            "total_trades": total_trades,
-            "avg_trade_duration": avg_trade_duration,
-            "last_updated": datetime.now(timezone.utc).isoformat()
-        }
-        
-        # Update strategy performance
-        supabase.table("trading_strategies").update({
-            "performance": performance_data,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }).eq("id", strategy_id).execute()
-        
-        logger.info(f"📊 Updated performance for strategy {strategy_id}: {total_trades} trades, {win_rate:.1%} win rate")
-        
-    except Exception as e:
-        logger.error(f"❌ Error updating strategy performance: {e}")
+    onSave(strategy);
+  };
+
+  const renderCategoryStep = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-4">Choose Strategy Category</h3>
+        <p className="text-gray-400 mb-6">
+          Select the category of trading strategy you want to create
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {strategyTypes.map((category) => {
+          const Icon = category.icon;
+          const hasAnyAccess = category.strategies.some(s => hasAccess(s.tier));
+          
+          return (
+            <motion.div
+              key={category.category}
+              whileHover={hasAnyAccess ? { scale: 1.01 } : {}}
+              whileTap={hasAnyAccess ? { scale: 0.99 } : {}}
+              onClick={hasAnyAccess ? () => setSelectedCategory(category.category) : undefined}
+              className={`p-6 border rounded-lg transition-all relative ${
+                selectedCategory === category.category
+                  ? 'border-blue-500 bg-blue-500/10'
+                  : hasAnyAccess
+                    ? 'border-gray-700 bg-gray-800/30 cursor-pointer hover:border-gray-600'
+                    : 'border-gray-800 bg-gray-800/10 cursor-not-allowed opacity-60'
+              }`}
+            >
+              {!hasAnyAccess && (
+                <div className="absolute top-2 right-2 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30">
+                  Upgrade Required
+                </div>
+              )}
+              
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <Icon className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-white text-lg">{category.category}</h4>
+                  <p className="text-sm text-gray-400">{category.description}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between text-sm text-gray-400">
+                <span>{category.strategies.length} strategies available</span>
+                <span>
+                  From {formatCurrency(Math.min(...category.strategies.map(s => s.min_capital)))}
+                </span>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderStrategyStep = () => {
+    if (!selectedCategoryData) return null;
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-4">Choose Strategy</h3>
+          <p className="text-gray-400 mb-6">
+            Select a specific strategy from the {selectedCategory} category
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {selectedCategoryData.strategies.map((strategy) => {
+            const hasStrategyAccess = hasAccess(strategy.tier);
+            
+            return (
+              <motion.div
+                key={strategy.type}
+                whileHover={hasStrategyAccess ? { scale: 1.01 } : {}}
+                whileTap={hasStrategyAccess ? { scale: 0.99 } : {}}
+                onClick={hasStrategyAccess ? () => setSelectedType(strategy.type) : undefined}
+                className={`p-6 border rounded-lg transition-all relative ${
+                  selectedType === strategy.type
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : hasStrategyAccess
+                      ? 'border-gray-700 bg-gray-800/30 cursor-pointer hover:border-gray-600'
+                      : 'border-gray-800 bg-gray-800/10 cursor-not-allowed opacity-60'
+                }`}
+              >
+                {!hasStrategyAccess && (
+                  <div className="absolute top-2 right-2 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30 capitalize">
+                    {strategy.tier} Required
+                  </div>
+                )}
+                
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h4 className="font-semibold text-white mb-2">{strategy.name}</h4>
+                    <p className="text-sm text-gray-400 mb-3">{strategy.description}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-1 rounded text-xs font-medium border ${
+                      strategy.risk_level === 'low' ? 'text-green-400 bg-green-400/10 border-green-400/20' :
+                      strategy.risk_level === 'medium' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' :
+                      'text-red-400 bg-red-400/10 border-red-400/20'
+                    }`}>
+                      {strategy.risk_level} risk
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-400">
+                    Min: {formatCurrency(strategy.min_capital)}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderConfigureStep = () => {
+    if (!selectedStrategyType) return null;
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-4">Configure Strategy</h3>
+          <p className="text-gray-400 mb-6">
+            Set up the parameters for your {selectedStrategyType.name} strategy
+          </p>
+        </div>
+
+        {/* Basic Configuration */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Strategy Name
+            </label>
+            <input
+              type="text"
+              value={strategyName}
+              onChange={(e) => setStrategyName(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder={`${selectedStrategyType.name} Strategy`}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Brokerage Account
+            </label>
+            <select
+              value={selectedAccount}
+              onChange={(e) => setSelectedAccount(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select account...</option>
+              {brokerageAccounts.filter(acc => acc.is_connected).map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.account_name} - {formatCurrency(account.balance)}
+                </option>
+              ))}
+            </select>
+            {brokerageAccounts.filter(acc => acc.is_connected).length === 0 && (
+              <p className="text-sm text-yellow-400 mt-1">
+                No connected accounts. Please connect a brokerage account first.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Strategy-specific configuration */}
+        {selectedType === 'spot_grid' && (
+          <div className="space-y-6">
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6">
+              <h4 className="font-medium text-blue-400 mb-4 flex items-center gap-2">
+                <Grid3X3 className="w-5 h-5" />
+                Grid Configuration
+              </h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Symbol
+                  </label>
+                  <div className="relative symbol-input-container">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                      <input
+                        type="text"
+                        value={symbolSearchTerm || configuration.symbol || 'AAPL'}
+                        onChange={(e) => {
+                          const value = e.target.value.toUpperCase();
+                          setSymbolSearchTerm(value);
+                          setConfiguration(prev => ({ ...prev, symbol: value }));
+                        }}
+                        onFocus={() => {
+                          if (symbolSuggestions.length > 0) setShowSuggestions(true);
+                        }}
+                        className="w-full pl-10 pr-10 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                        placeholder="Search symbols (e.g., AAPL, MSFT, SPY)"
+                      />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    </div>
+                    
+                    {/* Symbol Suggestions Dropdown */}
+                    {showSuggestions && symbolSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        {symbolSuggestions.map((asset) => (
+                          <motion.div
+                            key={asset.symbol}
+                            whileHover={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}
+                            onClick={() => handleSymbolSelect(asset)}
+                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700/50 border-b border-gray-700/50 last:border-b-0"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                asset.asset_class === 'crypto' 
+                                  ? 'bg-gradient-to-br from-orange-500 to-yellow-500 text-white'
+                                  : 'bg-gradient-to-br from-blue-500 to-purple-500 text-white'
+                              }`}>
+                                {asset.symbol.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-medium text-white">{asset.symbol}</p>
+                                <p className="text-sm text-gray-400">{asset.name}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-400">{asset.exchange}</p>
+                              <p className={`text-xs font-medium ${
+                                asset.asset_class === 'crypto' ? 'text-orange-400' : 'text-blue-400'
+                              }`}>
+                                {asset.asset_class}
+                              </p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Lower Price Range
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="number"
+                      value={configuration.price_range_lower || ''}
+                      onChange={(e) => setConfiguration(prev => ({ ...prev, price_range_lower: Number(e.target.value) }))}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      placeholder="40000"
+                      min="0"
+                      step="100"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Upper Price Range
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="number"
+                      value={configuration.price_range_upper || ''}
+                      onChange={(e) => setConfiguration(prev => ({ ...prev, price_range_upper: Number(e.target.value) }))}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      placeholder="50000"
+                      min="0"
+                      step="100"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Number of Grids
+                  </label>
+                  <input
+                    type="number"
+                    value={configuration.number_of_grids || 20}
+                    onChange={(e) => setConfiguration(prev => ({ ...prev, number_of_grids: Number(e.target.value) }))}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    min="5"
+                    max="100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Allocated Capital
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="number"
+                      value={configuration.allocated_capital || selectedStrategyType?.min_capital || 1000}
+                      onChange={(e) => setConfiguration(prev => ({ ...prev, allocated_capital: Number(e.target.value) }))}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      min="100"
+                      step="100"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid Preview */}
+              {configuration.price_range_lower && configuration.price_range_upper && configuration.number_of_grids && (
+                <div className="mt-6 bg-gray-800/30 rounded-lg p-4">
+                  <h5 className="font-medium text-white mb-3 flex items-center gap-2">
+                    <Calculator className="w-4 h-4" />
+                    Grid Preview
+                  </h5>
+                  {(() => {
+                    const lower = configuration.price_range_lower;
+                    const upper = configuration.price_range_upper;
+                    const grids = configuration.number_of_grids;
+                    const capital = configuration.allocated_capital || selectedStrategyType?.min_capital || 1000;
+                    
+                    if (lower >= upper) {
+                      return (
+                        <p className="text-red-400 text-sm">
+                          Upper price must be greater than lower price
+                        </p>
+                      );
+                    }
+                    
+                    const priceRange = upper - lower;
+                    const gridSpacing = priceRange / grids;
+                    const capitalPerGrid = capital / grids;
+                    
+                    return (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-400">Price Range:</span>
+                          <span className="text-white ml-2">{formatCurrency(priceRange)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Grid Spacing:</span>
+                          <span className="text-white ml-2">{formatCurrency(gridSpacing)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Capital/Grid:</span>
+                          <span className="text-white ml-2">{formatCurrency(capitalPerGrid)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Total Grids:</span>
+                          <span className="text-white ml-2">{grids}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* DCA Configuration */}
+        {selectedType === 'dca' && (
+          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6">
+            <h4 className="font-medium text-green-400 mb-4">DCA Configuration</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Symbol
+                </label>
+                <input
+                  type="text"
+                  value={configuration.symbol || 'BTC'}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  placeholder="BTC"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Investment Amount
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type="number"
+                    value={configuration.investment_amount_per_interval || 100}
+                    onChange={(e) => setConfiguration(prev => ({ ...prev, investment_amount_per_interval: Number(e.target.value) }))}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    min="10"
+                    step="10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Frequency
+                </label>
+                <select
+                  value={configuration.frequency || 'daily'}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, frequency: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedType === 'smart_rebalance' && (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6">
+            <h4 className="font-medium text-blue-400 mb-4">Smart Rebalance Configuration</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Allocated Capital
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type="number"
+                    value={configuration.allocated_capital || selectedStrategyType?.min_capital || 5000}
+                    onChange={(e) => setConfiguration(prev => ({ ...prev, allocated_capital: Number(e.target.value) }))}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    min="1000"
+                    step="1000"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Total capital to allocate across all assets
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Rebalance Threshold (%)
+                </label>
+                <input
+                  type="number"
+                  value={configuration.threshold_deviation_percent || 5}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, threshold_deviation_percent: Number(e.target.value) }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  min="1"
+                  max="20"
+                  step="1"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Trigger rebalance when allocation deviates by this %
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Rebalance Frequency
+                </label>
+                <select
+                  value={configuration.rebalance_frequency || 'weekly'}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, rebalance_frequency: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Maximum frequency for rebalancing
+                </p>
+              </div>
+            </div>
+
+            {/* Allocation Method Buttons */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-300 mb-3">
+                Quick Allocation Methods
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNormalization('even')}
+                  className="text-xs"
+                >
+                  Distribute Evenly
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNormalization('marketcap')}
+                  className="text-xs"
+                >
+                  By Market Cap
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNormalization('majority_cash_even')}
+                  className="text-xs"
+                >
+                  60% Cash (Even)
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNormalization('majority_cash_marketcap')}
+                  className="text-xs"
+                >
+                  60% Cash (Market Cap)
+                </Button>
+              </div>
+            </div>
+
+            {/* Asset Allocation */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-3">
+                Asset Allocation (Must Total 100%)
+              </label>
+              <div className="space-y-3">
+                {(configuration.assets || [{ symbol: 'BTC/USD', allocation: 33.33 }, { symbol: 'ETH/USD', allocation: 33.33 }, { symbol: 'CASH', allocation: 33.34 }]).map((asset: any, index: number) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg">
+                    <div className="flex-1 relative">
+                      {asset.symbol.toUpperCase() === 'CASH' ? (
+                        <div className="flex items-center gap-3 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+                          <DollarSign className="w-4 h-4 text-green-400" />
+                          <span className="text-green-400 font-medium">CASH</span>
+                        </div>
+                      ) : (
+                      <div className="relative symbol-input-container">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <input
+                          type="text"
+                          value={asset.symbol || ''}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            const newAssets = [...(configuration.assets || [])];
+                            newAssets[index] = { ...newAssets[index], symbol: value };
+                            setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                            
+                            // Show suggestions for non-cash assets
+                            if (value !== 'CASH') {
+                              setSymbolSearchTerm(value);
+                            }
+                          }}
+                          onFocus={() => {
+                            if (asset.symbol.toUpperCase() !== 'CASH' && symbolSuggestions.length > 0) {
+                              setShowSuggestions(true);
+                            }
+                          }}
+                          className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                          placeholder="Symbol or CASH"
+                        />
+                        
+                        {/* Symbol Suggestions for this specific input */}
+                        {showSuggestions && symbolSuggestions.length > 0 && asset.symbol.toUpperCase() !== 'CASH' && (
+                          <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-40 overflow-y-auto">
+                            {symbolSuggestions.map((suggestion) => (
+                              <motion.div
+                                key={suggestion.symbol}
+                                whileHover={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}
+                                onClick={() => {
+                                  const newAssets = [...(configuration.assets || [])];
+                                  newAssets[index] = { ...newAssets[index], symbol: suggestion.symbol };
+                                  setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                                  setShowSuggestions(false);
+                                }}
+                                className="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-700/50 border-b border-gray-700/50 last:border-b-0"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                    suggestion.asset_class === 'crypto' 
+                                      ? 'bg-gradient-to-br from-orange-500 to-yellow-500 text-white'
+                                      : 'bg-gradient-to-br from-blue-500 to-purple-500 text-white'
+                                  }`}>
+                                    {suggestion.symbol.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-white text-sm">{suggestion.symbol}</p>
+                                    <p className="text-xs text-gray-400">{suggestion.name}</p>
+                                  </div>
+                                </div>
+                                {suggestion.market_cap && (
+                                  <p className="text-xs text-gray-400">
+                                    ${(suggestion.market_cap / 1000000000).toFixed(0)}B
+                                  </p>
+                                )}
+                              </motion.div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      )}
+                    </div>
+                    <div className="w-24">
+                      <input
+                        type="number"
+                        value={asset.allocation || 0}
+                        onChange={(e) => {
+                          const newAssets = [...(configuration.assets || [])];
+                          newAssets[index] = { ...newAssets[index], allocation: Number(e.target.value) };
+                          setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                        }}
+                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                        min="0"
+                        max="100"
+                        step="5"
+                      />
+                    </div>
+                    <span className="text-gray-400 text-sm">%</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newAssets = (configuration.assets || []).filter((_: any, i: number) => i !== index);
+                        setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                      }}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newAssets = [...(configuration.assets || []), { symbol: '', allocation: 0 }];
+                    setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                  }}
+                  className="w-full"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Asset
+                </Button>
+              </div>
+              
+              {/* Allocation Summary */}
+              {configuration.assets && configuration.assets.length > 0 && (
+                <div className="mt-4 p-3 bg-gray-800/30 rounded-lg">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">Total Allocation:</span>
+                    <span className={`font-medium ${
+                      configuration.assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0) === 100
+                        ? 'text-green-400'
+                        : 'text-yellow-400'
+                    }`}>
+                      {configuration.assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0)}%
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Covered Calls Configuration */}
+        {selectedType === 'covered_calls' && (
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-6">
+            <h4 className="font-medium text-purple-400 mb-4">Covered Calls Configuration</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Symbol
+                </label>
+                <input
+                  type="text"
+                  value={configuration.symbol || 'AAPL'}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  placeholder="AAPL"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Strike Delta
+                </label>
+                <input
+                  type="number"
+                  value={configuration.strike_delta || 0.30}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, strike_delta: Number(e.target.value) }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  min="0.1"
+                  max="0.5"
+                  step="0.05"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Days to Expiration
+                </label>
+                <input
+                  type="number"
+                  value={configuration.expiration_days || 30}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, expiration_days: Number(e.target.value) }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  min="7"
+                  max="90"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderReviewStep = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-4">Review Strategy</h3>
+        <p className="text-gray-400 mb-6">
+          Review your strategy configuration before creating
+        </p>
+      </div>
+
+      {/* Strategy Summary */}
+      <div className="bg-gray-800/30 rounded-lg p-6">
+        <h4 className="font-medium text-white mb-4">Strategy Summary</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Name:</span>
+              <span className="text-white">{strategyName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Type:</span>
+              <span className="text-white">{selectedStrategyType?.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Risk Level:</span>
+              <span className={`capitalize ${
+                selectedStrategyType?.risk_level === 'low' ? 'text-green-400' :
+                selectedStrategyType?.risk_level === 'medium' ? 'text-yellow-400' :
+                'text-red-400'
+              }`}>
+                {selectedStrategyType?.risk_level}
+              </span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Account:</span>
+              <span className="text-white">{selectedAccountData?.account_name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Min Capital:</span>
+              <span className="text-white">{formatCurrency(selectedStrategyType?.min_capital || 0)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Available Balance:</span>
+              <span className="text-white">{formatCurrency(selectedAccountData?.balance || 0)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Configuration Details */}
+      <div className="bg-gray-800/30 rounded-lg p-6">
+        <h4 className="font-medium text-white mb-4">Configuration</h4>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          {Object.entries(configuration).map(([key, value]) => (
+            <div key={key} className="flex justify-between">
+              <span className="text-gray-400 capitalize">{key.replace('_', ' ')}:</span>
+              <span className="text-white">
+                {typeof value === 'number' && key.includes('price') ? formatCurrency(value) :
+                 typeof value === 'number' && key.includes('capital') ? formatCurrency(value) :
+                 String(value)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Validation Warnings */}
+      {selectedAccountData && (configuration.allocated_capital || selectedStrategyType?.min_capital || 0) > selectedAccountData.balance && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-medium text-red-400 mb-2">Insufficient Balance</h4>
+              <p className="text-sm text-red-300">
+                The required capital ({formatCurrency(configuration.allocated_capital || selectedStrategyType?.min_capital || 0)}) 
+                exceeds your account balance ({formatCurrency(selectedAccountData.balance)}).
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const canProceed = () => {
+    if (step === 'category') return selectedCategory !== null;
+    if (step === 'strategy') return selectedType !== null;
+    if (step === 'configure') {
+      if (!strategyName || !selectedAccount) return false;
+      
+      // Validate grid configuration
+      if (selectedType === 'spot_grid') {
+        return configuration.price_range_lower && 
+               configuration.price_range_upper && 
+               configuration.price_range_lower < configuration.price_range_upper &&
+               configuration.number_of_grids > 0;
+      }
+      
+      // Validate smart rebalance configuration
+      if (selectedType === 'smart_rebalance') {
+        const assets = configuration.assets || [];
+        const totalAllocation = assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0);
+        return assets.length > 0 && 
+               totalAllocation === 100 && 
+               assets.every((asset: any) => asset.symbol && asset.allocation > 0);
+      }
+      
+      return true;
+    }
+    if (step === 'review') {
+      return selectedAccountData && 
+             (configuration.allocated_capital || selectedStrategyType?.min_capital || 0) <= selectedAccountData.balance;
+    }
+    return false;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+      >
+        <Card className="p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2">Create Trading Strategy</h2>
+              <p className="text-gray-400">Set up a new automated trading strategy</p>
+            </div>
+            <Button variant="ghost" onClick={onClose}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* Progress Indicator */}
+          <div className="flex items-center justify-center mb-8">
+            <div className="flex items-center gap-4">
+              {['category', 'strategy', 'configure', 'review'].map((stepName, index) => (
+                <div key={stepName} className="flex items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    step === stepName 
+                      ? 'bg-blue-600 text-white' 
+                      : index < ['category', 'strategy', 'configure', 'review'].indexOf(step)
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-700 text-gray-400'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  {index < 3 && (
+                    <div className={`w-12 h-0.5 mx-2 ${
+                      index < ['category', 'strategy', 'configure', 'review'].indexOf(step)
+                        ? 'bg-green-600'
+                        : 'bg-gray-700'
+                    }`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Step Content */}
+          {step === 'category' && renderCategoryStep()}
+          {step === 'strategy' && renderStrategyStep()}
+          {step === 'configure' && renderConfigureStep()}
+          {step === 'review' && renderReviewStep()}
+
+          {/* Action Buttons */}
+          <div className="flex gap-4 mt-8">
+            {step !== 'category' && (
+              <Button variant="secondary" onClick={handleBack}>
+                Back
+              </Button>
+            )}
+            
+            <div className="flex-1" />
+            
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            
+            {step !== 'review' ? (
+              <Button 
+                onClick={handleNext}
+                disabled={!canProceed()}
+              >
+                Next
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleCreate}
+                disabled={!canProceed()}
+              >
+                <Target className="w-4 h-4 mr-2" />
+                Create Strategy
+              </Button>
+            )}
+          </div>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}

@@ -138,6 +138,9 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [symbolSuggestions, setSymbolSuggestions] = useState<TradableAsset[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [symbolSearchTerm, setSymbolSearchTerm] = useState('');
+  const [assetSearchTerms, setAssetSearchTerms] = useState<Record<number, string>>({});
+  const [assetSuggestions, setAssetSuggestions] = useState<Record<number, TradableAsset[]>>({});
+  const [showAssetSuggestions, setShowAssetSuggestions] = useState<Record<number, boolean>>({});
 
   // Load tradable assets on component mount
   React.useEffect(() => {
@@ -204,8 +207,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   // Smart Rebalance allocation helpers
   const normalizeAllocationsEvenly = (assets: any[], cashAllocation = 0) => {
     const nonCashAssets = assets.filter(asset => asset.symbol.toUpperCase() !== 'CASH');
-    const remainingPercentage = 100 - cashAllocation;
-    const evenAllocation = remainingPercentage / nonCashAssets.length;
+    const remainingPercentage = Math.max(0, 100 - cashAllocation);
+    const evenAllocation = nonCashAssets.length > 0 ? remainingPercentage / nonCashAssets.length : 0;
     
     return assets.map(asset => ({
       ...asset,
@@ -215,7 +218,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
 
   const normalizeAllocationsByMarketCap = (assets: any[], cashAllocation = 0) => {
     const nonCashAssets = assets.filter(asset => asset.symbol.toUpperCase() !== 'CASH');
-    const remainingPercentage = 100 - cashAllocation;
+    const remainingPercentage = Math.max(0, 100 - cashAllocation);
     
     // Get market cap data for non-cash assets
     const assetsWithMarketCap = nonCashAssets.map(asset => {
@@ -224,7 +227,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       );
       return {
         ...asset,
-        market_cap: assetData?.market_cap || 100000000000 // Default market cap if not found
+        market_cap: assetData?.market_cap || 100 // Default market cap in billions if not found
       };
     });
     
@@ -251,7 +254,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     const hasCash = assets.some(asset => asset.symbol.toUpperCase() === 'CASH');
     let updatedAssets = [...assets];
     
-    if (!hasCache) {
+    if (!hasCash) {
       updatedAssets.push({ symbol: 'CASH', allocation: cashPercentage });
     } else {
       updatedAssets = updatedAssets.map(asset => 
@@ -291,6 +294,62 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     }
     
     setConfiguration(prev => ({ ...prev, assets: normalizedAssets }));
+  };
+
+  const addAsset = () => {
+    const currentAssets = configuration.assets || [];
+    const newAssets = [...currentAssets, { symbol: '', allocation: 0 }];
+    
+    // Auto-normalize to maintain 100% allocation
+    const normalizedAssets = normalizeAllocationsEvenly(newAssets);
+    setConfiguration(prev => ({ ...prev, assets: normalizedAssets }));
+  };
+
+  const removeAsset = (index: number) => {
+    const currentAssets = configuration.assets || [];
+    const newAssets = currentAssets.filter((_: any, i: number) => i !== index);
+    
+    // Auto-normalize remaining assets to maintain 100% allocation
+    const normalizedAssets = normalizeAllocationsEvenly(newAssets);
+    setConfiguration(prev => ({ ...prev, assets: normalizedAssets }));
+  };
+
+  const updateAssetSymbol = (index: number, symbol: string) => {
+    const newAssets = [...(configuration.assets || [])];
+    newAssets[index] = { ...newAssets[index], symbol: symbol.toUpperCase() };
+    setConfiguration(prev => ({ ...prev, assets: newAssets }));
+  };
+
+  const updateAssetAllocation = (index: number, allocation: number) => {
+    const newAssets = [...(configuration.assets || [])];
+    newAssets[index] = { ...newAssets[index], allocation: Math.max(0, Math.min(100, allocation)) };
+    setConfiguration(prev => ({ ...prev, assets: newAssets }));
+  };
+
+  // Handle asset search for smart rebalance
+  const handleAssetSearch = (index: number, searchTerm: string) => {
+    setAssetSearchTerms(prev => ({ ...prev, [index]: searchTerm }));
+    
+    if (!searchTerm || searchTerm.toUpperCase() === 'CASH') {
+      setAssetSuggestions(prev => ({ ...prev, [index]: [] }));
+      setShowAssetSuggestions(prev => ({ ...prev, [index]: false }));
+      return;
+    }
+
+    const allAssets = [...tradableAssets.stocks, ...tradableAssets.crypto];
+    const filtered = allAssets.filter(asset => 
+      asset.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      asset.name.toLowerCase().includes(searchTerm.toLowerCase())
+    ).slice(0, 8); // Limit to 8 suggestions
+
+    setAssetSuggestions(prev => ({ ...prev, [index]: filtered }));
+    setShowAssetSuggestions(prev => ({ ...prev, [index]: filtered.length > 0 }));
+  };
+
+  const handleAssetSelect = (index: number, asset: TradableAsset) => {
+    updateAssetSymbol(index, asset.symbol);
+    setAssetSearchTerms(prev => ({ ...prev, [index]: asset.symbol }));
+    setShowAssetSuggestions(prev => ({ ...prev, [index]: false }));
   };
 
   const selectedCategoryData = strategyTypes.find(c => c.category === selectedCategory);
@@ -809,10 +868,10 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6">
             <h4 className="font-medium text-blue-400 mb-4">Smart Rebalance Configuration</h4>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Total Capital
+                  Allocated Capital
                 </label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -825,6 +884,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                     step="1000"
                   />
                 </div>
+                <p className="text-xs text-gray-400 mt-1">Total capital to allocate across assets</p>
               </div>
 
               <div>
@@ -840,46 +900,156 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   max="20"
                   step="1"
                 />
+                <p className="text-xs text-gray-400 mt-1">Trigger rebalance when allocation deviates by this %</p>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Rebalance Frequency
+                </label>
+                <select
+                  value={configuration.rebalance_frequency || 'weekly'}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, rebalance_frequency: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">How often to check for rebalancing</p>
+              </div>
+            </div>
+
+            {/* Allocation Method Buttons */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-300 mb-3">
+                Quick Allocation Methods
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNormalization('even')}
+                  className="text-xs"
+                >
+                  Even Split
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNormalization('marketcap')}
+                  className="text-xs"
+                >
+                  By Market Cap
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNormalization('majority_cash_even')}
+                  className="text-xs"
+                >
+                  60% Cash + Even
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNormalization('majority_cash_marketcap')}
+                  className="text-xs"
+                >
+                  60% Cash + Market Cap
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                Use these presets to quickly set up common allocation strategies
+              </p>
             </div>
 
             {/* Asset Allocation */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-3">
-                Asset Allocation
+                Asset Allocation (Must Total 100%)
               </label>
               <div className="space-y-3">
-                {(configuration.assets || [{ symbol: 'BTC', allocation: 40 }, { symbol: 'ETH', allocation: 30 }, { symbol: 'USDT', allocation: 30 }]).map((asset: any, index: number) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg">
-                    <div className="flex-1">
-                      <div className="relative">
+                {(configuration.assets || [{ symbol: 'BTC/USD', allocation: 33.33 }, { symbol: 'ETH/USD', allocation: 33.33 }, { symbol: 'CASH', allocation: 33.34 }]).map((asset: any, index: number) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg relative">
+                    <div className="flex-1 relative">
+                      {asset.symbol.toUpperCase() === 'CASH' ? (
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                          <input
+                            type="text"
+                            value="CASH"
+                            readOnly
+                            className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-green-500/30 rounded-lg text-green-400 text-sm font-medium cursor-not-allowed"
+                          />
+                        </div>
+                      ) : (
+                        <div className="relative symbol-input-container">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                         <input
                           type="text"
-                          value={asset.symbol || ''}
+                          value={assetSearchTerms[index] || asset.symbol || ''}
                           onChange={(e) => {
-                            const newAssets = [...(configuration.assets || [])];
-                            newAssets[index] = { ...newAssets[index], symbol: e.target.value.toUpperCase() };
-                            setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                            const value = e.target.value;
+                            handleAssetSearch(index, value);
+                            updateAssetSymbol(index, value);
+                          }}
+                          onFocus={() => {
+                            if (assetSuggestions[index]?.length > 0) {
+                              setShowAssetSuggestions(prev => ({ ...prev, [index]: true }));
+                            }
                           }}
                           className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
-                          placeholder="Symbol"
+                          placeholder="Search symbols (e.g., AAPL, BTC/USD, CASH)"
                         />
+                        
+                        {/* Asset Suggestions Dropdown */}
+                        {showAssetSuggestions[index] && assetSuggestions[index]?.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                            {assetSuggestions[index].map((suggestedAsset) => (
+                              <motion.div
+                                key={suggestedAsset.symbol}
+                                whileHover={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}
+                                onClick={() => handleAssetSelect(index, suggestedAsset)}
+                                className="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-700/50 border-b border-gray-700/50 last:border-b-0"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                    suggestedAsset.asset_class === 'crypto' 
+                                      ? 'bg-gradient-to-br from-orange-500 to-yellow-500 text-white'
+                                      : 'bg-gradient-to-br from-blue-500 to-purple-500 text-white'
+                                  }`}>
+                                    {suggestedAsset.symbol.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-white text-sm">{suggestedAsset.symbol}</p>
+                                    <p className="text-xs text-gray-400 truncate max-w-32">{suggestedAsset.name}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-400">{suggestedAsset.exchange}</p>
+                                  {suggestedAsset.market_cap && (
+                                    <p className="text-xs text-gray-500">${suggestedAsset.market_cap.toFixed(0)}B</p>
+                                  )}
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        )}
                       </div>
+                      )}
                     </div>
                     <div className="w-24">
                       <input
                         type="number"
                         value={asset.allocation || 0}
                         onChange={(e) => {
-                          const newAssets = [...(configuration.assets || [])];
-                          newAssets[index] = { ...newAssets[index], allocation: Number(e.target.value) };
-                          setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                          updateAssetAllocation(index, Number(e.target.value));
                         }}
                         className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
                         min="0"
                         max="100"
-                        step="5"
+                        step="0.01"
                       />
                     </div>
                     <span className="text-gray-400 text-sm">%</span>
@@ -887,10 +1057,10 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        const newAssets = (configuration.assets || []).filter((_: any, i: number) => i !== index);
-                        setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                        removeAsset(index);
                       }}
                       className="text-red-400 hover:text-red-300"
+                      disabled={(configuration.assets || []).length <= 1}
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -901,8 +1071,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const newAssets = [...(configuration.assets || []), { symbol: '', allocation: 0 }];
-                    setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                    addAsset();
                   }}
                   className="w-full"
                 >
@@ -913,16 +1082,53 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               
               {/* Allocation Summary */}
               {configuration.assets && configuration.assets.length > 0 && (
-                <div className="mt-4 p-3 bg-gray-800/30 rounded-lg">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-400">Total Allocation:</span>
-                    <span className={`font-medium ${
-                      configuration.assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0) === 100
-                        ? 'text-green-400'
-                        : 'text-yellow-400'
-                    }`}>
-                      {configuration.assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0)}%
-                    </span>
+                <div className="mt-4 space-y-3">
+                  {/* Total Allocation Display */}
+                  <div className="p-3 bg-gray-800/30 rounded-lg">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Total Allocation:</span>
+                      {(() => {
+                        const total = configuration.assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0);
+                        const isValid = Math.abs(total - 100) < 0.01; // Allow for small floating point differences
+                        return (
+                          <span className={`font-medium ${
+                            isValid ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {total.toFixed(2)}%
+                            {isValid && <span className="ml-2 text-green-400">✓</span>}
+                            {!isValid && <span className="ml-2 text-red-400">⚠</span>}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    {(() => {
+                      const total = configuration.assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0);
+                      const isValid = Math.abs(total - 100) < 0.01;
+                      if (!isValid) {
+                        return (
+                          <p className="text-xs text-red-300 mt-1">
+                            Allocations must total exactly 100%. Current total: {total.toFixed(2)}%
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                  
+                  {/* Capital Allocation Preview */}
+                  <div className="p-3 bg-gray-900/50 rounded-lg">
+                    <h5 className="text-sm font-medium text-white mb-2">Capital Allocation Preview</h5>
+                    <div className="space-y-1">
+                      {configuration.assets.map((asset: any, index: number) => {
+                        const capitalAmount = (configuration.allocated_capital || 5000) * (asset.allocation || 0) / 100;
+                        return (
+                          <div key={index} className="flex items-center justify-between text-xs">
+                            <span className="text-gray-400">{asset.symbol || `Asset ${index + 1}`}:</span>
+                            <span className="text-white font-medium">{formatCurrency(capitalAmount)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
