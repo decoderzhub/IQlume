@@ -265,7 +265,7 @@ async def execute_spot_grid_strategy(
     lower_price_limit = strategy["configuration"].get("price_range_lower", 50000)
     upper_price_limit = strategy["configuration"].get("price_range_upper", 70000)
     number_of_grids = strategy["configuration"].get("number_of_grids", 20)
-    grid_mode = strategy.get("grid_mode", GridMode.ARITHMETIC).value
+    grid_mode = strategy.get("grid_mode", "arithmetic")
     quantity_per_grid = strategy.get("quantity_per_grid", 0.0001)
     stop_loss_percent = strategy.get("stop_loss_percent", 0)
     trailing_stop_loss_percent = strategy.get("trailing_stop_loss_percent", 0)
@@ -304,10 +304,10 @@ async def execute_spot_grid_strategy(
 
     # --- 2. Generate grid levels ---
     grid_levels = []
-    if grid_mode == GridMode.ARITHMETIC.value:
+    if grid_mode == "arithmetic":
         step = (upper_price_limit - lower_price_limit) / number_of_grids
         grid_levels = [lower_price_limit + i * step for i in range(number_of_grids + 1)]
-    elif grid_mode == GridMode.GEOMETRIC.value:
+    elif grid_mode == "geometric":
         ratio = (upper_price_limit / lower_price_limit) ** (1 / number_of_grids)
         grid_levels = [lower_price_limit * (ratio ** i) for i in range(number_of_grids + 1)]
     
