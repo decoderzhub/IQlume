@@ -22,6 +22,9 @@ from dependencies import (
     get_alpaca_crypto_data_client,
     security,
 )
+import math
+from scipy.stats import norm
+import numpy as np
 
 router = APIRouter(prefix="/api/market-data", tags=["market-data"])
 logger = logging.getLogger(__name__)
@@ -436,3 +439,261 @@ async def historical(
     # prefer normalized crypto key if needed
     sym_key = symbol.upper() if is_stock_symbol(symbol) else (normalize_crypto_symbol(symbol) or symbol.upper())
     return data.get("bars", {}).get(sym_key, [])
+
+def calculate_black_scholes_greeks(S, K, T, r, sigma, option_type='call'):
+    """
+    Calculate Black-Scholes option price and Greeks
+    S: Current stock price
+    K: Strike price
+    T: Time to expiration (in years)
+    r: Risk-free rate
+    sigma: Volatility
+    """
+    try:
+        if T <= 0 or sigma <= 0:
+            return {
+                'price': 0,
+                'delta': 0,
+                'gamma': 0,
+                'theta': 0,
+                'vega': 0,
+                'rho': 0
+            }
+        
+        d1 = (math.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
+        d2 = d1 - sigma * math.sqrt(T)
+        
+        if option_type == 'call':
+            price = S * norm.cdf(d1) - K * math.exp(-r * T) * norm.cdf(d2)
+            delta = norm.cdf(d1)
+            rho = K * T * math.exp(-r * T) * norm.cdf(d2) / 100
+        else:  # put
+            price = K * math.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+            delta = -norm.cdf(-d1)
+            rho = -K * T * math.exp(-r * T) * norm.cdf(-d2) / 100
+        
+        gamma = norm.pdf(d1) / (S * sigma * math.sqrt(T))
+        theta = -(S * norm.pdf(d1) * sigma / (2 * math.sqrt(T)) + 
+                 r * K * math.exp(-r * T) * (norm.cdf(d2) if option_type == 'call' else norm.cdf(-d2))) / 365
+        vega = S * norm.pdf(d1) * math.sqrt(T) / 100
+        
+        return {
+            'price': max(price, 0),
+            'delta': delta,
+            'gamma': gamma,
+            'theta': theta,
+            'vega': vega,
+            'rho': rho
+        }
+    except Exception as e:
+        logger.error(f"Error calculating Black-Scholes: {e}")
+        return {
+            'price': 0,
+            'delta': 0,
+            'gamma': 0,
+            'theta': 0,
+            'vega': 0,
+            'rho': 0
+        }
+
+def calculate_probability_of_success(delta, option_type='call'):
+    """
+    Calculate probability of success based on delta
+    For calls: PoS = 1 - |delta| (probability of expiring OTM)
+    For puts: PoS = 1 - |delta| (probability of expiring OTM)
+    """
+    try:
+        if option_type == 'call':
+            # For calls, we want the probability of staying below the strike
+            return (1 - abs(delta)) * 100
+        else:  # put
+            # For puts, we want the probability of staying above the strike
+            return (1 - abs(delta)) * 100
+    except:
+        return 50.0  # Default 50% if calculation fails
+
+async def get_options_chain_data(symbol: str, expiration_date: str = None) -> Dict[str, Any]:
+    """
+    Get options chain data for a symbol
+    In production, this would fetch from a real options data provider
+    For now, we'll generate realistic mock data
+    """
+    try:
+        # Get current stock price
+        stock_data_client = get_alpaca_stock_data_client()
+        
+        # Try to get real stock price
+        current_price = 150.0  # Default fallback
+        try:
+            req = StockLatestQuoteRequest(symbol_or_symbols=[symbol], feed=DataFeed.IEX)
+            resp = stock_data_client.get_stock_latest_quote(req)
+            quote = resp.get(symbol)
+            if quote and hasattr(quote, 'ask_price') and quote.ask_price:
+                current_price = float(quote.ask_price)
+            elif quote and hasattr(quote, 'bid_price') and quote.bid_price:
+                current_price = float(quote.bid_price)
+        except Exception as e:
+            logger.warning(f"Could not fetch real price for {symbol}, using fallback: {e}")
+            # Use symbol-specific fallback prices
+            if symbol == 'AAPL':
+                current_price = 185.0
+            elif symbol == 'MSFT':
+                current_price = 420.0
+            elif symbol == 'SPY':
+                current_price = 580.0
+            elif symbol == 'QQQ':
+                current_price = 480.0
+        
+        # Generate expiration dates (next 4 monthly expirations)
+        from datetime import datetime, timedelta
+        import calendar
+        
+        expirations = []
+        current_date = datetime.now()
+        
+        for i in range(4):
+            # Find third Friday of the month
+            year = current_date.year
+            month = current_date.month + i
+            if month > 12:
+                year += 1
+                month -= 12
+            
+            # Find third Friday
+            first_day = datetime(year, month, 1)
+            first_friday = first_day + timedelta(days=(4 - first_day.weekday()) % 7)
+            third_friday = first_friday + timedelta(days=14)
+            
+            expirations.append(third_friday.strftime('%Y-%m-%d'))
+        
+        # Use provided expiration or default to first one
+        target_expiration = expiration_date or expirations[0]
+        expiration_dt = datetime.strptime(target_expiration, '%Y-%m-%d')
+        days_to_expiration = (expiration_dt - datetime.now()).days
+        time_to_expiration = max(days_to_expiration / 365.0, 0.01)  # Minimum 1 day
+        
+        # Generate strike prices around current price
+        strike_range = 0.2  # ±20% from current price
+        num_strikes = 20
+        min_strike = current_price * (1 - strike_range)
+        max_strike = current_price * (1 + strike_range)
+        
+        strikes = []
+        for i in range(num_strikes):
+            strike = min_strike + (max_strike - min_strike) * i / (num_strikes - 1)
+            # Round to nearest $5 for stocks, $1 for lower priced stocks
+            if current_price > 100:
+                strike = round(strike / 5) * 5
+            else:
+                strike = round(strike)
+            strikes.append(strike)
+        
+        # Remove duplicates and sort
+        strikes = sorted(list(set(strikes)))
+        
+        # Risk-free rate (approximate)
+        risk_free_rate = 0.045  # 4.5%
+        
+        # Implied volatility (mock - varies by moneyness)
+        base_iv = 0.25  # 25% base IV
+        
+        options_data = []
+        
+        for strike in strikes:
+            # Calculate IV based on moneyness (smile effect)
+            moneyness = strike / current_price
+            iv_adjustment = abs(moneyness - 1) * 0.5  # IV smile
+            iv = base_iv + iv_adjustment
+            
+            # Calculate Greeks for calls and puts
+            call_greeks = calculate_black_scholes_greeks(current_price, strike, time_to_expiration, risk_free_rate, iv, 'call')
+            put_greeks = calculate_black_scholes_greeks(current_price, strike, time_to_expiration, risk_free_rate, iv, 'put')
+            
+            # Calculate probability of success
+            call_pos = calculate_probability_of_success(call_greeks['delta'], 'call')
+            put_pos = calculate_probability_of_success(put_greeks['delta'], 'put')
+            
+            # Generate bid/ask spreads
+            call_price = call_greeks['price']
+            put_price = put_greeks['price']
+            
+            spread_pct = 0.05  # 5% bid-ask spread
+            call_bid = max(call_price * (1 - spread_pct), 0.01)
+            call_ask = call_price * (1 + spread_pct)
+            put_bid = max(put_price * (1 - spread_pct), 0.01)
+            put_ask = put_price * (1 + spread_pct)
+            
+            # Mock volume and open interest
+            base_volume = max(100, int(1000 * math.exp(-abs(moneyness - 1) * 2)))
+            base_oi = max(50, int(500 * math.exp(-abs(moneyness - 1) * 1.5)))
+            
+            options_data.append({
+                'strike': strike,
+                'expiration': target_expiration,
+                'days_to_expiration': days_to_expiration,
+                'call': {
+                    'bid': round(call_bid, 2),
+                    'ask': round(call_ask, 2),
+                    'last': round(call_price, 2),
+                    'volume': base_volume + int(np.random.normal(0, base_volume * 0.3)),
+                    'open_interest': base_oi + int(np.random.normal(0, base_oi * 0.2)),
+                    'implied_volatility': round(iv * 100, 1),
+                    'delta': round(call_greeks['delta'], 3),
+                    'gamma': round(call_greeks['gamma'], 4),
+                    'theta': round(call_greeks['theta'], 3),
+                    'vega': round(call_greeks['vega'], 3),
+                    'rho': round(call_greeks['rho'], 3),
+                    'probability_of_success': round(call_pos, 1)
+                },
+                'put': {
+                    'bid': round(put_bid, 2),
+                    'ask': round(put_ask, 2),
+                    'last': round(put_price, 2),
+                    'volume': base_volume + int(np.random.normal(0, base_volume * 0.3)),
+                    'open_interest': base_oi + int(np.random.normal(0, base_oi * 0.2)),
+                    'implied_volatility': round(iv * 100, 1),
+                    'delta': round(put_greeks['delta'], 3),
+                    'gamma': round(put_greeks['gamma'], 4),
+                    'theta': round(put_greeks['theta'], 3),
+                    'vega': round(put_greeks['vega'], 3),
+                    'rho': round(put_greeks['rho'], 3),
+                    'probability_of_success': round(put_pos, 1)
+                }
+            })
+        
+        return {
+            'symbol': symbol,
+            'current_price': current_price,
+            'expirations': expirations,
+            'selected_expiration': target_expiration,
+            'options': options_data,
+            'implied_volatility_avg': round(base_iv * 100, 1),
+            'time_to_expiration': time_to_expiration
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating options chain data: {e}")
+        return {
+            'symbol': symbol,
+            'current_price': 150.0,
+            'expirations': [],
+            'selected_expiration': expiration_date or '2025-02-21',
+            'options': [],
+            'implied_volatility_avg': 25.0,
+            'time_to_expiration': 0.1
+        }
+
+@router.get("/options-chain")
+async def get_options_chain(
+    symbol: str = Query(..., description="Stock symbol"),
+    expiration: Optional[str] = Query(None, description="Expiration date (YYYY-MM-DD)"),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+):
+    """Get options chain data for a symbol"""
+    try:
+        data = await get_options_chain_data(symbol.upper(), expiration)
+        return data
+    except Exception as e:
+        logger.error(f"Error fetching options chain: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch options chain: {str(e)}")

@@ -437,7 +437,45 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       backtest_mode: 'paper',
       backtest_params: {},
       base_symbol: configuration.symbol || 'BTC',
-      configuration,
+      configuration: {
+        symbol: '',
+        allocated_capital: 10000,
+        // Options-specific defaults
+        probability_of_success_target: 84,
+        expiration_days_target: 30,
+        strike_selection_method: 'pos',
+        // Grid bot defaults
+        price_range_lower: 0,
+        price_range_upper: 0,
+        number_of_grids: 20,
+        grid_mode: 'arithmetic',
+        // Smart rebalance defaults
+        assets: [
+          { symbol: 'AAPL', allocation: 33.33 },
+          { symbol: 'MSFT', allocation: 33.33 },
+          { symbol: 'CASH', allocation: 33.34 }
+        ],
+        trigger_type: 'threshold',
+        threshold_deviation_percent: 5,
+        rebalance_frequency: 'weekly',
+        // DCA defaults
+        investment_amount_per_interval: 100,
+        frequency: 'daily',
+        investment_target_percent: 25,
+        // Covered calls defaults
+        position_size: 100,
+        strike_delta: 0.30,
+        minimum_premium: 200,
+        profit_target: 50,
+        roll_when_itm: true,
+        // Wheel defaults
+        put_strike_delta: -0.30,
+        call_strike_delta: 0.30,
+        assignment_handling: 'automatic',
+        // Cash-secured put defaults
+        stop_loss: { value: 200, type: 'percentage' },
+        ...configuration
+      },
     };
 
     onSave(strategy);
