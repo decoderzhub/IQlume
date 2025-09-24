@@ -3,7 +3,7 @@ DCA (Dollar Cost Averaging) Strategy Executor
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
 from alpaca.trading.enums import OrderSide
