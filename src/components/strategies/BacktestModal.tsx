@@ -168,13 +168,13 @@ export function BacktestModal({ strategy, onClose, onSave }: BacktestModalProps)
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Initial Capital
                   </label>
-                  <input
-                    type="number"
+                  <NumericInput
                     value={initialCapital}
-                    onChange={(e) => setInitialCapital(Number(e.target.value))}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    onChange={setInitialCapital}
                     min="10000"
                     step="10000"
+                    prefix="$"
+                    placeholder="Enter initial capital"
                   />
                 </div>
               </div>

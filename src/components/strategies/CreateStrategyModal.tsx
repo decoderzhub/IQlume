@@ -1378,7 +1378,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             {step !== 'review' ? (
               <Button 
                 onClick={handleNext}
-                disabled={!canProceed()}
+                disabled={!canProceed() || (formData.type === 'smart_rebalance' && Math.abs(totalAllocation - 100) >= 0.01)}
               >
                 Next
               </Button>
