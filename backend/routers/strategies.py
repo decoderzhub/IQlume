@@ -13,6 +13,8 @@ from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDa
 from alpaca.data.requests import StockLatestQuoteRequest, CryptoLatestQuoteRequest
 from alpaca.data.enums import DataFeed
 from alpaca.common.exceptions import APIError as AlpacaAPIError
+from alpaca.trading.requests import GetAssetsRequest
+from alpaca.trading.enums import AssetClass, AssetStatus
 
 from supabase import Client
 from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse, StrategiesListResponse
@@ -116,6 +118,93 @@ async def get_current_price(symbol: str, stock_client: StockHistoricalDataClient
         return 420.0 + (hash(symbol_upper) % 30)  # $420-450 range
     else:
         return 100.0 + (hash(symbol_upper) % 50)  # Generic fallback
+
+async def get_tradable_assets(trading_client: TradingClient) -> Dict[str, List[Dict[str, Any]]]:
+    """Get list of tradable assets from Alpaca"""
+    try:
+        # Get tradable stocks
+        stock_request = GetAssetsRequest(
+            status=AssetStatus.ACTIVE,
+            asset_class=AssetClass.US_EQUITY
+        )
+        stocks = trading_client.get_all_assets(stock_request)
+        
+        # Filter to popular/liquid stocks and ETFs
+        popular_stocks = []
+        popular_symbols = {
+            'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'NFLX', 'AMD', 'INTC',
+            'SPY', 'QQQ', 'VTI', 'IWM', 'GLD', 'SLV', 'TLT', 'XLF', 'XLE', 'XLK',
+            'JPM', 'BAC', 'WMT', 'JNJ', 'PG', 'KO', 'PFE', 'DIS', 'V', 'MA'
+        }
+        
+        for stock in stocks:
+            if stock.symbol in popular_symbols and stock.tradable:
+                popular_stocks.append({
+                    'symbol': stock.symbol,
+                    'name': getattr(stock, 'name', stock.symbol),
+                    'exchange': getattr(stock, 'exchange', 'NASDAQ'),
+                    'asset_class': 'equity'
+                })
+        
+        # Add popular crypto pairs (these are available on Alpaca)
+        crypto_assets = [
+            {'symbol': 'BTC/USD', 'name': 'Bitcoin', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
+            {'symbol': 'ETH/USD', 'name': 'Ethereum', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
+            {'symbol': 'LTC/USD', 'name': 'Litecoin', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
+            {'symbol': 'BCH/USD', 'name': 'Bitcoin Cash', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
+            {'symbol': 'LINK/USD', 'name': 'Chainlink', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
+            {'symbol': 'UNI/USD', 'name': 'Uniswap', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
+        ]
+        
+        return {
+            'stocks': sorted(popular_stocks, key=lambda x: x['symbol']),
+            'crypto': crypto_assets
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching tradable assets: {e}")
+        # Return fallback list
+        return {
+            'stocks': [
+                {'symbol': 'AAPL', 'name': 'Apple Inc.', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
+                {'symbol': 'MSFT', 'name': 'Microsoft Corporation', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
+                {'symbol': 'GOOGL', 'name': 'Alphabet Inc.', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
+                {'symbol': 'AMZN', 'name': 'Amazon.com Inc.', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
+                {'symbol': 'TSLA', 'name': 'Tesla Inc.', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
+                {'symbol': 'SPY', 'name': 'SPDR S&P 500 ETF', 'exchange': 'NYSE', 'asset_class': 'equity'},
+                {'symbol': 'QQQ', 'name': 'Invesco QQQ ETF', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
+            ],
+            'crypto': [
+                {'symbol': 'BTC/USD', 'name': 'Bitcoin', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
+                {'symbol': 'ETH/USD', 'name': 'Ethereum', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
+            ]
+        }
+
+@router.get("/tradable-assets")
+async def get_tradable_assets_endpoint(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Get list of tradable assets from Alpaca"""
+    try:
+        trading_client = await get_alpaca_trading_client(current_user, supabase)
+        assets = await get_tradable_assets(trading_client)
+        return assets
+    except Exception as e:
+        logger.error(f"Error fetching tradable assets: {e}")
+        # Return fallback data
+        return {
+            'stocks': [
+                {'symbol': 'AAPL', 'name': 'Apple Inc.', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
+                {'symbol': 'MSFT', 'name': 'Microsoft Corporation', 'exchange': 'NASDAQ', 'asset_class': 'equity'},
+                {'symbol': 'SPY', 'name': 'SPDR S&P 500 ETF', 'exchange': 'NYSE', 'asset_class': 'equity'},
+            ],
+            'crypto': [
+                {'symbol': 'BTC/USD', 'name': 'Bitcoin', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
+                {'symbol': 'ETH/USD', 'name': 'Ethereum', 'exchange': 'CRYPTO', 'asset_class': 'crypto'},
+            ]
+        }
 
 def save_trade_to_supabase(
     user_id: str,
@@ -401,6 +490,59 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
         current_qty = float(current_position.qty) if current_position else 0
         logger.info(f"📊 Current {symbol} position: {current_qty}")
         
+        # If no position exists, make initial purchase to start the grid
+        if current_qty == 0:
+            logger.info(f"🎯 No position found for {symbol} - making initial purchase")
+            initial_buy_amount = allocated_capital / number_of_grids  # Start with one grid level
+            
+            # Calculate appropriate quantity based on asset type
+            if is_crypto_symbol(symbol):
+                quantity = calculate_crypto_quantity(initial_buy_amount, current_price, symbol)
+            else:
+                quantity = int(initial_buy_amount / current_price)  # Whole shares for stocks
+            
+            logger.info(f"🟢 INITIAL BUY: {symbol} x{quantity:.6f} @ ${current_price:.2f} (${initial_buy_amount:.2f})")
+            
+            # Submit initial buy order to Alpaca
+            order_request = MarketOrderRequest(
+                symbol=order_symbol,
+                qty=quantity,
+                side=OrderSide.BUY,
+                time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
+                client_order_id=f"{strategy['id']}-initial-{uuid.uuid4().hex[:8]}"
+            )
+            
+            order = trading_client.submit_order(order_request)
+            logger.info(f"✅ INITIAL BUY order submitted to Alpaca: {order_symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
+            
+            # Save trade to Supabase
+            trade_saved = save_trade_to_supabase(
+                user_id=strategy["user_id"],
+                strategy_id=strategy["id"],
+                alpaca_order_id=str(order.id),
+                symbol=symbol.upper(),
+                trade_type="buy",
+                quantity=quantity,
+                price=current_price,
+                order_type="market",
+                time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
+                supabase=self.supabase
+            )
+            
+            if trade_saved:
+                logger.info(f"✅ Initial trade saved to Supabase database")
+            else:
+                logger.error(f"❌ Failed to save initial trade to Supabase database")
+            
+            return {
+                "action": "buy",
+                "symbol": symbol,
+                "quantity": quantity,
+                "price": current_price,
+                "order_id": str(order.id),
+                "reason": f"Initial position purchase to start grid trading"
+            }
+        
         # Calculate position value for comparison
         position_value = current_qty * current_price
         max_position_value = allocated_capital * 0.8  # Don't use more than 80% of allocated capital
@@ -446,7 +588,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     quantity=quantity,
                     price=current_price,
                     order_type="market",
-                    time_in_force="day",
+                    time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
                     supabase=supabase
                 )
                 
@@ -504,7 +646,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     quantity=sell_quantity,
                     price=current_price,
                     order_type="market",
-                    time_in_force="day",
+                    time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
                     supabase=supabase
                 )
                 
@@ -548,7 +690,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                 logger.info(f"✅ INITIAL BUY order submitted to Alpaca: {order_symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
                 
                 # Save trade to Supabase
-                trade_saved = save_trade_to_supabase(
+                trade_saved = await save_trade_to_supabase(
                     user_id=strategy["user_id"],
                     strategy_id=strategy["id"],
                     alpaca_order_id=str(order.id),
@@ -557,7 +699,7 @@ async def execute_spot_grid_strategy(strategy: dict, trading_client: TradingClie
                     quantity=quantity,
                     price=current_price,
                     order_type="market",
-                    time_in_force="day",
+                    time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
                     supabase=supabase
                 )
                 
@@ -610,7 +752,7 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
         
         # Submit buy order
         order_request = MarketOrderRequest(
-            symbol=symbol.upper(),
+            symbol=normalize_crypto_symbol(symbol) if is_crypto_symbol(symbol) else symbol.upper(),
             qty=quantity,
             side=OrderSide.BUY,
             time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
@@ -625,7 +767,7 @@ async def execute_dca_strategy(strategy: dict, trading_client: TradingClient, st
             user_id=strategy["user_id"],
             strategy_id=strategy["id"],
             alpaca_order_id=str(order.id),
-            symbol=order_symbol,
+            symbol=symbol.upper(),
             trade_type="buy",
             quantity=quantity,
             price=current_price,
@@ -708,13 +850,210 @@ async def execute_smart_rebalance_strategy(strategy: dict, trading_client: Tradi
     """Execute smart rebalance strategy"""
     try:
         config = strategy.get("configuration", {})
+        assets = config.get("assets", [])
+        allocated_capital = config.get("allocated_capital", 10000)
+        threshold_deviation_percent = config.get("threshold_deviation_percent", 5)
         
-        logger.info(f"🤖 Executing smart rebalance strategy")
+        logger.info(f"🤖 Executing smart rebalance strategy with {len(assets)} assets")
         
-        # For demo purposes, simulate rebalancing logic
+        if not assets:
+            return {
+                "action": "error",
+                "reason": "No assets configured for rebalancing"
+            }
+        
+        # Get current positions
+        positions = trading_client.get_all_positions()
+        position_map = {}
+        for pos in positions or []:
+            symbol = pos.symbol.upper()
+            # Handle crypto symbol normalization
+            if "/" in symbol:
+                symbol = symbol.replace("/", "")
+            position_map[symbol] = {
+                "qty": float(pos.qty),
+                "market_value": float(pos.market_value or 0),
+                "current_price": float(pos.current_price or 0)
+            }
+        
+        logger.info(f"📊 Current positions: {list(position_map.keys())}")
+        
+        # Calculate total portfolio value
+        total_portfolio_value = sum(pos["market_value"] for pos in position_map.values())
+        
+        # If portfolio is empty or very small, make initial purchases
+        if total_portfolio_value < allocated_capital * 0.1:  # Less than 10% of target
+            logger.info(f"🎯 Portfolio value ${total_portfolio_value:.2f} too low - making initial purchases")
+            
+            # Make initial purchases for each asset
+            for asset in assets:
+                symbol = asset.get("symbol", "").upper()
+                allocation_percent = asset.get("allocation", 0) / 100
+                target_value = allocated_capital * allocation_percent
+                
+                if target_value < 100:  # Skip very small allocations
+                    continue
+                
+                logger.info(f"🟢 INITIAL BUY: {symbol} target allocation {allocation_percent:.1%} = ${target_value:.2f}")
+                
+                # Get current price
+                current_price = await get_current_price(symbol, stock_client, crypto_client)
+                
+                # Calculate quantity
+                if is_crypto_symbol(symbol):
+                    quantity = calculate_crypto_quantity(target_value, current_price, symbol)
+                    order_symbol = normalize_crypto_symbol(symbol)
+                else:
+                    quantity = int(target_value / current_price)
+                    order_symbol = symbol
+                
+                if quantity <= 0:
+                    continue
+                
+                logger.info(f"💵 Initial buy: {symbol} x{quantity:.6f} @ ${current_price:.2f}")
+                
+                # Submit buy order
+                order_request = MarketOrderRequest(
+                    symbol=order_symbol,
+                    qty=quantity,
+                    side=OrderSide.BUY,
+                    time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
+                    client_order_id=f"{strategy['id']}-rebalance-{uuid.uuid4().hex[:8]}"
+                )
+                
+                order = trading_client.submit_order(order_request)
+                logger.info(f"✅ INITIAL BUY order submitted: {order_symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
+                
+                # Save trade to Supabase
+                trade_saved = save_trade_to_supabase(
+                    user_id=strategy["user_id"],
+                    strategy_id=strategy["id"],
+                    alpaca_order_id=str(order.id),
+                    symbol=symbol,
+                    trade_type="buy",
+                    quantity=quantity,
+                    price=current_price,
+                    order_type="market",
+                    time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
+                    supabase=supabase
+                )
+                
+                if trade_saved:
+                    logger.info(f"✅ Initial rebalance trade saved to database")
+            
+            return {
+                "action": "buy",
+                "reason": f"Initial portfolio setup - purchased {len(assets)} assets"
+            }
+        
+        # Calculate current allocations vs target allocations
+        rebalance_needed = False
+        trades_to_execute = []
+        
+        for asset in assets:
+            symbol = asset.get("symbol", "").upper()
+            target_allocation = asset.get("allocation", 0) / 100
+            target_value = total_portfolio_value * target_allocation
+            
+            # Check current position
+            current_position = position_map.get(symbol, {"market_value": 0, "qty": 0})
+            current_value = current_position["market_value"]
+            current_allocation = current_value / total_portfolio_value if total_portfolio_value > 0 else 0
+            
+            # Calculate deviation
+            allocation_deviation = abs(current_allocation - target_allocation) * 100
+            
+            logger.info(f"📊 {symbol}: Current {current_allocation:.1%} vs Target {target_allocation:.1%} (deviation: {allocation_deviation:.1f}%)")
+            
+            if allocation_deviation > threshold_deviation_percent:
+                rebalance_needed = True
+                value_difference = target_value - current_value
+                
+                if value_difference > 100:  # Need to buy more
+                    trades_to_execute.append({
+                        "symbol": symbol,
+                        "action": "buy",
+                        "value": value_difference,
+                        "reason": f"Underweight by {allocation_deviation:.1f}%"
+                    })
+                elif value_difference < -100:  # Need to sell some
+                    trades_to_execute.append({
+                        "symbol": symbol,
+                        "action": "sell",
+                        "value": abs(value_difference),
+                        "reason": f"Overweight by {allocation_deviation:.1f}%"
+                    })
+        
+        if not rebalance_needed:
+            logger.info(f"⏸️ HOLD: Portfolio within target allocation thresholds")
+            return {
+                "action": "hold",
+                "reason": "Portfolio within target allocation thresholds"
+            }
+        
+        # Execute rebalancing trades (limit to 1 trade per execution to avoid over-trading)
+        if trades_to_execute:
+            trade = trades_to_execute[0]  # Execute one trade at a time
+            symbol = trade["symbol"]
+            action = trade["action"]
+            value = trade["value"]
+            
+            # Get current price
+            current_price = await get_current_price(symbol, stock_client, crypto_client)
+            
+            # Calculate quantity
+            if is_crypto_symbol(symbol):
+                quantity = calculate_crypto_quantity(value, current_price, symbol)
+                order_symbol = normalize_crypto_symbol(symbol)
+            else:
+                quantity = int(value / current_price)
+                order_symbol = symbol
+            
+            if quantity <= 0:
+                return {
+                    "action": "hold",
+                    "reason": f"Calculated quantity too small for {symbol}"
+                }
+            
+            # Submit order
+            order_side = OrderSide.BUY if action == "buy" else OrderSide.SELL
+            order_request = MarketOrderRequest(
+                symbol=order_symbol,
+                qty=quantity,
+                side=order_side,
+                time_in_force=TimeInForce.GTC if is_crypto_symbol(symbol) else TimeInForce.DAY,
+                client_order_id=f"{strategy['id']}-rebalance-{uuid.uuid4().hex[:8]}"
+            )
+            
+            order = trading_client.submit_order(order_request)
+            logger.info(f"✅ REBALANCE {action.upper()} order submitted: {order_symbol} x{quantity:.6f} @ ${current_price:.2f}, Order ID: {order.id}")
+            
+            # Save trade to Supabase
+            trade_saved = save_trade_to_supabase(
+                user_id=strategy["user_id"],
+                strategy_id=strategy["id"],
+                alpaca_order_id=str(order.id),
+                symbol=symbol,
+                trade_type=action,
+                quantity=quantity,
+                price=current_price,
+                order_type="market",
+                time_in_force="gtc" if is_crypto_symbol(symbol) else "day",
+                supabase=supabase
+            )
+            
+            return {
+                "action": action,
+                "symbol": symbol,
+                "quantity": quantity,
+                "price": current_price,
+                "order_id": str(order.id),
+                "reason": trade["reason"]
+            }
+        
         return {
             "action": "hold",
-            "reason": "Portfolio within target allocation thresholds"
+            "reason": "No rebalancing trades needed at this time"
         }
         
     except Exception as e:

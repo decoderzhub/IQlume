@@ -11,13 +11,23 @@ import {
   Grid3X3,
   Calculator,
   Target,
-  BarChart3
+  BarChart3,
+  Search,
+  ChevronDown
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
+import { supabase } from '../../lib/supabase';
+
+interface TradableAsset {
+  symbol: string;
+  name: string;
+  exchange: string;
+  asset_class: 'equity' | 'crypto';
+}
 
 interface CreateStrategyModalProps {
   onClose: () => void;
@@ -123,6 +133,72 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [strategyName, setStrategyName] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [configuration, setConfiguration] = useState<Record<string, any>>({});
+  const [tradableAssets, setTradableAssets] = useState<{ stocks: TradableAsset[], crypto: TradableAsset[] }>({ stocks: [], crypto: [] });
+  const [symbolSuggestions, setSymbolSuggestions] = useState<TradableAsset[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [symbolSearchTerm, setSymbolSearchTerm] = useState('');
+
+  // Load tradable assets on component mount
+  React.useEffect(() => {
+    const loadTradableAssets = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/tradable-assets`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const assets = await response.json();
+          setTradableAssets(assets);
+        }
+      } catch (error) {
+        console.error('Error loading tradable assets:', error);
+      }
+    };
+
+    loadTradableAssets();
+  }, []);
+
+  // Filter suggestions based on search term
+  React.useEffect(() => {
+    if (!symbolSearchTerm) {
+      setSymbolSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const allAssets = [...tradableAssets.stocks, ...tradableAssets.crypto];
+    const filtered = allAssets.filter(asset => 
+      asset.symbol.toLowerCase().includes(symbolSearchTerm.toLowerCase()) ||
+      asset.name.toLowerCase().includes(symbolSearchTerm.toLowerCase())
+    ).slice(0, 10); // Limit to 10 suggestions
+
+    setSymbolSuggestions(filtered);
+    setShowSuggestions(filtered.length > 0);
+  }, [symbolSearchTerm, tradableAssets]);
+
+  // Close suggestions when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.symbol-input-container')) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSymbolSelect = (asset: TradableAsset) => {
+    setConfiguration(prev => ({ ...prev, symbol: asset.symbol }));
+    setSymbolSearchTerm(asset.symbol);
+    setShowSuggestions(false);
+  };
 
   const selectedCategoryData = strategyTypes.find(c => c.category === selectedCategory);
   const selectedStrategyType = selectedCategoryData?.strategies.find(s => s.type === selectedType);
@@ -402,13 +478,160 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Symbol
                   </label>
-                  <input
-                    type="text"
-                    value={configuration.symbol || 'BTC'}
-                    onChange={(e) => setConfiguration(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                    placeholder="BTC"
-                  />
+                  <div className="relative symbol-input-container">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                      <input
+                        type="text"
+                        value={symbolSearchTerm || configuration.symbol || 'AAPL'}
+                        onChange={(e) => {
+                          const value = e.target.value.toUpperCase();
+                          setSymbolSearchTerm(value);
+                          setConfiguration(prev => ({ ...prev, symbol: value }));
+                        }}
+                        onFocus={() => {
+                          if (symbolSuggestions.length > 0) setShowSuggestions(true);
+                        }}
+                        className="w-full pl-10 pr-10 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                        placeholder="Search symbols (e.g., AAPL, MSFT, SPY)"
+                      />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    </div>
+                    
+                    {/* Symbol Suggestions Dropdown */}
+                    {showSuggestions && symbolSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        {symbolSuggestions.map((asset) => (
+                          <motion.div
+                            key={asset.symbol}
+                            whileHover={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}
+                            onClick={() => handleSymbolSelect(asset)}
+                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700/50 border-b border-gray-700/50 last:border-b-0"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                asset.asset_class === 'crypto' 
+                                  ? 'bg-gradient-to-br from-orange-500 to-yellow-500 text-white'
+                                  : 'bg-gradient-to-br from-blue-500 to-purple-500 text-white'
+                              }`}>
+                                {asset.symbol.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-medium text-white">{asset.symbol}</p>
+                                <p className="text-sm text-gray-400">{asset.name}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-400">{asset.exchange}</p>
+                              <p className={`text-xs font-medium ${
+                                asset.asset_class === 'crypto' ? 'text-orange-400' : 'text-blue-400'
+                              }`}>
+                                {asset.asset_class}
+                              </p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                          const value = e.target.value.toUpperCase();
+                          setSymbolSearchTerm(value);
+                          setConfiguration(prev => ({ ...prev, symbol: value }));
+                        }}
+                        onFocus={() => {
+                          if (symbolSuggestions.length > 0) setShowSuggestions(true);
+                        }}
+                        className="w-full pl-10 pr-10 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                        placeholder="Search symbols (e.g., BTC, AAPL, ETH)"
+                      />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    </div>
+                    
+                    {/* Symbol Suggestions Dropdown */}
+                    {showSuggestions && symbolSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        {symbolSuggestions.map((asset) => (
+                          <motion.div
+                            key={asset.symbol}
+                            whileHover={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}
+                            onClick={() => handleSymbolSelect(asset)}
+                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700/50 border-b border-gray-700/50 last:border-b-0"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                asset.asset_class === 'crypto' 
+                                  ? 'bg-gradient-to-br from-orange-500 to-yellow-500 text-white'
+                                  : 'bg-gradient-to-br from-blue-500 to-purple-500 text-white'
+                              }`}>
+                                {asset.symbol.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-medium text-white">{asset.symbol}</p>
+                                <p className="text-sm text-gray-400">{asset.name}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-400">{asset.exchange}</p>
+                              <p className={`text-xs font-medium ${
+                                asset.asset_class === 'crypto' ? 'text-orange-400' : 'text-blue-400'
+                              }`}>
+                                {asset.asset_class}
+                              </p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                          const value = e.target.value.toUpperCase();
+                          setSymbolSearchTerm(value);
+                          setConfiguration(prev => ({ ...prev, symbol: value }));
+                        }}
+                        onFocus={() => {
+                          if (symbolSuggestions.length > 0) setShowSuggestions(true);
+                        }}
+                        className="w-full pl-10 pr-10 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                        placeholder="Search symbols (e.g., BTC, AAPL, ETH)"
+                      />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    </div>
+                    
+                    {/* Symbol Suggestions Dropdown */}
+                    {showSuggestions && symbolSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        {symbolSuggestions.map((asset) => (
+                          <motion.div
+                            key={asset.symbol}
+                            whileHover={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}
+                            onClick={() => handleSymbolSelect(asset)}
+                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700/50 border-b border-gray-700/50 last:border-b-0"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                asset.asset_class === 'crypto' 
+                                  ? 'bg-gradient-to-br from-orange-500 to-yellow-500 text-white'
+                                  : 'bg-gradient-to-br from-blue-500 to-purple-500 text-white'
+                              }`}>
+                                {asset.symbol.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-medium text-white">{asset.symbol}</p>
+                                <p className="text-sm text-gray-400">{asset.name}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-400">{asset.exchange}</p>
+                              <p className={`text-xs font-medium ${
+                                asset.asset_class === 'crypto' ? 'text-orange-400' : 'text-blue-400'
+                              }`}>
+                                {asset.asset_class}
+                              </p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -585,6 +808,129 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               </div>
             </div>
           </div>
+        {selectedType === 'smart_rebalance' && (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6">
+            <h4 className="font-medium text-blue-400 mb-4">Smart Rebalance Configuration</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Total Capital
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type="number"
+                    value={configuration.allocated_capital || selectedStrategyType?.min_capital || 5000}
+                    onChange={(e) => setConfiguration(prev => ({ ...prev, allocated_capital: Number(e.target.value) }))}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    min="1000"
+                    step="1000"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Rebalance Threshold (%)
+                </label>
+                <input
+                  type="number"
+                  value={configuration.threshold_deviation_percent || 5}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, threshold_deviation_percent: Number(e.target.value) }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  min="1"
+                  max="20"
+                  step="1"
+                />
+              </div>
+            </div>
+        )}
+            {/* Asset Allocation */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-3">
+                Asset Allocation
+              </label>
+              <div className="space-y-3">
+                {(configuration.assets || [{ symbol: 'BTC', allocation: 40 }, { symbol: 'ETH', allocation: 30 }, { symbol: 'USDT', allocation: 30 }]).map((asset: any, index: number) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg">
+                    <div className="flex-1">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <input
+                          type="text"
+                          value={asset.symbol || ''}
+                          onChange={(e) => {
+                            const newAssets = [...(configuration.assets || [])];
+                            newAssets[index] = { ...newAssets[index], symbol: e.target.value.toUpperCase() };
+                            setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                          }}
+                          className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                          placeholder="Symbol"
+                        />
+                      </div>
+                    </div>
+                    <div className="w-24">
+                      <input
+                        type="number"
+                        value={asset.allocation || 0}
+                        onChange={(e) => {
+                          const newAssets = [...(configuration.assets || [])];
+                          newAssets[index] = { ...newAssets[index], allocation: Number(e.target.value) };
+                          setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                        }}
+                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                        min="0"
+                        max="100"
+                        step="5"
+                      />
+                    </div>
+                    <span className="text-gray-400 text-sm">%</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newAssets = (configuration.assets || []).filter((_: any, i: number) => i !== index);
+                        setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                      }}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newAssets = [...(configuration.assets || []), { symbol: '', allocation: 0 }];
+                    setConfiguration(prev => ({ ...prev, assets: newAssets }));
+                  }}
+                  className="w-full"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Asset
+                </Button>
+              </div>
+              
+              {/* Allocation Summary */}
+              {configuration.assets && configuration.assets.length > 0 && (
+                <div className="mt-4 p-3 bg-gray-800/30 rounded-lg">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">Total Allocation:</span>
+                    <span className={`font-medium ${
+                      configuration.assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0) === 100
+                        ? 'text-green-400'
+                        : 'text-yellow-400'
+                    }`}>
+                      {configuration.assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0)}%
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Covered Calls Configuration */}
@@ -738,6 +1084,15 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                configuration.price_range_upper && 
                configuration.price_range_lower < configuration.price_range_upper &&
                configuration.number_of_grids > 0;
+      }
+      
+      // Validate smart rebalance configuration
+      if (selectedType === 'smart_rebalance') {
+        const assets = configuration.assets || [];
+        const totalAllocation = assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0);
+        return assets.length > 0 && 
+               totalAllocation === 100 && 
+               assets.every((asset: any) => asset.symbol && asset.allocation > 0);
       }
       
       return true;
