@@ -19,12 +19,9 @@ import {
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { NumericInput } from '../ui/NumericInput';
-import { OptionsBellCurve } from './OptionsBellCurve';
-import { NumericInput } from '../ui/NumericInput';
 import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
-import { supabase } from '../../lib/supabase';
 import { supabase } from '../../lib/supabase';
 
 interface TradableAsset {
@@ -138,67 +135,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [strategyName, setStrategyName] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [configuration, setConfiguration] = useState<Record<string, any>>({});
-  const [optionsChainData, setOptionsChainData] = useState<any>(null);
-  const [selectedOptionContract, setSelectedOptionContract] = useState<any>(null);
-  const [loadingOptionsChain, setLoadingOptionsChain] = useState(false);
   const [tradableAssets, setTradableAssets] = useState<{ stocks: TradableAsset[], crypto: TradableAsset[] }>({ stocks: [], crypto: [] });
   const [symbolSuggestions, setSymbolSuggestions] = useState<TradableAsset[]>([]);
-  // Options-specific state
-  const [probabilityOfSuccessTarget, setProbabilityOfSuccessTarget] = useState(84);
-  const [expirationDaysTarget, setExpirationDaysTarget] = useState(30);
-  const [strikeSelectionMethod, setStrikeSelectionMethod] = useState<'delta' | 'pos' | 'manual'>('pos');
-
-  // Check if current strategy type is options-related
-  const isOptionsStrategy = selectedType && ['covered_calls', 'short_put', 'wheel'].includes(selectedType);
-
-  // Fetch options chain data when symbol or expiration changes
-  React.useEffect(() => {
-    if (isOptionsStrategy && configuration.symbol && expirationDaysTarget) {
-      fetchOptionsChainData();
-    }
-  }, [isOptionsStrategy, configuration.symbol, expirationDaysTarget]);
-
-  const fetchOptionsChainData = async () => {
-    if (!configuration.symbol) return;
-    
-    setLoadingOptionsChain(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
-
-      // Calculate target expiration date
-      const targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + expirationDaysTarget);
-      const expirationDate = targetDate.toISOString().split('T')[0];
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/market-data/options-chain?symbol=${configuration.symbol}&expiration=${expirationDate}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setOptionsChainData(data);
-        // Add options-specific fields if it's an options strategy
-        ...(isOptionsStrategy && {
-          probability_of_success_target: probabilityOfSuccessTarget,
-          expiration_days_target: expirationDaysTarget,
-          strike_selection_method: strikeSelectionMethod,
-        }),
-      } else {
-        console.error('Failed to fetch options chain data');
-      }
-    } catch (error) {
-      console.error('Error fetching options chain:', error);
-    } finally {
-      setLoadingOptionsChain(false);
-    }
-  };
-
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [symbolSearchTerm, setSymbolSearchTerm] = useState('');
   const [optionsChainData, setOptionsChainData] = useState<any>(null);
@@ -1415,32 +1353,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   Investment Amount per Interval
                 </label>
                 <NumericInput
-                  value={configuration.investment_amount_per_interval || 0}
+                  value={configuration.investment_amount_per_interval || 100}
                   onChange={(value) => setConfiguration(prev => ({ ...prev, investment_amount_per_interval: value }))}
                   min={10}
-                  step={10}
                   prefix="$"
-                  placeholder="Amount per DCA interval"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Investment Target Percentage
-                </label>
-                <NumericInput
-                  value={configuration.investment_target_percent || 0}
-                  onChange={(value) => setConfiguration(prev => ({ ...prev, investment_target_percent: value }))}
-                  min={1}
-                  max={100}
-                  step={1}
-                  suffix="%"
-                  placeholder="Target allocation percentage"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Frequency
