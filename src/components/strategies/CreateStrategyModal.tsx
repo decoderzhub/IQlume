@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { NumericInput } from '../ui/NumericInput';
 import { OptionsBellCurve } from './OptionsBellCurve';
 import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';
@@ -202,7 +201,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             }),
           },
         };
-        }),
       } else {
         console.error('Failed to fetch options chain data');
       }
@@ -215,8 +213,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [symbolSearchTerm, setSymbolSearchTerm] = useState('');
-  const [optionsChainData, setOptionsChainData] = useState<any>(null);
-  const [loadingOptionsChain, setLoadingOptionsChain] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     type: 'covered_calls' as TradingStrategy['type'],
@@ -225,7 +221,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     min_capital: 10000,
     is_active: false,
   });
-  const [selectedOptionContract, setSelectedOptionContract] = useState<any>(null);
   const [assetSearchTerms, setAssetSearchTerms] = useState<Record<number, string>>({});
   const [assetSuggestions, setAssetSuggestions] = useState<Record<number, TradableAsset[]>>({});
   const [showAssetSuggestions, setShowAssetSuggestions] = useState<Record<number, boolean>>({});

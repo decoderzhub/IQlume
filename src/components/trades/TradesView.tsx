@@ -244,7 +244,6 @@ export function TradesView() {
               </p>
             </motion.div>
           ))}
-        </div>
       </Card>
 
       {/* Show message if no accounts are connected */}
