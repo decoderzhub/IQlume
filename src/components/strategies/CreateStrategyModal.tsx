@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { NumericInput } from '../ui/NumericInput';
 import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
@@ -454,7 +455,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       },
       backtest_mode: 'paper',
       backtest_params: {},
-      base_symbol: configuration.symbol || 'BTC',
       configuration,
     };
 
@@ -619,4 +619,507 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               onChange={(e) => setSelectedAccount(e.target.value)}
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Select account
+              <option value="">Select account</option>
+              {brokerageAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.account_name} ({account.brokerage})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Strategy-specific configuration */}
+        {selectedType === 'smart_rebalance' && (
+          <div className="space-y-6">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <label className="block text-sm font-medium text-gray-300">
+                  Asset Allocation
+                </label>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleNormalization('even')}
+                    className="text-xs"
+                  >
+                    Equal Weight
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleNormalization('marketcap')}
+                    className="text-xs"
+                  >
+                    Market Cap
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleNormalization('majority_cash_even')}
+                    className="text-xs"
+                  >
+                    60% Cash
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                {(configuration.assets || []).map((asset: any, index: number) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg">
+                    <div className="flex-1 relative symbol-input-container">
+                      <input
+                        type="text"
+                        value={assetSearchTerms[index] || asset.symbol || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          handleAssetSearch(index, value);
+                          updateAssetSymbol(index, value);
+                        }}
+                        onFocus={() => {
+                          if (assetSuggestions[index]?.length > 0) {
+                            setShowAssetSuggestions(prev => ({ ...prev, [index]: true }));
+                          }
+                        }}
+                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                        placeholder="Symbol (e.g., AAPL, BTC, CASH)"
+                      />
+                      
+                      {/* Asset suggestions dropdown */}
+                      {showAssetSuggestions[index] && assetSuggestions[index]?.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                          {assetSuggestions[index].map((suggestion) => (
+                            <button
+                              key={suggestion.symbol}
+                              onClick={() => handleAssetSelect(index, suggestion)}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-700 transition-colors border-b border-gray-700 last:border-b-0"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="text-white font-medium">{suggestion.symbol}</span>
+                                  <span className="text-gray-400 text-sm ml-2">{suggestion.name}</span>
+                                </div>
+                                <span className="text-xs text-gray-500 capitalize">{suggestion.asset_class}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="w-24">
+                      <NumericInput
+                        value={asset.allocation || 0}
+                        onChange={(value) => updateAssetAllocation(index, value)}
+                        min={0}
+                        max={100}
+                        step={1}
+                        suffix="%"
+                        className="text-center"
+                      />
+                    </div>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAsset(index)}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                
+                <Button
+                  variant="outline"
+                  onClick={addAsset}
+                  className="w-full"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Asset
+                </Button>
+              </div>
+              
+              {/* Allocation Summary */}
+              <div className="bg-gray-800/30 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-400">Total Allocation:</span>
+                  <span className={`font-medium ${
+                    Math.abs((configuration.assets || []).reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0) - 100) < 0.01
+                      ? 'text-green-400'
+                      : 'text-red-400'
+                  }`}>
+                    {(configuration.assets || []).reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0).toFixed(1)}%
+                  </span>
+                </div>
+                {Math.abs((configuration.assets || []).reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0) - 100) >= 0.01 && (
+                  <p className="text-xs text-red-400">
+                    Total allocation should equal 100%
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Common configuration for other strategies */}
+        {selectedType !== 'smart_rebalance' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="symbol-input-container relative">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Trading Symbol
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="text"
+                  value={symbolSearchTerm}
+                  onChange={(e) => setSymbolSearchTerm(e.target.value)}
+                  onFocus={() => {
+                    if (symbolSuggestions.length > 0) {
+                      setShowSuggestions(true);
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Search symbols (e.g., AAPL, BTC)"
+                />
+                
+                {/* Symbol suggestions dropdown */}
+                {showSuggestions && symbolSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    {symbolSuggestions.map((asset) => (
+                      <button
+                        key={asset.symbol}
+                        onClick={() => handleSymbolSelect(asset)}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors border-b border-gray-700 last:border-b-0"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-white font-medium">{asset.symbol}</span>
+                            <span className="text-gray-400 text-sm ml-2">{asset.name}</span>
+                          </div>
+                          <span className="text-xs text-gray-500 capitalize">{asset.asset_class}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Allocated Capital
+              </label>
+              <NumericInput
+                value={configuration.allocated_capital || selectedStrategyType.min_capital}
+                onChange={(value) => setConfiguration(prev => ({ ...prev, allocated_capital: value }))}
+                min={selectedStrategyType.min_capital}
+                step={1000}
+                prefix="$"
+                placeholder="Enter capital amount"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Strategy-specific parameters */}
+        {selectedType === 'spot_grid' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">Grid Configuration</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Lower Price Range
+                </label>
+                <NumericInput
+                  value={configuration.price_range_lower || 0}
+                  onChange={(value) => setConfiguration(prev => ({ ...prev, price_range_lower: value }))}
+                  min={0}
+                  prefix="$"
+                  placeholder="Auto-configure"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Upper Price Range
+                </label>
+                <NumericInput
+                  value={configuration.price_range_upper || 0}
+                  onChange={(value) => setConfiguration(prev => ({ ...prev, price_range_upper: value }))}
+                  min={0}
+                  prefix="$"
+                  placeholder="Auto-configure"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Number of Grids
+                </label>
+                <NumericInput
+                  value={configuration.number_of_grids || 20}
+                  onChange={(value) => setConfiguration(prev => ({ ...prev, number_of_grids: value }))}
+                  min={5}
+                  max={100}
+                  allowDecimals={false}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedType === 'dca' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">DCA Configuration</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Investment Amount per Interval
+                </label>
+                <NumericInput
+                  value={configuration.investment_amount_per_interval || 100}
+                  onChange={(value) => setConfiguration(prev => ({ ...prev, investment_amount_per_interval: value }))}
+                  min={10}
+                  prefix="$"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Frequency
+                </label>
+                <select
+                  value={configuration.frequency || 'daily'}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, frequency: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedType === 'covered_calls' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">Covered Calls Configuration</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Position Size (shares)
+                </label>
+                <NumericInput
+                  value={configuration.position_size || 100}
+                  onChange={(value) => setConfiguration(prev => ({ ...prev, position_size: value }))}
+                  min={100}
+                  step={100}
+                  allowDecimals={false}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Strike Delta
+                </label>
+                <NumericInput
+                  value={configuration.strike_delta || 0.30}
+                  onChange={(value) => setConfiguration(prev => ({ ...prev, strike_delta: value }))}
+                  min={0.1}
+                  max={0.5}
+                  step={0.05}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Days to Expiration
+                </label>
+                <NumericInput
+                  value={configuration.expiration_days || 30}
+                  onChange={(value) => setConfiguration(prev => ({ ...prev, expiration_days: value }))}
+                  min={7}
+                  max={90}
+                  allowDecimals={false}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderReviewStep = () => {
+    if (!selectedStrategyType || !selectedAccountData) return null;
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-4">Review Strategy</h3>
+          <p className="text-gray-400 mb-6">
+            Review your strategy configuration before creating
+          </p>
+        </div>
+
+        {/* Strategy Summary */}
+        <Card className="p-6 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-500/20">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h4 className="text-xl font-semibold text-white">{strategyName}</h4>
+              <p className="text-gray-300">{selectedStrategyType.description}</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3">
+              <Shield className="w-5 h-5 text-purple-400" />
+              <div>
+                <p className="text-sm text-gray-400">Risk Level</p>
+                <p className="font-semibold text-white capitalize">{selectedStrategyType.risk_level}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-5 h-5 text-green-400" />
+              <div>
+                <p className="text-sm text-gray-400">Min Capital</p>
+                <p className="font-semibold text-white">{formatCurrency(selectedStrategyType.min_capital)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Building className="w-5 h-5 text-blue-400" />
+              <div>
+                <p className="text-sm text-gray-400">Account</p>
+                <p className="font-semibold text-white">{selectedAccountData.account_name}</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Configuration Details */}
+        <Card className="p-6">
+          <h4 className="font-semibold text-white mb-4">Configuration Details</h4>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            {Object.entries(configuration).map(([key, value]) => (
+              <div key={key} className="flex justify-between">
+                <span className="text-gray-400 capitalize">{key.replace('_', ' ')}:</span>
+                <span className="text-white font-medium">
+                  {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Risk Disclaimer */}
+        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-medium text-yellow-400 mb-2">Risk Disclaimer</h4>
+              <p className="text-sm text-yellow-300">
+                All trading involves risk of loss. This strategy has been classified as{' '}
+                <span className="font-semibold capitalize">{selectedStrategyType.risk_level}</span> risk. 
+                Please ensure you understand the strategy before activating it.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+      >
+        <Card className="p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2">Create Trading Strategy</h2>
+              <p className="text-gray-400">Build a new automated trading strategy</p>
+            </div>
+            <Button variant="ghost" onClick={onClose}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* Progress Indicator */}
+          <div className="flex items-center justify-center mb-8">
+            <div className="flex items-center gap-4">
+              {['category', 'strategy', 'configure', 'review'].map((stepName, index) => (
+                <div key={stepName} className="flex items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    step === stepName 
+                      ? 'bg-blue-600 text-white' 
+                      : index < ['category', 'strategy', 'configure', 'review'].indexOf(step)
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-700 text-gray-400'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  {index < 3 && (
+                    <div className={`w-12 h-0.5 mx-2 ${
+                      index < ['category', 'strategy', 'configure', 'review'].indexOf(step)
+                        ? 'bg-green-600'
+                        : 'bg-gray-700'
+                    }`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Step Content */}
+          <div className="min-h-[400px]">
+            {step === 'category' && renderCategoryStep()}
+            {step === 'strategy' && renderStrategyStep()}
+            {step === 'configure' && renderConfigureStep()}
+            {step === 'review' && renderReviewStep()}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-4 mt-8">
+            {step !== 'category' && (
+              <Button variant="secondary" onClick={handleBack}>
+                Back
+              </Button>
+            )}
+            
+            <div className="flex-1" />
+            
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            
+            {step !== 'review' ? (
+              <Button 
+                onClick={handleNext}
+                disabled={
+                  (step === 'category' && !selectedCategory) ||
+                  (step === 'strategy' && !selectedType) ||
+                  (step === 'configure' && (!strategyName || !selectedAccount))
+                }
+              >
+                Next
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleCreate}
+                disabled={!strategyName || !selectedAccount}
+              >
+                Create Strategy
+              </Button>
+            )}
+          </div>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
