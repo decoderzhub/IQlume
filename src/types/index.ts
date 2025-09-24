@@ -146,6 +146,67 @@ export interface TradingStrategy {
     alpha?: number;
     value_at_risk?: number;
   };
+  
+  // Enhanced spot grid configuration
+  grid_mode?: 'arithmetic' | 'geometric';
+  quantity_per_grid?: number;
+  stop_loss_percent?: number;
+  trailing_stop_loss_percent?: number;
+  take_profit_levels?: Array<{
+    percent: number;
+    quantity_percent: number;
+  }>;
+  technical_indicators?: {
+    rsi?: {
+      enabled: boolean;
+      period: number;
+      buy_threshold: number;
+      sell_threshold: number;
+    };
+    macd?: {
+      enabled: boolean;
+      period: number;
+      additional_params: {
+        fast_period: number;
+        slow_period: number;
+        signal_period: number;
+      };
+    };
+    bollinger_bands?: {
+      enabled: boolean;
+      period: number;
+      additional_params: {
+        std_dev: number;
+      };
+    };
+  };
+  volume_threshold?: number;
+  price_movement_threshold?: number;
+  auto_start?: boolean;
+  telemetry_data?: {
+    allocated_capital_usd: number;
+    allocated_capital_base: number;
+    active_grid_levels: number;
+    upper_price_limit: number;
+    lower_price_limit: number;
+    current_profit_loss_usd: number;
+    current_profit_loss_percent: number;
+    grid_spacing_interval: number;
+    stop_loss_price?: number;
+    stop_loss_distance_percent?: number;
+    next_take_profit_price?: number;
+    take_profit_progress_percent?: number;
+    active_orders_count: number;
+    fill_rate_percent: number;
+    grid_utilization_percent: number;
+    last_updated: string;
+  };
+  last_execution?: string;
+  execution_count?: number;
+  total_profit_loss?: number;
+  active_orders_count?: number;
+  grid_utilization_percent?: number;
+  
   created_at?: string;
   updated_at?: string;
 }

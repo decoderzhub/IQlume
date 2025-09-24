@@ -20,6 +20,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent } from '../../lib/utils';
+import { TelemetryDashboard } from './TelemetryDashboard';
 
 interface StrategyDetailsModalProps {
   strategy: TradingStrategy;
@@ -71,6 +72,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'telemetry', label: 'Live Telemetry', icon: Activity },
     { id: 'configuration', label: 'Configuration', icon: Settings },
     { id: 'performance', label: 'Performance', icon: TrendingUp },
     { id: 'risk', label: 'Risk Analysis', icon: Shield },
@@ -156,6 +158,139 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
 
   const renderConfigurationTab = () => (
     <div className="space-y-6">
+      {/* Enhanced Spot Grid Configuration Display */}
+      {strategy.type === 'spot_grid' && (
+        <div className="space-y-4">
+          <h4 className="font-medium text-white">Enhanced Grid Configuration</h4>
+          
+          {/* Grid Parameters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-gray-800/30 rounded-lg p-3">
+              <h5 className="text-sm font-medium text-blue-400 mb-2">Grid Setup</h5>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Mode:</span>
+                  <span className="text-white capitalize">{strategy.grid_mode || 'arithmetic'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Quantity per Grid:</span>
+                  <span className="text-white">{strategy.quantity_per_grid || 'Auto-calculate'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Volume Threshold:</span>
+                  <span className="text-white">{strategy.volume_threshold || 'None'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Price Movement Threshold:</span>
+                  <span className="text-white">{strategy.price_movement_threshold || 0}%</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-800/30 rounded-lg p-3">
+              <h5 className="text-sm font-medium text-purple-400 mb-2">Automation</h5>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Auto Start:</span>
+                  <span className={`${strategy.auto_start ? 'text-green-400' : 'text-gray-400'}`}>
+                    {strategy.auto_start ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Execution Count:</span>
+                  <span className="text-white">{strategy.execution_count || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Last Execution:</span>
+                  <span className="text-white">
+                    {strategy.last_execution ? new Date(strategy.last_execution).toLocaleString() : 'Never'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Risk Management */}
+          {(strategy.stop_loss_percent || strategy.trailing_stop_loss_percent || (strategy.take_profit_levels && strategy.take_profit_levels.length > 0)) && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+              <h5 className="text-sm font-medium text-red-400 mb-3">Risk Management</h5>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {strategy.stop_loss_percent && (
+                  <div>
+                    <span className="text-gray-400 text-sm">Stop Loss:</span>
+                    <span className="text-red-400 ml-2 font-medium">{strategy.stop_loss_percent}%</span>
+                  </div>
+                )}
+                
+                {strategy.trailing_stop_loss_percent && (
+                  <div>
+                    <span className="text-gray-400 text-sm">Trailing Stop:</span>
+                    <span className="text-red-400 ml-2 font-medium">{strategy.trailing_stop_loss_percent}%</span>
+                  </div>
+                )}
+              </div>
+              
+              {strategy.take_profit_levels && strategy.take_profit_levels.length > 0 && (
+                <div className="mt-3">
+                  <h6 className="text-sm font-medium text-green-400 mb-2">Take Profit Levels</h6>
+                  <div className="space-y-1">
+                    {strategy.take_profit_levels.map((level: any, index: number) => (
+                      <div key={index} className="flex justify-between text-sm">
+                        <span className="text-gray-400">Level {index + 1}:</span>
+                        <span className="text-green-400">
+                          {level.percent}% profit → Close {level.quantity_percent}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Technical Indicators */}
+          {strategy.technical_indicators && Object.values(strategy.technical_indicators).some((ind: any) => ind?.enabled) && (
+            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
+              <h5 className="text-sm font-medium text-purple-400 mb-3">Technical Indicators</h5>
+              
+              <div className="space-y-2">
+                {strategy.technical_indicators.rsi?.enabled && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">RSI ({strategy.technical_indicators.rsi.period}):</span>
+                    <span className="text-white">
+                      Buy ≤{strategy.technical_indicators.rsi.buy_threshold}, Sell ≥{strategy.technical_indicators.rsi.sell_threshold}
+                    </span>
+                  </div>
+                )}
+                
+                {strategy.technical_indicators.macd?.enabled && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">MACD:</span>
+                    <span className="text-white">
+                      {strategy.technical_indicators.macd.additional_params?.fast_period}/
+                      {strategy.technical_indicators.macd.additional_params?.slow_period}/
+                      {strategy.technical_indicators.macd.additional_params?.signal_period}
+                    </span>
+                  </div>
+                )}
+                
+                {strategy.technical_indicators.bollinger_bands?.enabled && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Bollinger Bands:</span>
+                    <span className="text-white">
+                      Period {strategy.technical_indicators.bollinger_bands.period}, 
+                      StdDev {strategy.technical_indicators.bollinger_bands.additional_params?.std_dev}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Standard Configuration */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {Object.entries(strategy.configuration || {}).map(([key, value]) => (
           <div key={key}>
@@ -348,6 +483,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
           {/* Tab Content */}
           <div className="min-h-[400px]">
             {activeTab === 'overview' && renderOverviewTab()}
+            {activeTab === 'telemetry' && <TelemetryDashboard strategy={strategy} />}
             {activeTab === 'configuration' && renderConfigurationTab()}
             {activeTab === 'performance' && renderPerformanceTab()}
             {activeTab === 'risk' && renderRiskTab()}

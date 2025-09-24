@@ -39,6 +39,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
   const [currentPrice, setCurrentPrice] = React.useState<number | null>(null);
   const [priceHistory, setPriceHistory] = React.useState<Array<{ time: number; price: number }>>([]);
   const [loading, setLoading] = React.useState(false);
+  const [telemetryData, setTelemetryData] = React.useState<any>(null);
   
   // Check if strategy is implemented
   const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
@@ -64,6 +65,9 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     lower: strategy.configuration?.price_range_lower || 0,
     upper: strategy.configuration?.price_range_upper || 0,
     grids: strategy.configuration?.number_of_grids || 0,
+    mode: strategy.grid_mode || 'arithmetic',
+    stopLoss: strategy.stop_loss_percent || 0,
+    takeProfitLevels: strategy.take_profit_levels || [],
   } : null;
 
   // Fetch real-time price data for active strategies
@@ -128,6 +132,11 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           } else if (tradingSymbol.toUpperCase() === 'AAPL') {
             setCurrentPrice(240 + Math.random() * 20);
           }
+        }
+        
+        // Extract telemetry data from strategy if available
+        if (strategy.telemetry_data) {
+          setTelemetryData(strategy.telemetry_data);
         }
       } catch (error) {
         console.error(`Error fetching price data for ${tradingSymbol}:`, error);
@@ -327,6 +336,28 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           {/* Grid Configuration Display */}
           {isGridStrategy && gridConfig && gridConfig.lower && gridConfig.upper && (
             <div className="mb-4">
+              {/* Enhanced Grid Info */}
+              <div className="bg-gray-800/30 rounded-lg p-3 mb-3">
+                <div className="flex items-center justify-between text-xs mb-2">
+                  <span className="text-gray-400">Grid Mode:</span>
+                  <span className="text-white capitalize">{gridConfig.mode}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs mb-2">
+                  <span className="text-gray-400">Active Levels:</span>
+                  <span className="text-green-400 font-medium">
+                    {telemetryData?.active_grid_levels || gridConfig.grids}
+                  </span>
+                </div>
+                {telemetryData?.grid_utilization_percent !== undefined && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-400">Utilization:</span>
+                    <span className="text-blue-400 font-medium">
+                      {telemetryData.grid_utilization_percent.toFixed(1)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+              
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-gray-400">Grid Range:</span>
                 <span className="text-white">{gridConfig.grids} levels</span>
@@ -341,6 +372,39 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
                   <span className="text-red-400 font-medium">{formatCurrency(gridConfig.upper)}</span>
                 </div>
               </div>
+              
+              {/* Stop Loss & Take Profit Indicators */}
+              {(gridConfig.stopLoss > 0 || gridConfig.takeProfitLevels.length > 0) && (
+                <div className="mt-3 pt-3 border-t border-gray-700">
+                  {gridConfig.stopLoss > 0 && telemetryData?.stop_loss_price && (
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-red-400">Stop Loss:</span>
+                      <div className="text-right">
+                        <span className="text-red-400 font-medium">{formatCurrency(telemetryData.stop_loss_price)}</span>
+                        {telemetryData.stop_loss_distance_percent !== undefined && (
+                          <span className="text-gray-400 ml-2">
+                            ({telemetryData.stop_loss_distance_percent.toFixed(1)}% away)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {gridConfig.takeProfitLevels.length > 0 && telemetryData?.next_take_profit_price && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-green-400">Next TP:</span>
+                      <div className="text-right">
+                        <span className="text-green-400 font-medium">{formatCurrency(telemetryData.next_take_profit_price)}</span>
+                        {telemetryData.take_profit_progress_percent !== undefined && (
+                          <span className="text-gray-400 ml-2">
+                            ({telemetryData.take_profit_progress_percent.toFixed(1)}% progress)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               
               {/* Price Position Indicator */}
               {currentPrice && pricePosition && (
@@ -402,13 +466,19 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
                 {/* Grid level lines for grid strategies */}
                 {isGridStrategy && gridConfig && gridConfig.lower && gridConfig.upper && (
                   <>
-                    {/* Lower bound line */}
+                    {/* Grid boundary lines */}
                     <defs>
                       <pattern id={`lowerLine-${strategy.id}`} patternUnits="userSpaceOnUse" width="4" height="4">
                         <path d="M 0,4 l 4,0" stroke="#10b981" strokeWidth="1" strokeDasharray="2,2"/>
                       </pattern>
                       <pattern id={`upperLine-${strategy.id}`} patternUnits="userSpaceOnUse" width="4" height="4">
                         <path d="M 0,4 l 4,0" stroke="#ef4444" strokeWidth="1" strokeDasharray="2,2"/>
+                      </pattern>
+                      <pattern id={`stopLossLine-${strategy.id}`} patternUnits="userSpaceOnUse" width="6" height="6">
+                        <path d="M 0,6 l 6,0" stroke="#dc2626" strokeWidth="2" strokeDasharray="3,3"/>
+                      </pattern>
+                      <pattern id={`takeProfitLine-${strategy.id}`} patternUnits="userSpaceOnUse" width="6" height="6">
+                        <path d="M 0,6 l 6,0" stroke="#059669" strokeWidth="2" strokeDasharray="3,3"/>
                       </pattern>
                     </defs>
                   </>
@@ -419,7 +489,8 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           
           {/* Grid level indicators */}
           {isGridStrategy && gridConfig && gridConfig.lower && gridConfig.upper && (
-            <div className="flex items-center justify-between text-xs mt-2">
+            <div className="space-y-1 mt-2">
+              <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1">
                 <div className="w-2 h-0.5 bg-green-400"></div>
                 <span className="text-green-400">Buy: {formatCurrency(gridConfig.lower)}</span>
@@ -429,12 +500,67 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
                 <span className="text-red-400">Sell: {formatCurrency(gridConfig.upper)}</span>
               </div>
             </div>
+              
+              {/* Stop Loss & Take Profit Indicators */}
+              {(telemetryData?.stop_loss_price || telemetryData?.next_take_profit_price) && (
+                <div className="flex items-center justify-between text-xs">
+                  {telemetryData?.stop_loss_price && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-0.5 bg-red-600"></div>
+                      <span className="text-red-400">SL: {formatCurrency(telemetryData.stop_loss_price)}</span>
+                    </div>
+                  )}
+                  {telemetryData?.next_take_profit_price && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-0.5 bg-green-600"></div>
+                      <span className="text-green-400">TP: {formatCurrency(telemetryData.next_take_profit_price)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
       {/* Performance Metrics */}
       {performance && (
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="space-y-4 mb-6">
+          {/* Real-time Telemetry for Active Strategies */}
+          {strategy.is_active && telemetryData && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+              <h5 className="text-xs font-medium text-blue-400 mb-2 flex items-center gap-1">
+                <Activity className="w-3 h-3" />
+                Live Telemetry
+              </h5>
+              
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-400">P&L:</span>
+                  <span className={`ml-2 font-medium ${
+                    telemetryData.current_profit_loss_usd >= 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {telemetryData.current_profit_loss_usd >= 0 ? '+' : ''}
+                    {formatCurrency(telemetryData.current_profit_loss_usd)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Orders:</span>
+                  <span className="text-white ml-2 font-medium">{telemetryData.active_orders_count}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Fill Rate:</span>
+                  <span className="text-blue-400 ml-2 font-medium">{telemetryData.fill_rate_percent.toFixed(1)}%</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Deployed:</span>
+                  <span className="text-purple-400 ml-2 font-medium">{telemetryData.grid_utilization_percent.toFixed(1)}%</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Standard Performance Metrics */}
+          <div className="grid grid-cols-2 gap-4">
           <div className="bg-gray-800/30 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-1">
               {isPositiveReturn ? (
@@ -477,6 +603,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
             <p className="font-semibold text-yellow-400">
               {performance.total_trades || 0}
             </p>
+          </div>
           </div>
         </div>
       )}

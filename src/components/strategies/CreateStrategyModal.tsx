@@ -828,7 +828,22 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         {selectedType === 'spot_grid' && (
           <div className="space-y-4">
             <h4 className="font-medium text-white">Grid Configuration</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            {/* Basic Grid Setup */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Grid Mode
+                </label>
+                <select
+                  value={configuration.grid_mode || 'arithmetic'}
+                  onChange={(e) => setConfiguration(prev => ({ ...prev, grid_mode: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="arithmetic">Arithmetic (Equal $)</option>
+                  <option value="geometric">Geometric (Equal %)</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Lower Price Range
@@ -864,6 +879,466 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   max={100}
                   allowDecimals={false}
                 />
+              </div>
+            </div>
+            
+            {/* Advanced Grid Parameters */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Quantity per Grid
+                </label>
+                <NumericInput
+                  value={configuration.quantity_per_grid || 0}
+                  onChange={(value) => setConfiguration(prev => ({ ...prev, quantity_per_grid: value }))}
+                  min={0}
+                  step={0.001}
+                  placeholder="Auto-calculate"
+                />
+                <p className="text-xs text-gray-500 mt-1">Base currency amount per grid level</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Volume Threshold
+                </label>
+                <NumericInput
+                  value={configuration.volume_threshold || 0}
+                  onChange={(value) => setConfiguration(prev => ({ ...prev, volume_threshold: value }))}
+                  min={0}
+                  allowDecimals={false}
+                  placeholder="No minimum"
+                />
+                <p className="text-xs text-gray-500 mt-1">Minimum 24h volume required</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Price Movement Threshold
+                </label>
+                <NumericInput
+                  value={configuration.price_movement_threshold || 0}
+                  onChange={(value) => setConfiguration(prev => ({ ...prev, price_movement_threshold: value }))}
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  suffix="%"
+                  placeholder="0"
+                />
+                <p className="text-xs text-gray-500 mt-1">Minimum price change to trigger orders</p>
+              </div>
+            </div>
+            
+            {/* Risk Management */}
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+              <h5 className="font-medium text-red-400 mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                Risk Management
+              </h5>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Stop Loss %
+                  </label>
+                  <NumericInput
+                    value={configuration.stop_loss_percent || 0}
+                    onChange={(value) => setConfiguration(prev => ({ ...prev, stop_loss_percent: value }))}
+                    min={0}
+                    max={50}
+                    step={0.5}
+                    suffix="%"
+                    placeholder="0 (disabled)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Emergency liquidation trigger</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Trailing Stop Loss %
+                  </label>
+                  <NumericInput
+                    value={configuration.trailing_stop_loss_percent || 0}
+                    onChange={(value) => setConfiguration(prev => ({ ...prev, trailing_stop_loss_percent: value }))}
+                    min={0}
+                    max={20}
+                    step={0.1}
+                    suffix="%"
+                    placeholder="0 (disabled)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Trailing stop from peak price</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Take Profit Levels */}
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h5 className="font-medium text-green-400 flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  Take Profit Levels
+                </h5>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const currentLevels = configuration.take_profit_levels || [];
+                    setConfiguration(prev => ({
+                      ...prev,
+                      take_profit_levels: [...currentLevels, { percent: 10, quantity_percent: 50 }]
+                    }));
+                  }}
+                  className="text-green-400 hover:text-green-300"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Level
+                </Button>
+              </div>
+              
+              <div className="space-y-3">
+                {(configuration.take_profit_levels || []).map((level: any, index: number) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg">
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-400 mb-1">Profit %</label>
+                      <NumericInput
+                        value={level.percent || 0}
+                        onChange={(value) => {
+                          const newLevels = [...(configuration.take_profit_levels || [])];
+                          newLevels[index] = { ...newLevels[index], percent: value };
+                          setConfiguration(prev => ({ ...prev, take_profit_levels: newLevels }));
+                        }}
+                        min={0.1}
+                        max={1000}
+                        step={0.5}
+                        suffix="%"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-400 mb-1">Close %</label>
+                      <NumericInput
+                        value={level.quantity_percent || 0}
+                        onChange={(value) => {
+                          const newLevels = [...(configuration.take_profit_levels || [])];
+                          newLevels[index] = { ...newLevels[index], quantity_percent: value };
+                          setConfiguration(prev => ({ ...prev, take_profit_levels: newLevels }));
+                        }}
+                        min={1}
+                        max={100}
+                        step={5}
+                        suffix="%"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const newLevels = (configuration.take_profit_levels || []).filter((_: any, i: number) => i !== index);
+                        setConfiguration(prev => ({ ...prev, take_profit_levels: newLevels }));
+                      }}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                
+                {(!configuration.take_profit_levels || configuration.take_profit_levels.length === 0) && (
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    No take profit levels configured. Add levels to automatically realize profits.
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            {/* Technical Indicators */}
+            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
+              <h5 className="font-medium text-purple-400 mb-3 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                Technical Indicators
+              </h5>
+              
+              <div className="space-y-4">
+                {/* RSI */}
+                <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={configuration.technical_indicators?.rsi?.enabled || false}
+                      onChange={(e) => setConfiguration(prev => ({
+                        ...prev,
+                        technical_indicators: {
+                          ...prev.technical_indicators,
+                          rsi: {
+                            ...prev.technical_indicators?.rsi,
+                            enabled: e.target.checked,
+                            period: 14,
+                            buy_threshold: 30,
+                            sell_threshold: 70
+                          }
+                        }
+                      }))}
+                      className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded focus:ring-purple-500"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-white">RSI (Relative Strength Index)</p>
+                      <p className="text-xs text-gray-400">Momentum oscillator (0-100)</p>
+                    </div>
+                  </div>
+                  
+                  {configuration.technical_indicators?.rsi?.enabled && (
+                    <div className="flex gap-2">
+                      <div className="w-16">
+                        <label className="block text-xs text-gray-400 mb-1">Period</label>
+                        <NumericInput
+                          value={configuration.technical_indicators?.rsi?.period || 14}
+                          onChange={(value) => setConfiguration(prev => ({
+                            ...prev,
+                            technical_indicators: {
+                              ...prev.technical_indicators,
+                              rsi: { ...prev.technical_indicators?.rsi, period: value }
+                            }
+                          }))}
+                          min={5}
+                          max={50}
+                          allowDecimals={false}
+                        />
+                      </div>
+                      <div className="w-16">
+                        <label className="block text-xs text-gray-400 mb-1">Buy</label>
+                        <NumericInput
+                          value={configuration.technical_indicators?.rsi?.buy_threshold || 30}
+                          onChange={(value) => setConfiguration(prev => ({
+                            ...prev,
+                            technical_indicators: {
+                              ...prev.technical_indicators,
+                              rsi: { ...prev.technical_indicators?.rsi, buy_threshold: value }
+                            }
+                          }))}
+                          min={0}
+                          max={50}
+                          allowDecimals={false}
+                        />
+                      </div>
+                      <div className="w-16">
+                        <label className="block text-xs text-gray-400 mb-1">Sell</label>
+                        <NumericInput
+                          value={configuration.technical_indicators?.rsi?.sell_threshold || 70}
+                          onChange={(value) => setConfiguration(prev => ({
+                            ...prev,
+                            technical_indicators: {
+                              ...prev.technical_indicators,
+                              rsi: { ...prev.technical_indicators?.rsi, sell_threshold: value }
+                            }
+                          }))}
+                          min={50}
+                          max={100}
+                          allowDecimals={false}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* MACD */}
+                <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={configuration.technical_indicators?.macd?.enabled || false}
+                      onChange={(e) => setConfiguration(prev => ({
+                        ...prev,
+                        technical_indicators: {
+                          ...prev.technical_indicators,
+                          macd: {
+                            ...prev.technical_indicators?.macd,
+                            enabled: e.target.checked,
+                            period: 12,
+                            additional_params: {
+                              fast_period: 12,
+                              slow_period: 26,
+                              signal_period: 9
+                            }
+                          }
+                        }
+                      }))}
+                      className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded focus:ring-purple-500"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-white">MACD</p>
+                      <p className="text-xs text-gray-400">Moving Average Convergence Divergence</p>
+                    </div>
+                  </div>
+                  
+                  {configuration.technical_indicators?.macd?.enabled && (
+                    <div className="flex gap-2">
+                      <div className="w-12">
+                        <label className="block text-xs text-gray-400 mb-1">Fast</label>
+                        <NumericInput
+                          value={configuration.technical_indicators?.macd?.additional_params?.fast_period || 12}
+                          onChange={(value) => setConfiguration(prev => ({
+                            ...prev,
+                            technical_indicators: {
+                              ...prev.technical_indicators,
+                              macd: {
+                                ...prev.technical_indicators?.macd,
+                                additional_params: {
+                                  ...prev.technical_indicators?.macd?.additional_params,
+                                  fast_period: value
+                                }
+                              }
+                            }
+                          }))}
+                          min={5}
+                          max={50}
+                          allowDecimals={false}
+                        />
+                      </div>
+                      <div className="w-12">
+                        <label className="block text-xs text-gray-400 mb-1">Slow</label>
+                        <NumericInput
+                          value={configuration.technical_indicators?.macd?.additional_params?.slow_period || 26}
+                          onChange={(value) => setConfiguration(prev => ({
+                            ...prev,
+                            technical_indicators: {
+                              ...prev.technical_indicators,
+                              macd: {
+                                ...prev.technical_indicators?.macd,
+                                additional_params: {
+                                  ...prev.technical_indicators?.macd?.additional_params,
+                                  slow_period: value
+                                }
+                              }
+                            }
+                          }))}
+                          min={10}
+                          max={100}
+                          allowDecimals={false}
+                        />
+                      </div>
+                      <div className="w-12">
+                        <label className="block text-xs text-gray-400 mb-1">Signal</label>
+                        <NumericInput
+                          value={configuration.technical_indicators?.macd?.additional_params?.signal_period || 9}
+                          onChange={(value) => setConfiguration(prev => ({
+                            ...prev,
+                            technical_indicators: {
+                              ...prev.technical_indicators,
+                              macd: {
+                                ...prev.technical_indicators?.macd,
+                                additional_params: {
+                                  ...prev.technical_indicators?.macd?.additional_params,
+                                  signal_period: value
+                                }
+                              }
+                            }
+                          }))}
+                          min={5}
+                          max={30}
+                          allowDecimals={false}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Bollinger Bands */}
+                <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={configuration.technical_indicators?.bollinger_bands?.enabled || false}
+                      onChange={(e) => setConfiguration(prev => ({
+                        ...prev,
+                        technical_indicators: {
+                          ...prev.technical_indicators,
+                          bollinger_bands: {
+                            ...prev.technical_indicators?.bollinger_bands,
+                            enabled: e.target.checked,
+                            period: 20,
+                            additional_params: {
+                              std_dev: 2.0
+                            }
+                          }
+                        }
+                      }))}
+                      className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded focus:ring-purple-500"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-white">Bollinger Bands</p>
+                      <p className="text-xs text-gray-400">Volatility-based support/resistance</p>
+                    </div>
+                  </div>
+                  
+                  {configuration.technical_indicators?.bollinger_bands?.enabled && (
+                    <div className="flex gap-2">
+                      <div className="w-16">
+                        <label className="block text-xs text-gray-400 mb-1">Period</label>
+                        <NumericInput
+                          value={configuration.technical_indicators?.bollinger_bands?.period || 20}
+                          onChange={(value) => setConfiguration(prev => ({
+                            ...prev,
+                            technical_indicators: {
+                              ...prev.technical_indicators,
+                              bollinger_bands: {
+                                ...prev.technical_indicators?.bollinger_bands,
+                                period: value
+                              }
+                            }
+                          }))}
+                          min={10}
+                          max={50}
+                          allowDecimals={false}
+                        />
+                      </div>
+                      <div className="w-16">
+                        <label className="block text-xs text-gray-400 mb-1">Std Dev</label>
+                        <NumericInput
+                          value={configuration.technical_indicators?.bollinger_bands?.additional_params?.std_dev || 2.0}
+                          onChange={(value) => setConfiguration(prev => ({
+                            ...prev,
+                            technical_indicators: {
+                              ...prev.technical_indicators,
+                              bollinger_bands: {
+                                ...prev.technical_indicators?.bollinger_bands,
+                                additional_params: {
+                                  ...prev.technical_indicators?.bollinger_bands?.additional_params,
+                                  std_dev: value
+                                }
+                              }
+                            }
+                          }))}
+                          min={1.0}
+                          max={3.0}
+                          step={0.1}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Automation Settings */}
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+              <h5 className="font-medium text-blue-400 mb-3 flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Automation Settings
+              </h5>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-white">Auto Start</p>
+                  <p className="text-xs text-gray-400">Automatically activate bot after creation</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={configuration.auto_start || false}
+                    onChange={(e) => setConfiguration(prev => ({ ...prev, auto_start: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
               </div>
             </div>
           </div>

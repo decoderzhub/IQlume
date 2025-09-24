@@ -4,6 +4,51 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
 
+# Enhanced grid configuration models
+class GridMode(str, Enum):
+    ARITHMETIC = "arithmetic"
+    GEOMETRIC = "geometric"
+
+class TakeProfitLevel(BaseModel):
+    percent: float = Field(..., ge=0, le=1000, description="Profit percentage target")
+    quantity_percent: float = Field(..., ge=0, le=100, description="Percentage of position to close")
+
+class TechnicalIndicatorConfig(BaseModel):
+    enabled: bool = False
+    period: int = 14
+    buy_threshold: Optional[float] = None
+    sell_threshold: Optional[float] = None
+    additional_params: Dict[str, Any] = Field(default_factory=dict)
+
+class TechnicalIndicators(BaseModel):
+    rsi: TechnicalIndicatorConfig = Field(default_factory=lambda: TechnicalIndicatorConfig(
+        enabled=False, period=14, buy_threshold=30, sell_threshold=70
+    ))
+    macd: TechnicalIndicatorConfig = Field(default_factory=lambda: TechnicalIndicatorConfig(
+        enabled=False, period=12, additional_params={"fast_period": 12, "slow_period": 26, "signal_period": 9}
+    ))
+    bollinger_bands: TechnicalIndicatorConfig = Field(default_factory=lambda: TechnicalIndicatorConfig(
+        enabled=False, period=20, additional_params={"std_dev": 2}
+    ))
+
+class TelemetryData(BaseModel):
+    allocated_capital_usd: float = 0
+    allocated_capital_base: float = 0
+    active_grid_levels: int = 0
+    upper_price_limit: float = 0
+    lower_price_limit: float = 0
+    current_profit_loss_usd: float = 0
+    current_profit_loss_percent: float = 0
+    grid_spacing_interval: float = 0
+    stop_loss_price: Optional[float] = None
+    stop_loss_distance_percent: Optional[float] = None
+    next_take_profit_price: Optional[float] = None
+    take_profit_progress_percent: Optional[float] = None
+    active_orders_count: int = 0
+    fill_rate_percent: float = 0
+    grid_utilization_percent: float = 0
+    last_updated: datetime = Field(default_factory=datetime.utcnow)
+
 # Enums for new fields
 class AssetClass(str, Enum):
     EQUITY = "equity"
@@ -67,6 +112,23 @@ class TradingStrategyBase(BaseModel):
     backtest_params: Optional[Dict[str, Any]] = Field(default_factory=dict)
     telemetry_id: Optional[str] = None
 
+    # Enhanced spot grid configuration
+    grid_mode: Optional[GridMode] = GridMode.ARITHMETIC
+    quantity_per_grid: Optional[float] = 0
+    stop_loss_percent: Optional[float] = 0
+    trailing_stop_loss_percent: Optional[float] = 0
+    take_profit_levels: List[TakeProfitLevel] = Field(default_factory=list)
+    technical_indicators: TechnicalIndicators = Field(default_factory=TechnicalIndicators)
+    volume_threshold: Optional[float] = 0
+    price_movement_threshold: Optional[float] = 0
+    auto_start: bool = False
+    telemetry_data: TelemetryData = Field(default_factory=TelemetryData)
+    last_execution: Optional[datetime] = None
+    execution_count: int = 0
+    total_profit_loss: float = 0
+    active_orders_count: int = 0
+    grid_utilization_percent: float = 0
+
     # Strategy-specific configuration
     configuration: Dict[str, Any] = Field(default_factory=dict)
 
@@ -102,6 +164,21 @@ class TradingStrategyUpdate(BaseModel):
     backtest_mode: Optional[BacktestMode] = None
     backtest_params: Optional[Dict[str, Any]] = None
     telemetry_id: Optional[str] = None
+
+    # Enhanced spot grid configuration (all optional for updates)
+    grid_mode: Optional[GridMode] = None
+    quantity_per_grid: Optional[float] = None
+    stop_loss_percent: Optional[float] = None
+    trailing_stop_loss_percent: Optional[float] = None
+    take_profit_levels: Optional[List[TakeProfitLevel]] = None
+    technical_indicators: Optional[TechnicalIndicators] = None
+    volume_threshold: Optional[float] = None
+    price_movement_threshold: Optional[float] = None
+    auto_start: Optional[bool] = None
+    telemetry_data: Optional[TelemetryData] = None
+    total_profit_loss: Optional[float] = None
+    active_orders_count: Optional[int] = None
+    grid_utilization_percent: Optional[float] = None
 
     configuration: Optional[Dict[str, Any]] = None
     performance: Optional[Dict[str, Any]] = None
