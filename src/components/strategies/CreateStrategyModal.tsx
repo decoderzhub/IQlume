@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { NumericInput } from '../ui/NumericInput';
 import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
