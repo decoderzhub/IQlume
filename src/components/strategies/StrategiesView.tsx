@@ -51,10 +51,10 @@ export function StrategiesView() {
         }
 
         const data = await response.json();
-        if (data.strategies && Array.isArray(data.strategies)) {
-          setStrategies(data.strategies);
+        if (Array.isArray(data)) {
+          setStrategies(data);
         } else {
-          console.error('API response does not contain strategies array:', data);
+          console.error('API response is not a strategies array:', data);
           setStrategies([]);
         }
       } catch (error) {

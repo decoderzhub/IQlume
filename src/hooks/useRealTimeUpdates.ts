@@ -114,7 +114,7 @@ export function useRealTimeUpdates() {
 
         if (response.ok) {
           const data = await response.json();
-          setStrategies(data.strategies || []);
+          setStrategies(Array.isArray(data) ? data : []);
           console.log('🔄 Strategies refreshed from autonomous trade');
         }
       } catch (error) {

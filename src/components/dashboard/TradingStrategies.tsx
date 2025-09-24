@@ -35,8 +35,8 @@ export function TradingStrategies() {
 
         const data = await response.json();
         console.log('✅ Strategies loaded for dashboard:', data.strategies?.length || 0);
-        if (data.strategies && Array.isArray(data.strategies)) {
-          const activeStrategies = data.strategies
+        if (Array.isArray(data)) {
+          const activeStrategies = data
             .filter((strategy: any) => strategy.is_active)
             .slice(0, 3);
             
@@ -58,7 +58,7 @@ export function TradingStrategies() {
           
           setStrategies(transformedStrategies);
         } else {
-          console.warn('⚠️ No strategies data in API response');
+          console.warn('⚠️ API response is not a strategies array');
           setStrategies([]);
         }
       } catch (error) {
