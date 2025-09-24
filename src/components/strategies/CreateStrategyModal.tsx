@@ -140,6 +140,14 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [symbolSearchTerm, setSymbolSearchTerm] = useState('');
   const [optionsChainData, setOptionsChainData] = useState<any>(null);
   const [loadingOptionsChain, setLoadingOptionsChain] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'covered_calls' as TradingStrategy['type'],
+    description: '',
+    risk_level: 'medium' as TradingStrategy['risk_level'],
+    min_capital: 10000,
+    is_active: false,
+  });
   const [selectedOptionContract, setSelectedOptionContract] = useState<any>(null);
   const [assetSearchTerms, setAssetSearchTerms] = useState<Record<number, string>>({});
   const [assetSuggestions, setAssetSuggestions] = useState<Record<number, TradableAsset[]>>({});
