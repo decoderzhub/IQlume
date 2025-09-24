@@ -1,23 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+# backend/routers/strategies.py
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 import logging
-import json
-import asyncio
-from uuid import uuid4
-import math
 
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
-from alpaca.trading.enums import OrderSide, TimeInForce
-from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
-from alpaca.data.requests import StockLatestQuoteRequest, CryptoLatestQuoteRequest
-from alpaca.data.enums import DataFeed
+from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, GetOrdersRequest
+from alpaca.trading.enums import OrderSide, TimeInForce, OrderStatus
 from alpaca.common.exceptions import APIError as AlpacaAPIError
 
 from supabase import Client
-from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse, StrategiesListResponse
+from uuid import uuid4
 from dependencies import (
     get_current_user,
     get_supabase_client,
@@ -26,412 +20,210 @@ from dependencies import (
     get_alpaca_crypto_data_client,
     security,
 )
-from technical_indicators import TechnicalIndicators, get_recent_prices
+from schemas import TradingStrategyCreate, TradingStrategyUpdate, TradingStrategyResponse, RiskLevel, AssetClass, TimeHorizon, AutomationLevel, BacktestMode, GridMode, TakeProfitLevel, TechnicalIndicators, TelemetryData # Import new schemas
+from technical_indicators import TechnicalIndicators as TI # Import the TI class
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
 
-# Tradable assets with market cap data
-TRADABLE_ASSETS = [
-    # Large Cap Stocks
-    {"symbol": "AAPL", "name": "Apple Inc.", "market_cap": 3000.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    {"symbol": "MSFT", "name": "Microsoft Corporation", "market_cap": 2800.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    {"symbol": "GOOGL", "name": "Alphabet Inc.", "market_cap": 1700.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    {"symbol": "AMZN", "name": "Amazon.com Inc.", "market_cap": 1500.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    {"symbol": "NVDA", "name": "NVIDIA Corporation", "market_cap": 1800.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    {"symbol": "TSLA", "name": "Tesla Inc.", "market_cap": 800.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    {"symbol": "META", "name": "Meta Platforms Inc.", "market_cap": 900.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    {"symbol": "NFLX", "name": "Netflix Inc.", "market_cap": 200.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    
-    # ETFs
-    {"symbol": "SPY", "name": "SPDR S&P 500 ETF", "market_cap": 450.0, "exchange": "NYSE", "asset_class": "equity"},
-    {"symbol": "QQQ", "name": "Invesco QQQ Trust", "market_cap": 200.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    {"symbol": "VTI", "name": "Vanguard Total Stock Market ETF", "market_cap": 300.0, "exchange": "NYSE", "asset_class": "equity"},
-    {"symbol": "IWM", "name": "iShares Russell 2000 ETF", "market_cap": 60.0, "exchange": "NYSE", "asset_class": "equity"},
-    
-    # Financial Stocks
-    {"symbol": "JPM", "name": "JPMorgan Chase & Co.", "market_cap": 500.0, "exchange": "NYSE", "asset_class": "equity"},
-    {"symbol": "BAC", "name": "Bank of America Corp.", "market_cap": 300.0, "exchange": "NYSE", "asset_class": "equity"},
-    {"symbol": "WFC", "name": "Wells Fargo & Company", "market_cap": 180.0, "exchange": "NYSE", "asset_class": "equity"},
-    
-    # Tech Stocks
-    {"symbol": "ORCL", "name": "Oracle Corporation", "market_cap": 350.0, "exchange": "NYSE", "asset_class": "equity"},
-    {"symbol": "CRM", "name": "Salesforce Inc.", "market_cap": 250.0, "exchange": "NYSE", "asset_class": "equity"},
-    {"symbol": "ADBE", "name": "Adobe Inc.", "market_cap": 220.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    
-    # Healthcare
-    {"symbol": "JNJ", "name": "Johnson & Johnson", "market_cap": 450.0, "exchange": "NYSE", "asset_class": "equity"},
-    {"symbol": "PFE", "name": "Pfizer Inc.", "market_cap": 160.0, "exchange": "NYSE", "asset_class": "equity"},
-    
-    # Consumer
-    {"symbol": "KO", "name": "The Coca-Cola Company", "market_cap": 260.0, "exchange": "NYSE", "asset_class": "equity"},
-    {"symbol": "PEP", "name": "PepsiCo Inc.", "market_cap": 240.0, "exchange": "NASDAQ", "asset_class": "equity"},
-    {"symbol": "WMT", "name": "Walmart Inc.", "market_cap": 500.0, "exchange": "NYSE", "asset_class": "equity"},
-    
-    # Energy
-    {"symbol": "XOM", "name": "Exxon Mobil Corporation", "market_cap": 400.0, "exchange": "NYSE", "asset_class": "equity"},
-    {"symbol": "CVX", "name": "Chevron Corporation", "market_cap": 300.0, "exchange": "NYSE", "asset_class": "equity"},
-    
-    # Crypto (market cap in billions)
-    {"symbol": "BTC/USD", "name": "Bitcoin", "market_cap": 1200.0, "exchange": "Crypto", "asset_class": "crypto"},
-    {"symbol": "ETH/USD", "name": "Ethereum", "market_cap": 400.0, "exchange": "Crypto", "asset_class": "crypto"},
-    {"symbol": "LTC/USD", "name": "Litecoin", "market_cap": 8.0, "exchange": "Crypto", "asset_class": "crypto"},
-    {"symbol": "BCH/USD", "name": "Bitcoin Cash", "market_cap": 10.0, "exchange": "Crypto", "asset_class": "crypto"},
-    {"symbol": "LINK/USD", "name": "Chainlink", "market_cap": 15.0, "exchange": "Crypto", "asset_class": "crypto"},
-    {"symbol": "UNI/USD", "name": "Uniswap", "market_cap": 5.0, "exchange": "Crypto", "asset_class": "crypto"},
-]
+# Helper function to convert strategy type string to enum
+def _get_strategy_type_enum(strategy_type_str: str):
+    # This needs to map to the actual enum values in your DB schema
+    # For now, we'll just return the string, assuming the DB handles it
+    return strategy_type_str
 
-@router.get("/tradable-assets")
-async def get_tradable_assets(
-    search: Optional[str] = Query(None, description="Search term for filtering assets"),
-    asset_class: Optional[str] = Query(None, description="Filter by asset class (equity, crypto)"),
-    limit: Optional[int] = Query(50, description="Maximum number of assets to return"),
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-):
-    """Get list of tradable assets with market cap data"""
-    try:
-        assets = TRADABLE_ASSETS.copy()
-        
-        # Apply search filter
-        if search:
-            search_lower = search.lower()
-            assets = [
-                asset for asset in assets
-                if search_lower in asset["symbol"].lower() or search_lower in asset["name"].lower()
-            ]
-        
-        # Apply asset class filter
-        if asset_class:
-            assets = [asset for asset in assets if asset["asset_class"] == asset_class.lower()]
-        
-        # Apply limit
-        assets = assets[:limit]
-        
-        logger.info(f"📊 Returning {len(assets)} tradable assets (search: {search}, class: {asset_class})")
-        return {"assets": assets}
-        
-    except Exception as e:
-        logger.error(f"Error fetching tradable assets: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch tradable assets: {str(e)}")
-
-@router.get("/")
-async def get_strategies(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
-):
-    """Get all trading strategies for the current user"""
-    try:
-        logger.info(f"📊 Fetching strategies for user {current_user.id}")
-        
-        resp = supabase.table("trading_strategies").select("*").eq("user_id", current_user.id).order("created_at", desc=True).execute()
-        
-        strategies = []
-        for strategy_data in resp.data or []:
-            strategy = TradingStrategyResponse(
-                id=strategy_data["id"],
-                user_id=strategy_data["user_id"],
-                name=strategy_data["name"],
-                type=strategy_data["type"],
-                description=strategy_data.get("description", ""),
-                risk_level=strategy_data["risk_level"],
-                min_capital=float(strategy_data["min_capital"]),
-                is_active=strategy_data["is_active"],
-                configuration=strategy_data.get("configuration", {}),
-                performance=strategy_data.get("performance"),
-                created_at=datetime.fromisoformat(strategy_data["created_at"].replace('Z', '+00:00')),
-                updated_at=datetime.fromisoformat(strategy_data["updated_at"].replace('Z', '+00:00')),
-                
-                # Universal bot fields
-                account_id=strategy_data.get("account_id"),
-                asset_class=strategy_data.get("asset_class"),
-                base_symbol=strategy_data.get("base_symbol"),
-                quote_currency=strategy_data.get("quote_currency"),
-                time_horizon=strategy_data.get("time_horizon"),
-                automation_level=strategy_data.get("automation_level"),
-                capital_allocation=strategy_data.get("capital_allocation", {}),
-                position_sizing=strategy_data.get("position_sizing", {}),
-                trade_window=strategy_data.get("trade_window", {}),
-                order_execution=strategy_data.get("order_execution", {}),
-                risk_controls=strategy_data.get("risk_controls", {}),
-                data_filters=strategy_data.get("data_filters", {}),
-                notifications=strategy_data.get("notifications", {}),
-                backtest_mode=strategy_data.get("backtest_mode"),
-                backtest_params=strategy_data.get("backtest_params", {}),
-                telemetry_id=strategy_data.get("telemetry_id"),
-            )
-            strategies.append(strategy)
-        
-        logger.info(f"✅ Found {len(strategies)} strategies for user {current_user.id}")
-        return StrategiesListResponse(strategies=strategies)
-        
-    except Exception as e:
-        logger.error(f"Error fetching strategies: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch strategies: {str(e)}")
-
-@router.post("/")
+@router.post("/", response_model=TradingStrategyResponse)
 async def create_strategy(
     strategy_data: TradingStrategyCreate,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     """Create a new trading strategy"""
     try:
-        logger.info(f"📝 Creating strategy for user {current_user.id}: {strategy_data.name}")
+        logger.info(f"➕ Creating new strategy for user {current_user.id}: {strategy_data.name}")
         
-        # Prepare strategy data for database
-        strategy_dict = {
-            "user_id": current_user.id,
-            "name": strategy_data.name,
-            "type": strategy_data.type,
-            "description": strategy_data.description or "",
-            "risk_level": strategy_data.risk_level,
-            "min_capital": float(strategy_data.min_capital),
-            "is_active": strategy_data.is_active,
-            "configuration": strategy_data.configuration,
-            "performance": strategy_data.performance,
-            
-            # Universal bot fields
-            "account_id": strategy_data.account_id,
-            "asset_class": strategy_data.asset_class,
-            "base_symbol": strategy_data.base_symbol,
-            "quote_currency": strategy_data.quote_currency,
-            "time_horizon": strategy_data.time_horizon,
-            "automation_level": strategy_data.automation_level,
-            "capital_allocation": strategy_data.capital_allocation,
-            "position_sizing": strategy_data.position_sizing,
-            "trade_window": strategy_data.trade_window,
-            "order_execution": strategy_data.order_execution,
-            "risk_controls": strategy_data.risk_controls,
-            "data_filters": strategy_data.data_filters,
-            "notifications": strategy_data.notifications,
-            "backtest_mode": strategy_data.backtest_mode,
-            "backtest_params": strategy_data.backtest_params,
-            "telemetry_id": strategy_data.telemetry_id,
-        }
+        # Convert Pydantic model to dictionary for Supabase insert
+        strategy_dict = strategy_data.model_dump()
+        strategy_dict["user_id"] = current_user.id
         
+        # Ensure enum values are strings for Supabase
+        if isinstance(strategy_dict.get("risk_level"), RiskLevel):
+            strategy_dict["risk_level"] = strategy_dict["risk_level"].value
+        if isinstance(strategy_dict.get("asset_class"), AssetClass):
+            strategy_dict["asset_class"] = strategy_dict["asset_class"].value
+        if isinstance(strategy_dict.get("time_horizon"), TimeHorizon):
+            strategy_dict["time_horizon"] = strategy_dict["time_horizon"].value
+        if isinstance(strategy_dict.get("automation_level"), AutomationLevel):
+            strategy_dict["automation_level"] = strategy_dict["automation_level"].value
+        if isinstance(strategy_dict.get("backtest_mode"), BacktestMode):
+            strategy_dict["backtest_mode"] = strategy_dict["backtest_mode"].value
+        if isinstance(strategy_dict.get("grid_mode"), GridMode):
+            strategy_dict["grid_mode"] = strategy_dict["grid_mode"].value
+        
+        # Handle nested Pydantic models for JSONB fields
+        if strategy_dict.get("technical_indicators"):
+            strategy_dict["technical_indicators"] = TechnicalIndicators(**strategy_dict["technical_indicators"]).model_dump()
+        if strategy_dict.get("telemetry_data"):
+            strategy_dict["telemetry_data"] = TelemetryData(**strategy_dict["telemetry_data"]).model_dump()
+
         resp = supabase.table("trading_strategies").insert(strategy_dict).execute()
         
         if not resp.data:
-            raise HTTPException(status_code=500, detail="Failed to create strategy")
+            raise HTTPException(status_code=500, detail="Failed to create strategy in database")
         
-        created_strategy = resp.data[0]
-        logger.info(f"✅ Strategy created successfully: {created_strategy['id']}")
+        # Convert back to Pydantic model for response
+        created_strategy = TradingStrategyResponse(**resp.data)
+        logger.info(f"✅ Strategy created: {created_strategy.name} (ID: {created_strategy.id})")
+        return created_strategy
         
-        return TradingStrategyResponse(
-            id=created_strategy["id"],
-            user_id=created_strategy["user_id"],
-            name=created_strategy["name"],
-            type=created_strategy["type"],
-            description=created_strategy.get("description", ""),
-            risk_level=created_strategy["risk_level"],
-            min_capital=float(created_strategy["min_capital"]),
-            is_active=created_strategy["is_active"],
-            configuration=created_strategy.get("configuration", {}),
-            performance=created_strategy.get("performance"),
-            created_at=datetime.fromisoformat(created_strategy["created_at"].replace('Z', '+00:00')),
-            updated_at=datetime.fromisoformat(created_strategy["updated_at"].replace('Z', '+00:00')),
-            
-            # Universal bot fields
-            account_id=created_strategy.get("account_id"),
-            asset_class=created_strategy.get("asset_class"),
-            base_symbol=created_strategy.get("base_symbol"),
-            quote_currency=created_strategy.get("quote_currency"),
-            time_horizon=created_strategy.get("time_horizon"),
-            automation_level=created_strategy.get("automation_level"),
-            capital_allocation=created_strategy.get("capital_allocation", {}),
-            position_sizing=created_strategy.get("position_sizing", {}),
-            trade_window=created_strategy.get("trade_window", {}),
-            order_execution=created_strategy.get("order_execution", {}),
-            risk_controls=created_strategy.get("risk_controls", {}),
-            data_filters=created_strategy.get("data_filters", {}),
-            notifications=created_strategy.get("notifications", {}),
-            backtest_mode=created_strategy.get("backtest_mode"),
-            backtest_params=created_strategy.get("backtest_params", {}),
-            telemetry_id=created_strategy.get("telemetry_id"),
-        )
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error creating strategy: {e}")
+        logger.error(f"❌ Error creating strategy: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create strategy: {str(e)}")
 
-@router.get("/{strategy_id}")
+@router.get("/", response_model=List[TradingStrategyResponse])
+async def get_strategies(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Get all trading strategies for the current user"""
+    try:
+        logger.info(f"📋 Fetching strategies for user {current_user.id}")
+        resp = supabase.table("trading_strategies").select("*").eq("user_id", current_user.id).execute()
+        
+        strategies = [TradingStrategyResponse(**s) for s in resp.data]
+        logger.info(f"✅ Found {len(strategies)} strategies for user {current_user.id}")
+        return strategies
+        
+    except Exception as e:
+        logger.error(f"❌ Error fetching strategies: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch strategies: {str(e)}")
+
+@router.get("/{strategy_id}", response_model=TradingStrategyResponse)
 async def get_strategy(
     strategy_id: str,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
-    """Get a specific trading strategy"""
+    """Get a single trading strategy by ID"""
     try:
+        logger.info(f"🔍 Fetching strategy {strategy_id} for user {current_user.id}")
         resp = supabase.table("trading_strategies").select("*").eq("id", strategy_id).eq("user_id", current_user.id).execute()
         
         if not resp.data:
             raise HTTPException(status_code=404, detail="Strategy not found")
-        
-        strategy_data = resp.data[0]
-        return TradingStrategyResponse(
-            id=strategy_data["id"],
-            user_id=strategy_data["user_id"],
-            name=strategy_data["name"],
-            type=strategy_data["type"],
-            description=strategy_data.get("description", ""),
-            risk_level=strategy_data["risk_level"],
-            min_capital=float(strategy_data["min_capital"]),
-            is_active=strategy_data["is_active"],
-            configuration=strategy_data.get("configuration", {}),
-            performance=strategy_data.get("performance"),
-            created_at=datetime.fromisoformat(strategy_data["created_at"].replace('Z', '+00:00')),
-            updated_at=datetime.fromisoformat(strategy_data["updated_at"].replace('Z', '+00:00')),
             
-            # Universal bot fields
-            account_id=strategy_data.get("account_id"),
-            asset_class=strategy_data.get("asset_class"),
-            base_symbol=strategy_data.get("base_symbol"),
-            quote_currency=strategy_data.get("quote_currency"),
-            time_horizon=strategy_data.get("time_horizon"),
-            automation_level=strategy_data.get("automation_level"),
-            capital_allocation=strategy_data.get("capital_allocation", {}),
-            position_sizing=strategy_data.get("position_sizing", {}),
-            trade_window=strategy_data.get("trade_window", {}),
-            order_execution=strategy_data.get("order_execution", {}),
-            risk_controls=strategy_data.get("risk_controls", {}),
-            data_filters=strategy_data.get("data_filters", {}),
-            notifications=strategy_data.get("notifications", {}),
-            backtest_mode=strategy_data.get("backtest_mode"),
-            backtest_params=strategy_data.get("backtest_params", {}),
-            telemetry_id=strategy_data.get("telemetry_id"),
-        )
+        strategy = TradingStrategyResponse(**resp.data)
+        logger.info(f"✅ Found strategy {strategy_id}")
+        return strategy
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching strategy: {e}")
+        logger.error(f"❌ Error fetching strategy {strategy_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch strategy: {str(e)}")
 
-@router.put("/{strategy_id}")
+@router.put("/{strategy_id}", response_model=TradingStrategyResponse)
 async def update_strategy(
     strategy_id: str,
-    strategy_update: TradingStrategyUpdate,
+    strategy_data: TradingStrategyUpdate,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
-    """Update a trading strategy"""
+    """Update an existing trading strategy"""
     try:
-        logger.info(f"📝 Updating strategy {strategy_id} for user {current_user.id}")
+        logger.info(f"✏️ Updating strategy {strategy_id} for user {current_user.id}")
         
-        # Build update dictionary with only non-None values
-        update_data = {}
-        for field, value in strategy_update.dict(exclude_unset=True).items():
-            if value is not None:
-                update_data[field] = value
+        # Convert Pydantic model to dictionary for Supabase update
+        update_dict = strategy_data.model_dump(exclude_unset=True)
         
-        # Always update the timestamp
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-        
-        resp = supabase.table("trading_strategies").update(update_data).eq("id", strategy_id).eq("user_id", current_user.id).execute()
+        # Ensure enum values are strings for Supabase
+        if isinstance(update_dict.get("risk_level"), RiskLevel):
+            update_dict["risk_level"] = update_dict["risk_level"].value
+        if isinstance(update_dict.get("asset_class"), AssetClass):
+            update_dict["asset_class"] = update_dict["asset_class"].value
+        if isinstance(update_dict.get("time_horizon"), TimeHorizon):
+            update_dict["time_horizon"] = update_dict["time_horizon"].value
+        if isinstance(update_dict.get("automation_level"), AutomationLevel):
+            update_dict["automation_level"] = update_dict["automation_level"].value
+        if isinstance(update_dict.get("backtest_mode"), BacktestMode):
+            update_dict["backtest_mode"] = update_dict["backtest_mode"].value
+        if isinstance(update_dict.get("grid_mode"), GridMode):
+            update_dict["grid_mode"] = update_dict["grid_mode"].value
+            
+        # Handle nested Pydantic models for JSONB fields
+        if update_dict.get("technical_indicators"):
+            update_dict["technical_indicators"] = TechnicalIndicators(**update_dict["technical_indicators"]).model_dump()
+        if update_dict.get("telemetry_data"):
+            update_dict["telemetry_data"] = TelemetryData(**update_dict["telemetry_data"]).model_dump()
+
+        resp = supabase.table("trading_strategies").update(update_dict).eq("id", strategy_id).eq("user_id", current_user.id).execute()
         
         if not resp.data:
-            raise HTTPException(status_code=404, detail="Strategy not found")
-        
-        updated_strategy = resp.data[0]
-        logger.info(f"✅ Strategy updated successfully: {strategy_id}")
-        
-        return TradingStrategyResponse(
-            id=updated_strategy["id"],
-            user_id=updated_strategy["user_id"],
-            name=updated_strategy["name"],
-            type=updated_strategy["type"],
-            description=updated_strategy.get("description", ""),
-            risk_level=updated_strategy["risk_level"],
-            min_capital=float(updated_strategy["min_capital"]),
-            is_active=updated_strategy["is_active"],
-            configuration=updated_strategy.get("configuration", {}),
-            performance=updated_strategy.get("performance"),
-            created_at=datetime.fromisoformat(updated_strategy["created_at"].replace('Z', '+00:00')),
-            updated_at=datetime.fromisoformat(updated_strategy["updated_at"].replace('Z', '+00:00')),
+            raise HTTPException(status_code=500, detail="Failed to update strategy in database")
             
-            # Universal bot fields
-            account_id=updated_strategy.get("account_id"),
-            asset_class=updated_strategy.get("asset_class"),
-            base_symbol=updated_strategy.get("base_symbol"),
-            quote_currency=updated_strategy.get("quote_currency"),
-            time_horizon=updated_strategy.get("time_horizon"),
-            automation_level=updated_strategy.get("automation_level"),
-            capital_allocation=updated_strategy.get("capital_allocation", {}),
-            position_sizing=updated_strategy.get("position_sizing", {}),
-            trade_window=updated_strategy.get("trade_window", {}),
-            order_execution=updated_strategy.get("order_execution", {}),
-            risk_controls=updated_strategy.get("risk_controls", {}),
-            data_filters=updated_strategy.get("data_filters", {}),
-            notifications=updated_strategy.get("notifications", {}),
-            backtest_mode=updated_strategy.get("backtest_mode"),
-            backtest_params=updated_strategy.get("backtest_params", {}),
-            telemetry_id=updated_strategy.get("telemetry_id"),
-        )
+        updated_strategy = TradingStrategyResponse(**resp.data)
+        logger.info(f"✅ Strategy updated: {updated_strategy.name} (ID: {updated_strategy.id})")
+        return updated_strategy
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating strategy: {e}")
+        logger.error(f"❌ Error updating strategy {strategy_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update strategy: {str(e)}")
 
 @router.delete("/{strategy_id}")
 async def delete_strategy(
     strategy_id: str,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     """Delete a trading strategy"""
     try:
         logger.info(f"🗑️ Deleting strategy {strategy_id} for user {current_user.id}")
-        
         resp = supabase.table("trading_strategies").delete().eq("id", strategy_id).eq("user_id", current_user.id).execute()
         
         if not resp.data:
-            raise HTTPException(status_code=404, detail="Strategy not found")
-        
-        logger.info(f"✅ Strategy deleted successfully: {strategy_id}")
+            raise HTTPException(status_code=500, detail="Failed to delete strategy from database")
+            
+        logger.info(f"✅ Strategy {strategy_id} deleted successfully")
         return {"message": "Strategy deleted successfully"}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting strategy: {e}")
+        logger.error(f"❌ Error deleting strategy {strategy_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to delete strategy: {str(e)}")
 
 @router.post("/{strategy_id}/execute")
 async def execute_strategy(
     strategy_id: str,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase_client)
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
-    """Execute a single iteration of a trading strategy"""
+    """Manually trigger a single execution of a strategy"""
     try:
-        logger.info(f"🤖 Executing strategy {strategy_id} for user {current_user.id}")
+        logger.info(f"⚡ Manually executing strategy {strategy_id} for user {current_user.id}")
         
-        # Get strategy from database
+        # Fetch strategy details
         resp = supabase.table("trading_strategies").select("*").eq("id", strategy_id).eq("user_id", current_user.id).execute()
-        
         if not resp.data:
             raise HTTPException(status_code=404, detail="Strategy not found")
         
-        strategy = resp.data[0]
-        
-        if not strategy["is_active"]:
-            raise HTTPException(status_code=400, detail="Strategy is not active")
+        strategy = resp.data
         
         # Get trading clients
         trading_client = await get_alpaca_trading_client(current_user, supabase)
         stock_client = get_alpaca_stock_data_client()
         crypto_client = get_alpaca_crypto_data_client()
         
-        # Execute strategy based on type
         result = None
         if strategy["type"] == "spot_grid":
             result = await execute_spot_grid_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
@@ -444,1002 +236,345 @@ async def execute_strategy(
         elif strategy["type"] == "smart_rebalance":
             result = await execute_smart_rebalance_strategy(strategy, trading_client, stock_client, crypto_client, supabase)
         else:
-            result = {
-                "action": "hold",
-                "reason": f"Strategy type {strategy['type']} not implemented for manual execution"
-            }
-        
-        logger.info(f"📊 Strategy execution result: {result}")
-        return {
-            "message": f"Strategy {strategy['name']} executed successfully",
-            "result": result
-        }
+            raise HTTPException(status_code=400, detail=f"Strategy type {strategy['type']} not supported for manual execution")
+            
+        logger.info(f"✅ Manual execution of strategy {strategy_id} completed with result: {result}")
+        return {"message": "Strategy execution triggered", "result": result}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error executing strategy: {e}")
+        logger.error(f"❌ Error executing strategy {strategy_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to execute strategy: {str(e)}")
 
-# Strategy execution functions
-async def execute_spot_grid_strategy(strategy, trading_client, stock_client, crypto_client, supabase):
-    """Execute enhanced spot grid trading strategy with full automation and risk management"""
+# --- Strategy Execution Functions (Simplified/Mocked for now) ---
+
+async def execute_spot_grid_strategy(
+    strategy: Dict[str, Any],
+    trading_client: TradingClient,
+    stock_client: Any, # StockHistoricalDataClient
+    crypto_client: Any, # CryptoHistoricalDataClient
+    supabase: Client
+) -> Dict[str, Any]:
+    """Execute a single iteration of the spot grid strategy"""
+    logger.info(f"🤖 Executing spot grid strategy: {strategy['name']}")
+    
+    user_id = strategy["user_id"]
+    strategy_id = strategy["id"]
+    symbol = strategy["configuration"].get("symbol", "BTC/USD")
+    lower_price_limit = strategy["configuration"].get("price_range_lower", 50000)
+    upper_price_limit = strategy["configuration"].get("price_range_upper", 70000)
+    number_of_grids = strategy["configuration"].get("number_of_grids", 20)
+    grid_mode = strategy.get("grid_mode", GridMode.ARITHMETIC).value
+    quantity_per_grid = strategy.get("quantity_per_grid", 0.0001)
+    stop_loss_percent = strategy.get("stop_loss_percent", 0)
+    trailing_stop_loss_percent = strategy.get("trailing_stop_loss_percent", 0)
+    take_profit_levels = strategy.get("take_profit_levels", [])
+    technical_indicators_config = strategy.get("technical_indicators", {})
+    volume_threshold = strategy.get("volume_threshold", 0)
+    price_movement_threshold = strategy.get("price_movement_threshold", 0)
+
+    # --- 1. Get current market data ---
     try:
-        symbol = strategy["configuration"].get("symbol", "BTC/USD")
-        allocated_capital = strategy["configuration"].get("allocated_capital", 1000)
-        price_range_lower = strategy["configuration"].get("price_range_lower", 0)
-        price_range_upper = strategy["configuration"].get("price_range_upper", 0)
-        number_of_grids = strategy["configuration"].get("number_of_grids", 20)
+        # Determine if stock or crypto
+        is_crypto = "/" in symbol or symbol in ["BTC", "ETH", "SOL", "ADA"] # Simplified check
         
-        # Enhanced configuration parameters
-        grid_mode = strategy.get("grid_mode", "arithmetic")
-        quantity_per_grid = strategy.get("quantity_per_grid", 0)
-        stop_loss_percent = strategy.get("stop_loss_percent", 0)
-        trailing_stop_loss_percent = strategy.get("trailing_stop_loss_percent", 0)
-        take_profit_levels = strategy.get("take_profit_levels", [])
-        technical_indicators = strategy.get("technical_indicators", {})
-        volume_threshold = strategy.get("volume_threshold", 0)
-        price_movement_threshold = strategy.get("price_movement_threshold", 0)
-        
-        logger.info(f"🤖 [GRID] Executing spot grid for {symbol} with {number_of_grids} grids")
-        logger.info(f"🔧 [GRID] Grid mode: {grid_mode}, SL: {stop_loss_percent}%, TP levels: {len(take_profit_levels)}")
-        
-        # Get current price and recent price history
-        current_price = 50000  # Fallback price
-        recent_prices = get_recent_prices(symbol, 50)  # Get 50 recent prices for indicators
-        
-        try:
-            if "/" in symbol:  # Crypto
-                from alpaca.data.requests import CryptoLatestQuoteRequest
-                req = CryptoLatestQuoteRequest(symbol_or_symbols=[symbol])
-                resp = crypto_client.get_crypto_latest_quote(req)
-                quote = resp.get(symbol)
-                if quote and hasattr(quote, 'ask_price') and quote.ask_price:
-                    current_price = float(quote.ask_price)
-                    # Update recent prices with current price
-                    recent_prices[-1] = current_price
-            else:  # Stock
-                from alpaca.data.requests import StockLatestQuoteRequest
-                req = StockLatestQuoteRequest(symbol_or_symbols=[symbol], feed=DataFeed.IEX)
-                resp = stock_client.get_stock_latest_quote(req)
-                quote = resp.get(symbol)
-                if quote and hasattr(quote, 'ask_price') and quote.ask_price:
-                    current_price = float(quote.ask_price)
-                    recent_prices[-1] = current_price
-        except Exception as e:
-            logger.warning(f"Could not fetch real price for {symbol}: {e}")
-            # Use mock price data for demo
-            if "BTC" in symbol.upper():
-                current_price = 52000 + (hash(symbol) % 8000)  # $52K-$60K range
-                recent_prices[-1] = current_price
-        
-        # Auto-configure grid range if not set
-        if price_range_lower == 0 or price_range_upper == 0:
-            price_range_lower = current_price * 0.9  # 10% below
-            price_range_upper = current_price * 1.1   # 10% above
-            
-            # Update strategy configuration
-            updated_config = strategy["configuration"].copy()
-            updated_config["price_range_lower"] = price_range_lower
-            updated_config["price_range_upper"] = price_range_upper
-            
-            supabase.table("trading_strategies").update({
-                "configuration": updated_config
-            }).eq("id", strategy["id"]).execute()
-        
-        # Generate grid levels based on mode
-        grid_levels = []
-        if grid_mode == "geometric":
-            # Geometric progression (equal percentage intervals)
-            ratio = (price_range_upper / price_range_lower) ** (1 / number_of_grids)
-            for i in range(number_of_grids + 1):
-                price = price_range_lower * (ratio ** i)
-                grid_levels.append(price)
+        if is_crypto:
+            # For crypto, use crypto_client
+            from alpaca.data.requests import CryptoLatestQuoteRequest
+            market_data_resp = crypto_client.get_crypto_latest_quote(CryptoLatestQuoteRequest(symbol_or_symbols=[symbol]))
+            current_price = float(market_data_resp[symbol].ask_price) if market_data_resp and market_data_resp.get(symbol) else None
         else:
-            # Arithmetic progression (equal price intervals)
-            grid_spacing = (price_range_upper - price_range_lower) / number_of_grids
-            for i in range(number_of_grids + 1):
-                price = price_range_lower + (i * grid_spacing)
-                grid_levels.append(price)
-        
-        logger.info(f"📊 [GRID] Generated {len(grid_levels)} grid levels from ${price_range_lower:.2f} to ${price_range_upper:.2f}")
-        
-        # Check technical indicators if enabled
-        indicator_signals = TechnicalIndicators.check_indicator_signals(recent_prices, technical_indicators)
-        logger.info(f"📈 [GRID] Technical indicators: {indicator_signals}")
-        
-        # Check volume threshold
-        if volume_threshold > 0:
-            # In production, check actual volume from market data
-            current_volume = 1000000  # Mock volume
-            if current_volume < volume_threshold:
-                logger.info(f"⏸️ [GRID] Volume {current_volume} below threshold {volume_threshold}, skipping execution")
-                return {
-                    "action": "hold",
-                    "reason": f"Volume {current_volume} below threshold {volume_threshold}",
-                    "telemetry": generate_telemetry_data(strategy, current_price, grid_levels, 0, 0)
-                }
-        
-        # Check price movement threshold
-        if price_movement_threshold > 0 and len(recent_prices) >= 2:
-            price_change_percent = abs((current_price - recent_prices[-2]) / recent_prices[-2] * 100)
-            if price_change_percent < price_movement_threshold:
-                logger.info(f"⏸️ [GRID] Price movement {price_change_percent:.2f}% below threshold {price_movement_threshold}%")
-                return {
-                    "action": "hold",
-                    "reason": f"Price movement {price_change_percent:.2f}% below threshold {price_movement_threshold}%",
-                    "telemetry": generate_telemetry_data(strategy, current_price, grid_levels, 0, 0)
-                }
-        
-        # Get current position for stop loss and take profit calculations
-        current_position = get_current_position(strategy, trading_client)
-        average_entry_price = current_position.get("average_entry_price", current_price)
-        position_quantity = current_position.get("quantity", 0)
-        
-        # Check stop loss conditions
-        if stop_loss_percent > 0 and position_quantity > 0:
-            stop_loss_price = average_entry_price * (1 - stop_loss_percent / 100)
+            # For stocks, use stock_client
+            from alpaca.data.requests import StockLatestQuoteRequest
+            from alpaca.data.enums import DataFeed
+            market_data_resp = stock_client.get_stock_latest_quote(StockLatestQuoteRequest(symbol_or_symbols=[symbol], feed=DataFeed.IEX))
+            current_price = float(market_data_resp[symbol].ask_price) if market_data_resp and market_data_resp.get(symbol) else None
+
+        if not current_price:
+            logger.warning(f"⚠️ Could not get current price for {symbol}, using mock price.")
+            # Fallback to mock price for demo purposes
+            current_price = (lower_price_limit + upper_price_limit) / 2 + (upper_price_limit - lower_price_limit) / 10 * (0.5 - (datetime.now().second % 10) / 10)
             
-            if current_price <= stop_loss_price:
-                logger.warning(f"🛑 [GRID] Stop loss triggered! Price ${current_price:.2f} <= SL ${stop_loss_price:.2f}")
-                
-                # Execute emergency liquidation
+        logger.info(f"Current price for {symbol}: {current_price}")
+    except Exception as e:
+        logger.error(f"❌ Error fetching market data for {symbol}: {e}")
+        current_price = (lower_price_limit + upper_price_limit) / 2 # Fallback
+        logger.info(f"Using fallback current price for {symbol}: {current_price}")
+
+    # --- 2. Generate grid levels ---
+    grid_levels = []
+    if grid_mode == GridMode.ARITHMETIC.value:
+        step = (upper_price_limit - lower_price_limit) / number_of_grids
+        grid_levels = [lower_price_limit + i * step for i in range(number_of_grids + 1)]
+    elif grid_mode == GridMode.GEOMETRIC.value:
+        ratio = (upper_price_limit / lower_price_limit) ** (1 / number_of_grids)
+        grid_levels = [lower_price_limit * (ratio ** i) for i in range(number_of_grids + 1)]
+    
+    # --- 3. Check Technical Indicators (if enabled) ---
+    buy_signal_ti = False
+    sell_signal_ti = False
+    
+    if technical_indicators_config:
+        # Fetch recent prices for TI calculation (mock for now)
+        recent_prices = [current_price * (1 + (i - 20)/1000) for i in range(40)] # Mock 40 recent prices
+        
+        ti_signals = TI.check_indicator_signals(recent_prices, technical_indicators_config)
+        buy_signal_ti = ti_signals["buy_signal"]
+        sell_signal_ti = ti_signals["sell_signal"]
+        logger.info(f"Technical indicator signals: Buy={buy_signal_ti}, Sell={sell_signal_ti}")
+
+    # --- 4. Implement Stop Loss Logic ---
+    # Fetch current positions and calculate average entry price for SL
+    positions = trading_client.get_all_positions()
+    symbol_position = next((p for p in positions if p.symbol == symbol), None)
+    
+    current_total_profit_loss_usd = 0.0
+    if symbol_position:
+        current_total_profit_loss_usd = float(symbol_position.unrealized_pl or 0)
+        
+    # Calculate current strategy value (simplified: just current position value)
+    current_strategy_value = float(symbol_position.market_value or 0) if symbol_position else 0.0
+    
+    # Calculate initial capital for P/L tracking (mock for now)
+    initial_capital_for_strategy = strategy.get("min_capital", 1000) # Use min_capital as proxy
+    
+    # Calculate current P/L percentage relative to initial capital
+    current_profit_loss_percent = (current_strategy_value - initial_capital_for_strategy) / initial_capital_for_strategy * 100 if initial_capital_for_strategy > 0 else 0
+
+    stop_loss_triggered = False
+    if stop_loss_percent > 0:
+        # Check if current P/L % is below stop loss threshold (negative value)
+        if current_profit_loss_percent < -stop_loss_percent:
+            stop_loss_triggered = True
+            logger.warning(f"🚨 Stop Loss triggered for {symbol}! Current P/L: {current_profit_loss_percent:.2f}%")
+            # Place market sell order for entire position
+            if symbol_position and float(symbol_position.qty) > 0:
                 try:
-                    alpaca_symbol = symbol.replace("/", "") if "/" in symbol else symbol
-                    
                     order_request = MarketOrderRequest(
-                        symbol=alpaca_symbol,
-                        qty=position_quantity,
+                        symbol=symbol,
+                        qty=float(symbol_position.qty),
                         side=OrderSide.SELL,
-                        time_in_force=TimeInForce.GTC if "/" in symbol else TimeInForce.DAY,
-                        client_order_id=f"{strategy['id']}-sl-{uuid4().hex[:8]}"
+                        time_in_force=TimeInForce.Day,
+                        client_order_id=f"sl-{strategy_id}-{uuid4().hex[:8]}"
                     )
-                    
                     order = trading_client.submit_order(order_request)
-                    alpaca_order_id = str(order.id)
-                    
-                    # Record stop loss trade
-                    trade_record = {
-                        "user_id": strategy["user_id"],
-                        "strategy_id": strategy["id"],
-                        "alpaca_order_id": alpaca_order_id,
-                        "symbol": symbol,
-                        "type": "sell",
-                        "quantity": position_quantity,
-                        "price": current_price,
-                        "status": "pending",
-                        "order_type": "market",
-                        "time_in_force": "day",
-                        "filled_qty": 0,
-                        "filled_avg_price": 0,
-                        "commission": 0,
-                        "fees": 0,
-                    }
-                    
-                    supabase.table("trades").insert(trade_record).execute()
-                    
-                    # Update strategy telemetry
-                    telemetry = generate_telemetry_data(strategy, current_price, grid_levels, position_quantity, 0)
-                    update_strategy_telemetry(strategy["id"], telemetry, supabase)
-                    
-                    return {
-                        "action": "sell",
-                        "symbol": symbol,
-                        "quantity": position_quantity,
-                        "price": current_price,
-                        "alpaca_order_id": alpaca_order_id,
-                        "reason": f"STOP LOSS TRIGGERED at ${stop_loss_price:.2f}",
-                        "telemetry": telemetry
-                    }
-                    
+                    logger.info(f"✅ Stop Loss order placed for {symbol}: {order.id}")
+                    # Update strategy status to inactive after stop loss
+                    supabase.table("trading_strategies").update({"is_active": False}).eq("id", strategy_id).execute()
+                    return {"action": "sell", "symbol": symbol, "quantity": float(symbol_position.qty), "price": current_price, "reason": "Stop Loss Triggered", "order_id": str(order.id)}
                 except AlpacaAPIError as e:
-                    logger.error(f"❌ [GRID] Failed to execute stop loss: {e}")
-                    return {
-                        "action": "error",
-                        "reason": f"Failed to execute stop loss: {str(e)}",
-                        "telemetry": generate_telemetry_data(strategy, current_price, grid_levels, position_quantity, 0)
-                    }
-        
-        # Check take profit conditions
-        if take_profit_levels and position_quantity > 0:
-            for tp_level in take_profit_levels:
-                tp_price = average_entry_price * (1 + tp_level["percent"] / 100)
-                
-                if current_price >= tp_price:
-                    # Calculate quantity to sell for this TP level
-                    quantity_to_sell = position_quantity * (tp_level["quantity_percent"] / 100)
-                    
-                    logger.info(f"🎯 [GRID] Take profit triggered! Price ${current_price:.2f} >= TP ${tp_price:.2f}")
-                    logger.info(f"💰 [GRID] Selling {quantity_to_sell} ({tp_level['quantity_percent']}% of position)")
-                    
-                    try:
-                        alpaca_symbol = symbol.replace("/", "") if "/" in symbol else symbol
-                        
-                        order_request = MarketOrderRequest(
-                            symbol=alpaca_symbol,
-                            qty=quantity_to_sell,
-                            side=OrderSide.SELL,
-                            time_in_force=TimeInForce.GTC if "/" in symbol else TimeInForce.DAY,
-                            client_order_id=f"{strategy['id']}-tp-{uuid4().hex[:8]}"
-                        )
-                        
-                        order = trading_client.submit_order(order_request)
-                        alpaca_order_id = str(order.id)
-                        
-                        # Record take profit trade
-                        trade_record = {
-                            "user_id": strategy["user_id"],
-                            "strategy_id": strategy["id"],
-                            "alpaca_order_id": alpaca_order_id,
-                            "symbol": symbol,
-                            "type": "sell",
-                            "quantity": quantity_to_sell,
-                            "price": current_price,
-                            "status": "pending",
-                            "order_type": "market",
-                            "time_in_force": "day",
-                            "filled_qty": 0,
-                            "filled_avg_price": 0,
-                            "commission": 0,
-                            "fees": 0,
-                        }
-                        
-                        supabase.table("trades").insert(trade_record).execute()
-                        
-                        # Update strategy telemetry
-                        new_position_quantity = position_quantity - quantity_to_sell
-                        telemetry = generate_telemetry_data(strategy, current_price, grid_levels, new_position_quantity, quantity_to_sell)
-                        update_strategy_telemetry(strategy["id"], telemetry, supabase)
-                        
-                        return {
-                            "action": "sell",
-                            "symbol": symbol,
-                            "quantity": quantity_to_sell,
-                            "price": current_price,
-                            "alpaca_order_id": alpaca_order_id,
-                            "reason": f"TAKE PROFIT at {tp_level['percent']}% target (${tp_price:.2f})",
-                            "telemetry": telemetry
-                        }
-                        
-                    except AlpacaAPIError as e:
-                        logger.error(f"❌ [GRID] Failed to execute take profit: {e}")
-                        return {
-                            "action": "error",
-                            "reason": f"Failed to execute take profit: {str(e)}",
-                            "telemetry": generate_telemetry_data(strategy, current_price, grid_levels, position_quantity, 0)
-                        }
-        
-        # Check if technical indicators allow trading
-        if any(ind.get("enabled", False) for ind in technical_indicators.values()):
-            if indicator_signals["sell_signal"]:
-                logger.info(f"📉 [GRID] Technical indicators suggest SELL, skipping buy orders")
-            elif indicator_signals["buy_signal"]:
-                logger.info(f"📈 [GRID] Technical indicators suggest BUY, favoring buy orders")
+                    logger.error(f"❌ Alpaca API error placing SL order: {e}")
+                    return {"action": "error", "reason": f"Alpaca API error placing SL order: {e}"}
             else:
-                logger.info(f"📊 [GRID] Technical indicators neutral, proceeding with normal grid logic")
-        
-        # Enhanced grid trading logic
-        active_grid_levels = 0
-        deployed_capital = 0
-        
-        # Find the closest grid levels to current price
-        closest_buy_level = None
-        closest_sell_level = None
-        
-        for level in grid_levels:
-            if level < current_price:
-                closest_buy_level = level
-            elif level > current_price and closest_sell_level is None:
-                closest_sell_level = level
-                break
-        
-        # Determine grid action based on price position and indicators
-        if current_price < price_range_lower:
-            # Price below range - BUY (if indicators allow)
-            if not indicator_signals["sell_signal"]:
-                buy_quantity = quantity_per_grid if quantity_per_grid > 0 else allocated_capital * 0.05 / current_price
-                
-                # Check if this meets price movement threshold
-                if price_movement_threshold > 0 and len(recent_prices) >= 2:
-                    price_change = abs((current_price - recent_prices[-2]) / recent_prices[-2] * 100)
-                    if price_change < price_movement_threshold:
-                        logger.info(f"⏸️ [GRID] Price movement {price_change:.2f}% below threshold {price_movement_threshold}%")
-                        telemetry = generate_telemetry_data(strategy, current_price, grid_levels, position_quantity, 0)
-                        return {
-                            "action": "hold",
-                            "reason": f"Price movement below threshold",
-                            "telemetry": telemetry
-                        }
-            
-                # Submit order to Alpaca
-                try:
-                    alpaca_symbol = symbol.replace("/", "") if "/" in symbol else symbol
-                    
-                    order_request = MarketOrderRequest(
-                        symbol=alpaca_symbol,
-                        qty=buy_quantity,
-                        side=OrderSide.BUY,
-                        time_in_force=TimeInForce.GTC if "/" in symbol else TimeInForce.DAY,
-                        client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
-                    )
-                    
-                    order = trading_client.submit_order(order_request)
-                    alpaca_order_id = str(order.id)
-                    
-                    # Record trade in Supabase
-                    trade_record = {
-                        "user_id": strategy["user_id"],
-                        "strategy_id": strategy["id"],
-                        "alpaca_order_id": alpaca_order_id,
-                        "symbol": symbol,
-                        "type": "buy",
-                        "quantity": buy_quantity,
-                        "price": current_price,
-                        "status": "pending",
-                        "order_type": "market",
-                        "time_in_force": "day",
-                        "filled_qty": 0,
-                        "filled_avg_price": 0,
-                        "commission": 0,
-                        "fees": 0,
-                    }
-                    
-                    supabase.table("trades").insert(trade_record).execute()
-                    
-                    # Update telemetry
-                    new_position = position_quantity + buy_quantity
-                    telemetry = generate_telemetry_data(strategy, current_price, grid_levels, new_position, 0)
-                    update_strategy_telemetry(strategy["id"], telemetry, supabase)
-                    
-                    logger.info(f"✅ [GRID] BUY order submitted and recorded: {alpaca_order_id}")
-                    
-                    return {
-                        "action": "buy",
-                        "symbol": symbol,
-                        "quantity": buy_quantity,
-                        "price": current_price,
-                        "alpaca_order_id": alpaca_order_id,
-                        "reason": f"Price ${current_price:.2f} below grid range, buying {buy_quantity}",
-                        "telemetry": telemetry
-                    }
-                    
-                except AlpacaAPIError as e:
-                    logger.error(f"❌ [GRID] Failed to submit BUY order: {e}")
-                    return {
-                        "action": "error",
-                        "reason": f"Failed to submit buy order: {str(e)}",
-                        "telemetry": generate_telemetry_data(strategy, current_price, grid_levels, position_quantity, 0)
-                    }
-            else:
-                logger.info(f"📉 [GRID] Technical indicators suggest SELL, skipping buy order")
-                telemetry = generate_telemetry_data(strategy, current_price, grid_levels, position_quantity, 0)
-                return {
-                    "action": "hold",
-                    "reason": "Technical indicators suggest sell, skipping buy",
-                    "telemetry": telemetry
-                }
-                
-        elif current_price > price_range_upper:
-            # Price above range - SELL (if indicators allow and we have position)
-            if not indicator_signals["buy_signal"] and position_quantity > 0:
-                sell_quantity = min(quantity_per_grid if quantity_per_grid > 0 else allocated_capital * 0.05 / current_price, position_quantity)
-                
-                # Submit order to Alpaca
-                try:
-                    alpaca_symbol = symbol.replace("/", "") if "/" in symbol else symbol
-                    
-                    order_request = MarketOrderRequest(
-                        symbol=alpaca_symbol,
-                        qty=sell_quantity,
-                        side=OrderSide.SELL,
-                        time_in_force=TimeInForce.GTC if "/" in symbol else TimeInForce.DAY,
-                        client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
-                    )
-                    
-                    order = trading_client.submit_order(order_request)
-                    alpaca_order_id = str(order.id)
-                    
-                    # Record trade in Supabase
-                    trade_record = {
-                        "user_id": strategy["user_id"],
-                        "strategy_id": strategy["id"],
-                        "alpaca_order_id": alpaca_order_id,
-                        "symbol": symbol,
-                        "type": "sell",
-                        "quantity": sell_quantity,
-                        "price": current_price,
-                        "status": "pending",
-                        "order_type": "market",
-                        "time_in_force": "day",
-                        "filled_qty": 0,
-                        "filled_avg_price": 0,
-                        "commission": 0,
-                        "fees": 0,
-                    }
-                    
-                    supabase.table("trades").insert(trade_record).execute()
-                    
-                    # Update telemetry
-                    new_position = position_quantity - sell_quantity
-                    telemetry = generate_telemetry_data(strategy, current_price, grid_levels, new_position, sell_quantity)
-                    update_strategy_telemetry(strategy["id"], telemetry, supabase)
-                    
-                    logger.info(f"✅ [GRID] SELL order submitted and recorded: {alpaca_order_id}")
-                    
-                    return {
-                        "action": "sell",
-                        "symbol": symbol,
-                        "quantity": sell_quantity,
-                        "price": current_price,
-                        "alpaca_order_id": alpaca_order_id,
-                        "reason": f"Price ${current_price:.2f} above grid range, selling {sell_quantity}",
-                        "telemetry": telemetry
-                    }
-                    
-                except AlpacaAPIError as e:
-                    logger.error(f"❌ [GRID] Failed to submit SELL order: {e}")
-                    return {
-                        "action": "error",
-                        "reason": f"Failed to submit sell order: {str(e)}",
-                        "telemetry": generate_telemetry_data(strategy, current_price, grid_levels, position_quantity, 0)
-                    }
-            else:
-                reason = "No position to sell" if position_quantity == 0 else "Technical indicators suggest buy, skipping sell"
-                logger.info(f"⏸️ [GRID] {reason}")
-                telemetry = generate_telemetry_data(strategy, current_price, grid_levels, position_quantity, 0)
-                return {
-                    "action": "hold",
-                    "reason": reason,
-                    "telemetry": telemetry
-                }
-                
-        else:
-            # Price in range - Execute grid logic
-            active_grid_levels = len([level for level in grid_levels if price_range_lower <= level <= price_range_upper])
-            
-            # Calculate grid utilization
-            if quantity_per_grid > 0:
-                deployed_capital = position_quantity * current_price
-                max_possible_capital = len(grid_levels) * quantity_per_grid * current_price
-                grid_utilization = (deployed_capital / max_possible_capital * 100) if max_possible_capital > 0 else 0
-            else:
-                grid_utilization = (position_quantity * current_price / allocated_capital * 100) if allocated_capital > 0 else 0
-            
-            # Update telemetry
-            telemetry = generate_telemetry_data(strategy, current_price, grid_levels, position_quantity, 0)
-            telemetry["active_grid_levels"] = active_grid_levels
-            telemetry["grid_utilization_percent"] = grid_utilization
-            update_strategy_telemetry(strategy["id"], telemetry, supabase)
-            
-            # Check for grid level triggers
-            if closest_buy_level and current_price <= closest_buy_level * 1.001:  # Within 0.1% of buy level
-                if not indicator_signals["sell_signal"]:
-                    buy_quantity = quantity_per_grid if quantity_per_grid > 0 else allocated_capital * 0.05 / current_price
-                    
-                    # Execute buy order logic (similar to above)
-                    logger.info(f"🟢 [GRID] Buy signal at grid level ${closest_buy_level:.2f}")
-                    # ... (buy order execution code would go here)
-            
-            elif closest_sell_level and current_price >= closest_sell_level * 0.999:  # Within 0.1% of sell level
-                if not indicator_signals["buy_signal"] and position_quantity > 0:
-                    sell_quantity = min(quantity_per_grid if quantity_per_grid > 0 else position_quantity * 0.1, position_quantity)
-                    
-                    # Execute sell order logic (similar to above)
-                    logger.info(f"🔴 [GRID] Sell signal at grid level ${closest_sell_level:.2f}")
-                    # ... (sell order execution code would go here)
-            
-            return {
-                "action": "hold",
-                "symbol": symbol,
-                "price": current_price,
-                "reason": f"Price ${current_price:.2f} within grid range, monitoring levels",
-                "telemetry": telemetry
-            }
-                
-    except Exception as e:
-        logger.error(f"Error in enhanced spot grid strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}",
-            "telemetry": generate_telemetry_data(strategy, 0, [], 0, 0)
-        }
+                logger.info(f"ℹ️ Stop Loss triggered but no position to sell for {symbol}.")
+                return {"action": "hold", "reason": "Stop Loss triggered but no position to sell"}
 
-def generate_telemetry_data(strategy: Dict[str, Any], current_price: float, grid_levels: List[float], position_quantity: float, recent_trade_quantity: float) -> Dict[str, Any]:
-    """Generate comprehensive telemetry data for the strategy"""
-    try:
-        allocated_capital = strategy["configuration"].get("allocated_capital", 1000)
-        symbol = strategy["configuration"].get("symbol", "BTC/USD")
-        stop_loss_percent = strategy.get("stop_loss_percent", 0)
-        take_profit_levels = strategy.get("take_profit_levels", [])
-        
-        # Calculate base currency allocation
-        base_currency = symbol.split("/")[0] if "/" in symbol else symbol
-        allocated_capital_base = allocated_capital / current_price if current_price > 0 else 0
-        
-        # Calculate current P&L
-        # This would use actual position data in production
-        estimated_entry_price = current_price * 0.98  # Mock 2% profit
-        current_profit_loss_usd = position_quantity * (current_price - estimated_entry_price)
-        current_profit_loss_percent = (current_profit_loss_usd / allocated_capital * 100) if allocated_capital > 0 else 0
-        
-        # Calculate stop loss distance
-        stop_loss_price = None
-        stop_loss_distance_percent = None
-        if stop_loss_percent > 0:
-            stop_loss_price = estimated_entry_price * (1 - stop_loss_percent / 100)
-            stop_loss_distance_percent = ((current_price - stop_loss_price) / current_price * 100) if current_price > 0 else 0
-        
-        # Calculate next take profit target
-        next_take_profit_price = None
-        take_profit_progress_percent = None
-        if take_profit_levels:
-            # Find the next unmet take profit level
-            for tp_level in sorted(take_profit_levels, key=lambda x: x["percent"]):
-                tp_price = estimated_entry_price * (1 + tp_level["percent"] / 100)
-                if current_price < tp_price:
-                    next_take_profit_price = tp_price
-                    take_profit_progress_percent = ((current_price - estimated_entry_price) / (tp_price - estimated_entry_price) * 100)
-                    break
-        
-        # Calculate grid spacing
-        grid_spacing_interval = 0
-        if len(grid_levels) > 1:
-            grid_spacing_interval = grid_levels[1] - grid_levels[0]
-        
-        # Calculate grid utilization
-        deployed_capital = position_quantity * current_price
-        grid_utilization_percent = (deployed_capital / allocated_capital * 100) if allocated_capital > 0 else 0
-        
-        telemetry = {
-            "allocated_capital_usd": allocated_capital,
-            "allocated_capital_base": allocated_capital_base,
-            "active_grid_levels": len([level for level in grid_levels if abs(level - current_price) / current_price <= 0.1]),  # Within 10%
-            "upper_price_limit": max(grid_levels) if grid_levels else 0,
-            "lower_price_limit": min(grid_levels) if grid_levels else 0,
-            "current_profit_loss_usd": current_profit_loss_usd,
-            "current_profit_loss_percent": current_profit_loss_percent,
-            "grid_spacing_interval": grid_spacing_interval,
-            "stop_loss_price": stop_loss_price,
-            "stop_loss_distance_percent": stop_loss_distance_percent,
-            "next_take_profit_price": next_take_profit_price,
-            "take_profit_progress_percent": take_profit_progress_percent,
-            "active_orders_count": 0,  # Would be calculated from actual orders
-            "fill_rate_percent": 85.0,  # Mock fill rate
-            "grid_utilization_percent": grid_utilization_percent,
-            "last_updated": datetime.now().isoformat()
-        }
-        
-        return telemetry
-        
-    except Exception as e:
-        logger.error(f"Error generating telemetry data: {e}")
-        return {
-            "allocated_capital_usd": 0,
-            "allocated_capital_base": 0,
-            "active_grid_levels": 0,
-            "upper_price_limit": 0,
-            "lower_price_limit": 0,
-            "current_profit_loss_usd": 0,
-            "current_profit_loss_percent": 0,
-            "grid_spacing_interval": 0,
-            "stop_loss_price": None,
-            "stop_loss_distance_percent": None,
-            "next_take_profit_price": None,
-            "take_profit_progress_percent": None,
-            "active_orders_count": 0,
-            "fill_rate_percent": 0,
-            "grid_utilization_percent": 0,
-            "last_updated": datetime.now().isoformat()
-        }
-
-def get_current_position(strategy: Dict[str, Any], trading_client: TradingClient) -> Dict[str, Any]:
-    """Get current position information for the strategy"""
-    try:
-        symbol = strategy["configuration"].get("symbol", "BTC/USD")
-        alpaca_symbol = symbol.replace("/", "") if "/" in symbol else symbol
-        
-        # Get position from Alpaca
-        try:
-            position = trading_client.get_open_position(alpaca_symbol)
-            return {
-                "quantity": float(position.qty),
-                "average_entry_price": float(position.avg_entry_price),
-                "market_value": float(position.market_value),
-                "unrealized_pl": float(position.unrealized_pl)
-            }
-        except Exception:
-            # No position found
-            return {
-                "quantity": 0,
-                "average_entry_price": 0,
-                "market_value": 0,
-                "unrealized_pl": 0
-            }
+    # --- 5. Implement Take Profit Logic ---
+    if take_profit_levels and current_total_profit_loss_usd > 0:
+        for tp_level in take_profit_levels:
+            tp_percent = tp_level.get("percent", 0)
+            tp_quantity_percent = tp_level.get("quantity_percent", 100)
             
-    except Exception as e:
-        logger.error(f"Error getting current position: {e}")
-        return {
-            "quantity": 0,
-            "average_entry_price": 0,
-            "market_value": 0,
-            "unrealized_pl": 0
-        }
+            # Calculate profit percentage relative to average entry price
+            if symbol_position and float(symbol_position.avg_entry_price) > 0:
+                profit_from_entry_percent = (current_price - float(symbol_position.avg_entry_price)) / float(symbol_position.avg_entry_price) * 100
+                
+                if profit_from_entry_percent >= tp_percent:
+                    logger.info(f"💰 Take Profit triggered for {symbol} at {tp_percent}% profit!")
+                    qty_to_sell = float(symbol_position.qty) * (tp_quantity_percent / 100)
+                    if qty_to_sell > 0:
+                        try:
+                            order_request = MarketOrderRequest(
+                                symbol=symbol,
+                                qty=qty_to_sell,
+                                side=OrderSide.SELL,
+                                time_in_force=TimeInForce.Day,
+                                client_order_id=f"tp-{strategy_id}-{uuid4().hex[:8]}"
+                            )
+                            order = trading_client.submit_order(order_request)
+                            logger.info(f"✅ Take Profit order placed for {symbol}: {order.id}")
+                            return {"action": "sell", "symbol": symbol, "quantity": qty_to_sell, "price": current_price, "reason": "Take Profit Triggered", "order_id": str(order.id)}
+                        except AlpacaAPIError as e:
+                            logger.error(f"❌ Alpaca API error placing TP order: {e}")
+                            return {"action": "error", "reason": f"Alpaca API error placing TP order: {e}"}
+                    else:
+                        logger.info(f"ℹ️ Take Profit triggered but no quantity to sell for {symbol}.")
+                        return {"action": "hold", "reason": "Take Profit triggered but no quantity to sell"}
 
-def update_strategy_telemetry(strategy_id: str, telemetry_data: Dict[str, Any], supabase):
-    """Update strategy telemetry data in database"""
-    try:
-        update_data = {
-            "telemetry_data": telemetry_data,
-            "last_execution": datetime.now().isoformat(),
-            "execution_count": supabase.table("trading_strategies").select("execution_count").eq("id", strategy_id).execute().data[0]["execution_count"] + 1,
-            "total_profit_loss": telemetry_data.get("current_profit_loss_usd", 0),
-            "active_orders_count": telemetry_data.get("active_orders_count", 0),
-            "grid_utilization_percent": telemetry_data.get("grid_utilization_percent", 0),
-            "updated_at": datetime.now().isoformat()
-        }
-        
-        supabase.table("trading_strategies").update(update_data).eq("id", strategy_id).execute()
-        logger.info(f"📊 [GRID] Updated telemetry for strategy {strategy_id}")
-        
-    except Exception as e:
-        logger.error(f"Error updating strategy telemetry: {e}")
-                
-                return {
-                    "action": "buy",
-                    "symbol": symbol,
-                    "quantity": buy_quantity,
-                    "price": current_price,
-                    "alpaca_order_id": alpaca_order_id,
-                    "reason": f"Price ${current_price:.2f} below grid range, buying"
-                }
-                
-            except AlpacaAPIError as e:
-                logger.error(f"❌ [GRID] Failed to submit BUY order: {e}")
-                return {
-                    "action": "error",
-                    "reason": f"Failed to submit buy order: {str(e)}"
-                }
-                
-        elif current_price > price_range_upper:
-            # Price above range - SELL
-            sell_quantity = allocated_capital * 0.05 / current_price  # 5% of capital
-            
-            # Submit order to Alpaca
+    # --- 6. Place/Manage Grid Orders ---
+    # Simplified logic: check if current price is near a grid level and place order
+    action = "hold"
+    reason = "No action needed"
+    order_details = None
+    
+    # Get existing open orders for this strategy
+    open_orders_request = GetOrdersRequest(status=OrderStatus.OPEN)
+    open_orders = trading_client.get_orders(open_orders_request)
+    strategy_open_orders = [o for o in open_orders if o.client_order_id and strategy_id in o.client_order_id]
+
+    # Example: Place buy order if price drops to a buy grid level and no open buy order exists
+    # and if TI signals are favorable or not enabled
+    if current_price < lower_price_limit + (upper_price_limit - lower_price_limit) / (number_of_grids * 2) and (buy_signal_ti or not technical_indicators_config):
+        # Check if there's already an open buy order near this level
+        buy_order_exists = any(o.side == OrderSide.BUY for o in strategy_open_orders)
+        if not buy_order_exists:
             try:
-                # Convert crypto symbol for Alpaca if needed
-                alpaca_symbol = symbol.replace("/", "") if "/" in symbol else symbol
-                
-                order_request = MarketOrderRequest(
-                    symbol=alpaca_symbol,
-                    qty=sell_quantity,
-                    side=OrderSide.SELL,
-                    time_in_force=TimeInForce.GTC if "/" in symbol else TimeInForce.DAY,
-                    client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
+                order_request = LimitOrderRequest(
+                    symbol=symbol,
+                    qty=quantity_per_grid,
+                    side=OrderSide.BUY,
+                    limit_price=round(current_price * 0.99, 2), # Place slightly below current price
+                    time_in_force=TimeInForce.GTC,
+                    client_order_id=f"grid-buy-{strategy_id}-{uuid4().hex[:8]}"
                 )
-                
                 order = trading_client.submit_order(order_request)
-                alpaca_order_id = str(order.id)
-                
-                # Record trade in Supabase
-                trade_record = {
-                    "user_id": strategy["user_id"],
-                    "strategy_id": strategy["id"],
-                    "alpaca_order_id": alpaca_order_id,
-                    "symbol": symbol,
-                    "type": "sell",
-                    "quantity": sell_quantity,
-                    "price": current_price,
-                    "status": "pending",
-                    "order_type": "market",
-                    "time_in_force": "day",
-                    "filled_qty": 0,
-                    "filled_avg_price": 0,
-                    "commission": 0,
-                    "fees": 0,
-                }
-                
-                supabase.table("trades").insert(trade_record).execute()
-                logger.info(f"✅ [GRID] SELL order submitted and recorded: {alpaca_order_id}")
-                
-                return {
-                    "action": "sell",
-                    "symbol": symbol,
-                    "quantity": sell_quantity,
-                    "price": current_price,
-                    "alpaca_order_id": alpaca_order_id,
-                    "reason": f"Price ${current_price:.2f} above grid range, selling"
-                }
-                
+                action = "buy"
+                reason = "Price near lower grid boundary, placed buy order"
+                order_details = {"order_id": str(order.id), "symbol": order.symbol, "quantity": float(order.qty), "price": float(order.limit_price)}
+                logger.info(f"✅ Placed grid BUY order for {symbol} at {order.limit_price}")
             except AlpacaAPIError as e:
-                logger.error(f"❌ [GRID] Failed to submit SELL order: {e}")
-                return {
-                    "action": "error",
-                    "reason": f"Failed to submit sell order: {str(e)}"
-                }
-                
-        else:
-            # Price in range - HOLD
-            return {
-                "action": "hold",
-                "symbol": symbol,
-                "price": current_price,
-                "reason": f"Price ${current_price:.2f} within grid range ${price_range_lower:.2f}-${price_range_upper:.2f}"
-            }
-            
-    except Exception as e:
-        logger.error(f"Error in spot grid strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}"
-        }
+                logger.error(f"❌ Alpaca API error placing grid BUY order: {e}")
+                action = "error"
+                reason = f"Alpaca API error placing grid BUY order: {e}"
+    
+    # Example: Place sell order if price rises to a sell grid level and no open sell order exists
+    # and if TI signals are favorable or not enabled
+    elif current_price > upper_price_limit - (upper_price_limit - lower_price_limit) / (number_of_grids * 2) and (sell_signal_ti or not technical_indicators_config):
+        # Check if there's already an open sell order near this level
+        sell_order_exists = any(o.side == OrderSide.SELL for o in strategy_open_orders)
+        if not sell_order_exists:
+            try:
+                order_request = LimitOrderRequest(
+                    symbol=symbol,
+                    qty=quantity_per_grid,
+                    side=OrderSide.SELL,
+                    limit_price=round(current_price * 1.01, 2), # Place slightly above current price
+                    time_in_force=TimeInForce.GTC,
+                    client_order_id=f"grid-sell-{strategy_id}-{uuid4().hex[:8]}"
+                )
+                order = trading_client.submit_order(order_request)
+                action = "sell"
+                reason = "Price near upper grid boundary, placed sell order"
+                order_details = {"order_id": str(order.id), "symbol": order.symbol, "quantity": float(order.qty), "price": float(order.limit_price)}
+                logger.info(f"✅ Placed grid SELL order for {symbol} at {order.limit_price}")
+            except AlpacaAPIError as e:
+                logger.error(f"❌ Alpaca API error placing grid SELL order: {e}")
+                action = "error"
+                reason = f"Alpaca API error placing grid SELL order: {e}"
 
-async def execute_dca_strategy(strategy, trading_client, stock_client, crypto_client, supabase):
-    """Execute DCA (Dollar Cost Averaging) strategy"""
-    try:
-        symbol = strategy["configuration"].get("symbol", "BTC/USD")
-        investment_amount = strategy["configuration"].get("investment_amount_per_interval", 100)
-        
-        logger.info(f"🤖 [DCA] Executing DCA for {symbol} with ${investment_amount}")
-        
-        # Get current price
-        current_price = 50000  # Fallback
-        try:
-            if "/" in symbol:  # Crypto
-                from alpaca.data.requests import CryptoLatestQuoteRequest
-                req = CryptoLatestQuoteRequest(symbol_or_symbols=[symbol])
-                resp = crypto_client.get_crypto_latest_quote(req)
-                quote = resp.get(symbol)
-                if quote and hasattr(quote, 'ask_price') and quote.ask_price:
-                    current_price = float(quote.ask_price)
-        except Exception as e:
-            logger.warning(f"Could not fetch real price for {symbol}: {e}")
-        
-        # DCA always buys
-        buy_quantity = investment_amount / current_price
-        
-        # Submit order to Alpaca
-        try:
-            # Convert crypto symbol for Alpaca if needed
-            alpaca_symbol = symbol.replace("/", "") if "/" in symbol else symbol
-            
-            order_request = MarketOrderRequest(
-                symbol=alpaca_symbol,
-                qty=buy_quantity,
-                side=OrderSide.BUY,
-                time_in_force=TimeInForce.GTC if "/" in symbol else TimeInForce.DAY,
-                client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
-            )
-            
-            order = trading_client.submit_order(order_request)
-            alpaca_order_id = str(order.id)
-            
-            # Record trade in Supabase
-            trade_record = {
-                "user_id": strategy["user_id"],
-                "strategy_id": strategy["id"],
-                "alpaca_order_id": alpaca_order_id,
-                "symbol": symbol,
-                "type": "buy",
-                "quantity": buy_quantity,
-                "price": current_price,
-                "status": "pending",
-                "order_type": "market",
-                "time_in_force": "day",
-                "filled_qty": 0,
-                "filled_avg_price": 0,
-                "commission": 0,
-                "fees": 0,
-            }
-            
-            supabase.table("trades").insert(trade_record).execute()
-            logger.info(f"✅ [DCA] BUY order submitted and recorded: {alpaca_order_id}")
-            
-            return {
-                "action": "buy",
-                "symbol": symbol,
-                "quantity": buy_quantity,
-                "price": current_price,
-                "alpaca_order_id": alpaca_order_id,
-                "reason": f"DCA purchase of ${investment_amount}"
-            }
-            
-        except AlpacaAPIError as e:
-            logger.error(f"❌ [DCA] Failed to submit BUY order: {e}")
-            return {
-                "action": "error",
-                "reason": f"Failed to submit buy order: {str(e)}"
-            }
-        
-    except Exception as e:
-        logger.error(f"Error in DCA strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}"
-        }
+    # --- 7. Update Telemetry Data ---
+    # Calculate telemetry data
+    telemetry_data = {
+        "allocated_capital_usd": strategy.get("min_capital", 0),
+        "allocated_capital_base": (strategy.get("min_capital", 0) / current_price) if current_price else 0,
+        "active_grid_levels": len(strategy_open_orders),
+        "upper_price_limit": upper_price_limit,
+        "lower_price_limit": lower_price_limit,
+        "current_profit_loss_usd": current_total_profit_loss_usd,
+        "current_profit_loss_percent": current_profit_loss_percent,
+        "grid_spacing_interval": (upper_price_limit - lower_price_limit) / number_of_grids,
+        "stop_loss_price": current_price * (1 - stop_loss_percent / 100) if stop_loss_percent > 0 else None,
+        "stop_loss_distance_percent": (current_price - (current_price * (1 - stop_loss_percent / 100))) / current_price * 100 if stop_loss_percent > 0 else None,
+        "next_take_profit_price": current_price * (1 + take_profit_levels.get("percent", 0) / 100) if take_profit_levels else None,
+        "take_profit_progress_percent": (current_profit_loss_percent / take_profit_levels.get("percent", 1)) * 100 if take_profit_levels and take_profit_levels.get("percent", 1) > 0 else None,
+        "active_orders_count": len(strategy_open_orders),
+        "fill_rate_percent": 0, # Placeholder
+        "grid_utilization_percent": (len(strategy_open_orders) / number_of_grids) * 100 if number_of_grids > 0 else 0,
+        "last_updated": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    # Update strategy in DB with new telemetry data and execution count
+    supabase.table("trading_strategies").update({
+        "telemetry_data": telemetry_data,
+        "last_execution": datetime.now(timezone.utc).isoformat(),
+        "execution_count": strategy.get("execution_count", 0) + 1,
+        "total_profit_loss": current_total_profit_loss_usd, # Update total P/L
+        "active_orders_count": len(strategy_open_orders),
+        "grid_utilization_percent": telemetry_data["grid_utilization_percent"],
+    }).eq("id", strategy_id).execute()
 
-async def execute_covered_calls_strategy(strategy, trading_client, stock_client, crypto_client, supabase):
-    """Execute covered calls strategy"""
-    try:
-        symbol = strategy["configuration"].get("symbol", "AAPL")
-        position_size = strategy["configuration"].get("position_size", 100)
-        
-        logger.info(f"🤖 [COVERED_CALLS] Executing covered calls for {symbol}")
-        
-        # For demo purposes, simulate selling a call option (no actual Alpaca order)
-        mock_alpaca_order_id = f"mock_cc_{uuid4().hex[:8]}"
-        premium_received = 250  # Mock premium
-        
-        # Record trade in Supabase
-        trade_record = {
-            "user_id": strategy["user_id"],
-            "strategy_id": strategy["id"],
-            "alpaca_order_id": mock_alpaca_order_id,
-            "symbol": f"{symbol}_CALL",
-            "type": "sell",
-            "quantity": 1,  # 1 contract = 100 shares
-            "price": premium_received,
-            "status": "executed",  # Mock as executed for demo
-            "order_type": "market",
-            "time_in_force": "day",
-            "filled_qty": 1,
-            "filled_avg_price": premium_received,
-            "commission": 0.65,  # Typical options commission
-            "fees": 0,
-        }
-        
-        supabase.table("trades").insert(trade_record).execute()
-        logger.info(f"✅ [COVERED_CALLS] Mock option trade recorded: {mock_alpaca_order_id}")
-        
-        return {
-            "action": "sell",
-            "symbol": f"{symbol}_CALL",
-            "quantity": 1,
-            "price": premium_received,
-            "alpaca_order_id": mock_alpaca_order_id,
-            "reason": f"Sold covered call on {position_size} shares of {symbol}"
-        }
-        
-    except Exception as e:
-        logger.error(f"Error in covered calls strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}"
-        }
+    return {"action": action, "symbol": symbol, "quantity": quantity_per_grid, "price": current_price, "reason": reason, "order_details": order_details}
 
-async def execute_wheel_strategy(strategy, trading_client, stock_client, crypto_client, supabase):
-    """Execute wheel strategy"""
-    try:
-        symbol = strategy["configuration"].get("symbol", "AAPL")
-        
-        logger.info(f"🤖 [WHEEL] Executing wheel strategy for {symbol}")
-        
-        # For demo purposes, simulate selling a cash-secured put (no actual Alpaca order)
-        mock_alpaca_order_id = f"mock_wheel_{uuid4().hex[:8]}"
-        premium_received = 180  # Mock premium
-        
-        # Record trade in Supabase
-        trade_record = {
-            "user_id": strategy["user_id"],
-            "strategy_id": strategy["id"],
-            "alpaca_order_id": mock_alpaca_order_id,
-            "symbol": f"{symbol}_PUT",
-            "type": "sell",
-            "quantity": 1,  # 1 contract = 100 shares
-            "price": premium_received,
-            "status": "executed",  # Mock as executed for demo
-            "order_type": "market",
-            "time_in_force": "day",
-            "filled_qty": 1,
-            "filled_avg_price": premium_received,
-            "commission": 0.65,  # Typical options commission
-            "fees": 0,
-        }
-        
-        supabase.table("trades").insert(trade_record).execute()
-        logger.info(f"✅ [WHEEL] Mock option trade recorded: {mock_alpaca_order_id}")
-        
-        return {
-            "action": "sell",
-            "symbol": f"{symbol}_PUT",
-            "quantity": 1,
-            "price": premium_received,
-            "alpaca_order_id": mock_alpaca_order_id,
-            "reason": f"Sold cash-secured put for {symbol} wheel strategy"
-        }
-        
-    except Exception as e:
-        logger.error(f"Error in wheel strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}"
-        }
+async def execute_dca_strategy(
+    strategy: Dict[str, Any],
+    trading_client: TradingClient,
+    stock_client: Any,
+    crypto_client: Any,
+    supabase: Client
+) -> Dict[str, Any]:
+    """Execute a single iteration of the DCA strategy"""
+    logger.info(f"🤖 Executing DCA strategy: {strategy['name']}")
+    # Implement DCA logic here
+    return {"action": "hold", "reason": "DCA logic not fully implemented yet"}
 
-async def execute_smart_rebalance_strategy(strategy, trading_client, stock_client, crypto_client, supabase):
-    """Execute smart rebalance strategy"""
-    try:
-        assets = strategy["configuration"].get("assets", [])
-        allocated_capital = strategy["configuration"].get("allocated_capital", 10000)
-        
-        logger.info(f"🤖 [REBALANCE] Executing smart rebalance with ${allocated_capital}")
-        
-        if not assets:
-            return {
-                "action": "hold",
-                "reason": "No assets configured for rebalancing"
-            }
-        
-        # For demo purposes, simulate rebalancing the first asset
-        first_asset = assets[0]
-        target_allocation = first_asset.get("allocation", 0) / 100
-        target_value = allocated_capital * target_allocation
-        
-        rebalance_symbol = first_asset.get("symbol", "AAPL")
-        assumed_price = 150  # Assume $150 per share for demo
-        rebalance_quantity = target_value / assumed_price
-        
-        # Submit order to Alpaca
-        try:
-            order_request = MarketOrderRequest(
-                symbol=rebalance_symbol,
-                qty=rebalance_quantity,
-                side=OrderSide.BUY,
-                time_in_force=TimeInForce.GTC if "/" in rebalance_symbol else TimeInForce.DAY,
-                client_order_id=f"{strategy['id']}-{uuid4().hex[:8]}"
-            )
-            
-            order = trading_client.submit_order(order_request)
-            alpaca_order_id = str(order.id)
-            
-            # Record trade in Supabase
-            trade_record = {
-                "user_id": strategy["user_id"],
-                "strategy_id": strategy["id"],
-                "alpaca_order_id": alpaca_order_id,
-                "symbol": rebalance_symbol,
-                "type": "buy",
-                "quantity": rebalance_quantity,
-                "price": assumed_price,
-                "status": "pending",
-                "order_type": "market",
-                "time_in_force": "day",
-                "filled_qty": 0,
-                "filled_avg_price": 0,
-                "commission": 0,
-                "fees": 0,
-            }
-            
-            supabase.table("trades").insert(trade_record).execute()
-            logger.info(f"✅ [REBALANCE] BUY order submitted and recorded: {alpaca_order_id}")
-            
-            return {
-                "action": "buy",
-                "symbol": rebalance_symbol,
-                "quantity": rebalance_quantity,
-                "price": assumed_price,
-                "alpaca_order_id": alpaca_order_id,
-                "reason": f"Rebalancing to {first_asset.get('allocation', 0)}% allocation"
-            }
-            
-        except AlpacaAPIError as e:
-            logger.error(f"❌ [REBALANCE] Failed to submit BUY order: {e}")
-            return {
-                "action": "error",
-                "reason": f"Failed to submit buy order: {str(e)}"
-            }
-        
-    except Exception as e:
-        logger.error(f"Error in smart rebalance strategy: {e}")
-        return {
-            "action": "error",
-            "reason": f"Strategy execution error: {str(e)}"
-        }
+async def execute_covered_calls_strategy(
+    strategy: Dict[str, Any],
+    trading_client: TradingClient,
+    stock_client: Any,
+    crypto_client: Any,
+    supabase: Client
+) -> Dict[str, Any]:
+    """Execute a single iteration of the Covered Calls strategy"""
+    logger.info(f"🤖 Executing Covered Calls strategy: {strategy['name']}")
+    # Implement Covered Calls logic here
+    return {"action": "hold", "reason": "Covered Calls logic not fully implemented yet"}
 
-async def update_strategy_performance(strategy_id: str, user_id: str, supabase: Client, trading_client: TradingClient):
-    """Update strategy performance metrics after trade execution"""
-    try:
-        # This would calculate actual performance metrics
-        # For now, we'll just log that performance would be updated
-        logger.info(f"📊 Would update performance for strategy {strategy_id}")
-        
-    except Exception as e:
-        logger.error(f"Error updating strategy performance: {e}")
+async def execute_wheel_strategy(
+    strategy: Dict[str, Any],
+    trading_client: TradingClient,
+    stock_client: Any,
+    crypto_client: Any,
+    supabase: Client
+) -> Dict[str, Any]:
+    """Execute a single iteration of The Wheel strategy"""
+    logger.info(f"🤖 Executing The Wheel strategy: {strategy['name']}")
+    # Implement The Wheel logic here
+    return {"action": "hold", "reason": "The Wheel logic not fully implemented yet"}
+
+async def execute_smart_rebalance_strategy(
+    strategy: Dict[str, Any],
+    trading_client: TradingClient,
+    stock_client: Any,
+    crypto_client: Any,
+    supabase: Client
+) -> Dict[str, Any]:
+    """Execute a single iteration of the Smart Rebalance strategy"""
+    logger.info(f"🤖 Executing Smart Rebalance strategy: {strategy['name']}")
+    # Implement Smart Rebalance logic here
+    return {"action": "hold", "reason": "Smart Rebalance logic not fully implemented yet"}
+
+async def update_strategy_performance(
+    strategy_id: str,
+    user_id: str,
+    supabase: Client,
+    trading_client: TradingClient
+):
+    """Update strategy performance metrics after a trade"""
+    logger.info(f"📊 Updating performance for strategy {strategy_id}")
+    
+    # Fetch all trades for this strategy
+    resp = supabase.table("trades").select("*").eq("strategy_id", strategy_id).eq("user_id", user_id).execute()
+    strategy_trades = resp.data or []
+    
+    total_profit_loss = sum(t.get("profit_loss", 0) for t in strategy_trades if t.get("status") == "executed")
+    executed_trades = len([t for t in strategy_trades if t.get("status") == "executed"])
+    winning_trades = len([t for t in strategy_trades if t.get("status") == "executed" and t.get("profit_loss", 0) > 0])
+    
+    win_rate = (winning_trades / executed_trades) if executed_trades > 0 else 0.0
+    
+    # Mock total return and max drawdown for now
+    total_return = total_profit_loss / 10000 # Assuming $10k initial capital for calculation
+    max_drawdown = -0.05 # Mock 5% max drawdown
+    
+    performance_data = {
+        "total_return": total_return,
+        "win_rate": win_rate,
+        "max_drawdown": max_drawdown,
+        "sharpe_ratio": 1.2, # Mock
+        "total_trades": executed_trades,
+        "avg_trade_duration": 5, # Mock
+    }
+    
+    supabase.table("trading_strategies").update({"performance": performance_data}).eq("id", strategy_id).execute()
+    logger.info(f"✅ Performance updated for strategy {strategy_id}")
