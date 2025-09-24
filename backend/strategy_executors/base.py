@@ -15,6 +15,7 @@ from alpaca.data.requests import StockLatestQuoteRequest, CryptoLatestQuoteReque
 from alpaca.data.enums import DataFeed
 
 from supabase import Client
+from technical_indicators import TechnicalIndicators as TI
 
 logger = logging.getLogger(__name__)
 
