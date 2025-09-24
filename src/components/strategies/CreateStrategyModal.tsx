@@ -25,7 +25,6 @@ import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
-import { supabase } from '../../lib/supabase';
 
 interface TradableAsset {
   symbol: string;
