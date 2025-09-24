@@ -168,10 +168,17 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
 
         if (response.ok) {
           const assets = await response.json();
-          setTradableAssets(assets);
+          // Filter assets into stocks and crypto arrays
+          const assets = data.assets || [];
+          const stocks = assets.filter((asset: any) => asset.asset_class === 'equity');
+          const crypto = assets.filter((asset: any) => asset.asset_class === 'crypto');
+          
+          setTradableAssets({ stocks, crypto });
         }
       } catch (error) {
         console.error('Error loading tradable assets:', error);
+        // Set empty arrays on error to prevent iteration errors
+        setTradableAssets({ stocks: [], crypto: [] });
       }
     };
 
