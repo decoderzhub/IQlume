@@ -24,7 +24,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
         upper_price_limit = self.strategy["configuration"].get("price_range_upper", 70000)
         number_of_grids = self.strategy["configuration"].get("number_of_grids", 20)
         grid_mode = self.strategy.get("grid_mode", "arithmetic")
-        quantity_per_grid = self.strategy.get("quantity_per_grid", 0.0001)
+        quantity_per_grid = self.strategy.get("quantity_per_grid") or self.strategy["configuration"].get("quantity_per_grid", 0.0001)
         stop_loss_percent = self.strategy.get("stop_loss_percent", 0)
         trailing_stop_loss_percent = self.strategy.get("trailing_stop_loss_percent", 0)
         take_profit_levels = self.strategy.get("take_profit_levels", [])
@@ -34,6 +34,13 @@ class SpotGridExecutor(BaseStrategyExecutor):
         current_price = self.get_current_price(symbol)
         if not current_price:
             return {"action": "error", "reason": "Could not fetch current price"}
+        
+        # Validate grid configuration
+        if lower_price_limit <= 0 or upper_price_limit <= 0 or lower_price_limit >= upper_price_limit:
+            return {"action": "error", "reason": "Invalid grid price range configuration"}
+        
+        if quantity_per_grid <= 0:
+            return {"action": "error", "reason": "Invalid quantity per grid configuration"}
         
         # Generate grid levels
         grid_levels = self._generate_grid_levels(
@@ -220,6 +227,14 @@ class SpotGridExecutor(BaseStrategyExecutor):
                            open_orders: list, buy_signal_ti: bool, sell_signal_ti: bool,
                            strategy_id: str) -> Dict[str, Any]:
         """Execute the core grid trading logic"""
+        
+        # Validate inputs
+        if quantity_per_grid <= 0:
+            return {"action": "error", "reason": "Invalid quantity per grid: must be greater than 0"}
+        
+        if lower_limit <= 0 or upper_limit <= 0 or lower_limit >= upper_limit:
+            return {"action": "error", "reason": "Invalid price range: check lower and upper limits"}
+        
         # Check if price is near lower boundary (buy zone)
         buy_threshold = lower_limit + (upper_limit - lower_limit) / (num_grids * 2)
         sell_threshold = upper_limit - (upper_limit - lower_limit) / (num_grids * 2)
@@ -228,6 +243,10 @@ class SpotGridExecutor(BaseStrategyExecutor):
             # Check if there's already an open buy order
             buy_order_exists = any(o.side == OrderSide.BUY for o in open_orders)
             if not buy_order_exists:
+                # Ensure quantity is valid
+                if quantity_per_grid <= 0:
+                    return {"action": "error", "reason": "Invalid buy quantity: must be greater than 0"}
+                
                 order_result = self.place_order(
                     symbol, OrderSide.BUY, quantity_per_grid,
                     "limit", round(current_price * 0.99, 2), strategy_id, "grid-buy"
@@ -249,6 +268,10 @@ class SpotGridExecutor(BaseStrategyExecutor):
             # Check if there's already an open sell order
             sell_order_exists = any(o.side == OrderSide.SELL for o in open_orders)
             if not sell_order_exists:
+                # Ensure quantity is valid
+                if quantity_per_grid <= 0:
+                    return {"action": "error", "reason": "Invalid sell quantity: must be greater than 0"}
+                
                 order_result = self.place_order(
                     symbol, OrderSide.SELL, quantity_per_grid,
                     "limit", round(current_price * 1.01, 2), strategy_id, "grid-sell"

@@ -15,7 +15,7 @@ RUN python -m pip install --upgrade pip && \
 # ---------- Runtime ----------
 FROM python:3.11-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PORT=8000
+    PORT=6853
 
 # minimal runtime libs; add others if your deps need them
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -41,4 +41,4 @@ HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
 USER app
 
 # run EXACTLY like you do locally: uvicorn main:app
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "6853", "--workers", "2"]
