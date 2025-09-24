@@ -217,7 +217,7 @@ async def execute_strategy(
         if not resp.data:
             raise HTTPException(status_code=404, detail="Strategy not found")
         
-        strategy = resp.data
+        strategy = resp.data[0]  # resp.data is a list, get the first item
         
         # Get trading clients
         trading_client = await get_alpaca_trading_client(current_user, supabase)
