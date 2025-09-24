@@ -330,7 +330,7 @@ async def update_strategy(
         # Always update the timestamp
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
         
-        resp = supabase.table("trading_strategies").update(update_data).eq("id", strategy_id).eq("user_id", current_user.id).select().execute()
+        resp = supabase.table("trading_strategies").update(update_data).eq("id", strategy_id).eq("user_id", current_user.id).execute()
         
         if not resp.data:
             raise HTTPException(status_code=404, detail="Strategy not found")
