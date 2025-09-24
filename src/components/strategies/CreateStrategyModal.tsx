@@ -20,7 +20,6 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { NumericInput } from '../ui/NumericInput';
 import { OptionsBellCurve } from './OptionsBellCurve';
-import { NumericInput } from '../ui/NumericInput';
 import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
@@ -182,11 +181,27 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       if (response.ok) {
         const data = await response.json();
         setOptionsChainData(data);
-        // Add options-specific fields if it's an options strategy
-        ...(isOptionsStrategy && {
-          probability_of_success_target: probabilityOfSuccessTarget,
-          expiration_days_target: expirationDaysTarget,
-          strike_selection_method: strikeSelectionMethod,
+        
+        // Create strategy object with conditional options fields
+        const strategyData = {
+          name: strategyName,
+          type: strategyType,
+          description: description,
+          risk_level: riskLevel,
+          min_capital: minCapital,
+          is_active: false,
+          configuration: {
+            symbol: selectedSymbol,
+            allocated_capital: allocatedCapital,
+            ...configuration,
+            // Add options-specific fields if it's an options strategy
+            ...(isOptionsStrategy && {
+              probability_of_success_target: probabilityOfSuccessTarget,
+              expiration_days_target: expirationDaysTarget,
+              strike_selection_method: strikeSelectionMethod,
+            }),
+          },
+        };
         }),
       } else {
         console.error('Failed to fetch options chain data');
