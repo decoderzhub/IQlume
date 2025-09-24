@@ -499,7 +499,8 @@ export function TradesView() {
                 ))}
               </tbody>
             </table>
-        </div>
+          </div>
+        )}
       </Card>
     </motion.div>
   );
