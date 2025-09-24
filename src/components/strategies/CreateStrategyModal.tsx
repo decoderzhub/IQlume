@@ -978,6 +978,15 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                configuration.number_of_grids > 0;
       }
       
+      // Validate smart rebalance configuration
+      if (selectedType === 'smart_rebalance') {
+        const assets = configuration.assets || [];
+        const totalAllocation = assets.reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0);
+        return assets.length > 0 && 
+               totalAllocation === 100 && 
+               assets.every((asset: any) => asset.symbol && asset.allocation > 0);
+      }
+      
       return true;
     }
     if (step === 'review') {
