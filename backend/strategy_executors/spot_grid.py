@@ -24,7 +24,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
         upper_price_limit = self.strategy["configuration"].get("price_range_upper", 70000)
         number_of_grids = self.strategy["configuration"].get("number_of_grids", 20)
         grid_mode = self.strategy.get("grid_mode", "arithmetic")
-        quantity_per_grid = self.strategy.get("quantity_per_grid", 0.0001)
+        quantity_per_grid = self.strategy.get("quantity_per_grid") or self.strategy["configuration"].get("quantity_per_grid", 0.0001)
         stop_loss_percent = self.strategy.get("stop_loss_percent", 0)
         trailing_stop_loss_percent = self.strategy.get("trailing_stop_loss_percent", 0)
         take_profit_levels = self.strategy.get("take_profit_levels", [])

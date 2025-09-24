@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:6853',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         ws: true, // Enable WebSocket proxying for SSE
