@@ -210,7 +210,7 @@ async def create_strategy(
             "telemetry_id": strategy_data.telemetry_id,
         }
         
-        resp = supabase.table("trading_strategies").insert(strategy_dict).select().execute()
+        resp = supabase.table("trading_strategies").insert(strategy_dict).execute()
         
         if not resp.data:
             raise HTTPException(status_code=500, detail="Failed to create strategy")
