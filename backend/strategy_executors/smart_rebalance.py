@@ -3,7 +3,7 @@ Smart Rebalance Strategy Executor
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from .base import BaseStrategyExecutor
 
 logger = logging.getLogger(__name__)
