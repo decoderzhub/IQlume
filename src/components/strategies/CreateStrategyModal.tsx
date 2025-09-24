@@ -182,6 +182,19 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     setShowSuggestions(filtered.length > 0);
   }, [symbolSearchTerm, tradableAssets]);
 
+  // Close suggestions when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.symbol-input-container')) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleSymbolSelect = (asset: TradableAsset) => {
     setConfiguration(prev => ({ ...prev, symbol: asset.symbol }));
     setSymbolSearchTerm(asset.symbol);
@@ -466,7 +479,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Symbol
                   </label>
-                  <div className="relative">
+                  <div className="relative symbol-input-container">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                       <input
