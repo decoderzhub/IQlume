@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.6.0
+# syntax=registry.buildkit.org/docker/dockerfile:1
 
 # ---------- Builder ----------
 FROM python:3.11-slim AS builder
