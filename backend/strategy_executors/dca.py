@@ -43,6 +43,17 @@ class DCAExecutor(BaseStrategyExecutor):
                     "reason": f"Unable to fetch current price for {symbol}"
                 }
             
+            # Check if market is open before attempting to trade
+            if not self.is_market_open(symbol):
+                market_status = self.get_market_status_message(symbol)
+                return {
+                    "action": "hold",
+                    "symbol": symbol,
+                    "quantity": 0,
+                    "price": current_price,
+                    "reason": f"Market is closed. {market_status}. Strategy will execute when market opens."
+                }
+            
             # Check if it's time to invest based on frequency
             last_execution = strategy_data.get("last_execution")
             should_invest = self.should_execute_dca(last_execution, frequency)
@@ -74,13 +85,26 @@ class DCAExecutor(BaseStrategyExecutor):
                     
                 except AlpacaAPIError as e:
                     self.logger.error(f"❌ [DCA] Failed to place order with Alpaca: {e}")
-                    return {
-                        "action": "error",
-                        "symbol": symbol,
-                        "quantity": 0,
-                        "price": current_price,
-                        "reason": f"Failed to place DCA order: {str(e)}"
-                    }
+                    
+                    # Check if error is due to market being closed
+                    error_message = str(e).lower()
+                    if "market" in error_message and ("closed" in error_message or "not open" in error_message):
+                        market_status = self.get_market_status_message(symbol)
+                        return {
+                            "action": "hold",
+                            "symbol": symbol,
+                            "quantity": 0,
+                            "price": current_price,
+                            "reason": f"Market is closed. {market_status}. Order will be placed when market opens."
+                        }
+                    else:
+                        return {
+                            "action": "error",
+                            "symbol": symbol,
+                            "quantity": 0,
+                            "price": current_price,
+                            "reason": f"Failed to place DCA order: {str(e)}"
+                        }
                 except Exception as e:
                     self.logger.error(f"❌ [DCA] Unexpected error placing order: {e}")
                     return {

@@ -50,6 +50,17 @@ class SpotGridExecutor(BaseStrategyExecutor):
             
             self.logger.info(f"💰 Current price for {symbol}: ${current_price}")
             
+            # Check if market is open before attempting to trade
+            if not self.is_market_open(symbol):
+                market_status = self.get_market_status_message(symbol)
+                return {
+                    "action": "hold",
+                    "symbol": symbol,
+                    "quantity": 0,
+                    "price": current_price,
+                    "reason": f"Market is closed. {market_status}. Strategy will execute when market opens."
+                }
+            
             # Auto-configure grid range if not set
             if price_range_lower == 0 or price_range_upper == 0:
                 # Set range to ±20% of current price
@@ -129,8 +140,16 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     
                 except AlpacaAPIError as e:
                     self.logger.error(f"❌ [GRID] Failed to place order with Alpaca: {e}")
-                    action_result["action"] = "error"
-                    action_result["reason"] = f"Failed to place order: {str(e)}"
+                    
+                    # Check if error is due to market being closed
+                    error_message = str(e).lower()
+                    if "market" in error_message and ("closed" in error_message or "not open" in error_message):
+                        market_status = self.get_market_status_message(symbol)
+                        action_result["action"] = "hold"
+                        action_result["reason"] = f"Market is closed. {market_status}. Order will be placed when market opens."
+                    else:
+                        action_result["action"] = "error"
+                        action_result["reason"] = f"Failed to place order: {str(e)}"
                 except Exception as e:
                     self.logger.error(f"❌ [GRID] Unexpected error placing order: {e}")
                     action_result["action"] = "error"

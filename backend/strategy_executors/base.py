@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from alpaca.trading.client import TradingClient
 from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
+from alpaca.common.exceptions import APIError as AlpacaAPIError
 from supabase import Client
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,41 @@ class BaseStrategyExecutor(ABC):
             self.logger.error(f"Error fetching price for {symbol}: {e}")
         
         return None
+    
+    def is_market_open(self, symbol: str) -> bool:
+        """Check if the market is currently open for trading"""
+        try:
+            clock = self.trading_client.get_clock()
+            
+            # For crypto symbols, market is always open
+            if self.normalize_crypto_symbol(symbol):
+                return True
+            
+            # For stocks, check if market is open
+            return clock.is_open
+            
+        except Exception as e:
+            self.logger.error(f"Error checking market status for {symbol}: {e}")
+            # Default to closed if we can't determine status
+            return False
+    
+    def get_market_status_message(self, symbol: str) -> str:
+        """Get a descriptive message about market status"""
+        try:
+            clock = self.trading_client.get_clock()
+            
+            # For crypto symbols, market is always open
+            if self.normalize_crypto_symbol(symbol):
+                return "Crypto market is open 24/7"
+            
+            if clock.is_open:
+                return f"Stock market is open until {clock.next_close.strftime('%I:%M %p ET')}"
+            else:
+                return f"Stock market is closed. Opens at {clock.next_open.strftime('%I:%M %p ET on %A')}"
+                
+        except Exception as e:
+            self.logger.error(f"Error getting market status for {symbol}: {e}")
+            return "Unable to determine market status"
     
     def normalize_crypto_symbol(self, symbol: str) -> Optional[str]:
         """Normalize crypto symbol to Alpaca format"""
