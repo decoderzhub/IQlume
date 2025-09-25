@@ -617,20 +617,24 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       {/* Action Buttons */}
       <div className="flex gap-2">
         <Button
-          variant={strategy.is_active ? 'secondary' : 'primary'}
+          variant="primary"
           size="sm"
           onClick={onToggle}
           disabled={isComingSoon || needsUpgrade}
-          className="flex-1"
+          className={`flex-1 transition-all duration-300 ${
+            strategy.is_active 
+              ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-red-500/25' 
+              : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-green-500/25'
+          }`}
         >
           {strategy.is_active ? (
             <>
-              <Pause className="w-4 h-4 mr-2" />
+              <Pause className="w-4 h-4 mr-2 drop-shadow-sm" />
               Pause
             </>
           ) : (
             <>
-              <Play className="w-4 h-4 mr-2" />
+              <Play className="w-4 h-4 mr-2 drop-shadow-sm" />
               Start
             </>
           )}
