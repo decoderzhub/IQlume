@@ -621,20 +621,20 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           size="sm"
           onClick={onToggle}
           disabled={isComingSoon || needsUpgrade}
-          className={`flex-1 transition-all duration-300 ${
+          className={`flex-1 transition-all duration-200 ${
             strategy.is_active 
-              ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-red-500/25' 
-              : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-green-500/25'
+              ? 'bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600/90 hover:to-red-700/90 text-white shadow-md hover:shadow-red-500/15' 
+              : 'bg-gradient-to-r from-green-600/80 to-green-700/80 hover:from-green-600/90 hover:to-green-700/90 text-white shadow-md hover:shadow-green-500/15'
           }`}
         >
           {strategy.is_active ? (
             <>
-              <Pause className="w-4 h-4 mr-2 drop-shadow-sm" />
+              <Pause className="w-4 h-4 mr-2" />
               Pause
             </>
           ) : (
             <>
-              <Play className="w-4 h-4 mr-2 drop-shadow-sm" />
+              <Play className="w-4 h-4 mr-2" />
               Start
             </>
           )}
