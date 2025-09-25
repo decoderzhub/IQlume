@@ -82,7 +82,7 @@ const strategyTypes = [
 ];
 
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
-  const { brokerageAccounts, getEffectiveSubscriptionTier } = useStore();
+  const { brokerageAccounts, getEffectiveSubscriptionTier, user } = useStore();
   const [selectedType, setSelectedType] = useState<string>('');
   const [step, setStep] = useState<'type' | 'config' | 'review'>('type');
   const [strategy, setStrategy] = useState<Partial<TradingStrategy>>({
@@ -92,6 +92,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     min_capital: 10000,
     is_active: true, // Set to true by default
     configuration: {},
+    account_id: '',
+    quantity_per_grid: 0,
   });
 
   const selectedStrategyType = strategyTypes.find(type => type.id === selectedType);
@@ -147,8 +149,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         return {
           symbol: 'BTC',
           allocated_capital: 1000,
-          price_range_lower: 0,
-          price_range_upper: 0,
+          price_range_lower: 50000,
+          price_range_upper: 60000,
           number_of_grids: 20,
           grid_spacing_percent: 1.0,
         };
@@ -194,6 +196,22 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const handleCreateStrategy = () => {
     if (!strategy.name || !strategy.type) return;
 
+    // Validation for spot grid
+    if (selectedType === 'spot_grid') {
+      if (!strategy.account_id) {
+        alert('Please select a brokerage account for this strategy.');
+        return;
+      }
+      if (!strategy.configuration?.price_range_lower || !strategy.configuration?.price_range_upper) {
+        alert('Please set both lower and upper price limits for the grid.');
+        return;
+      }
+      if (strategy.configuration.price_range_lower >= strategy.configuration.price_range_upper) {
+        alert('Upper price limit must be greater than lower price limit.');
+        return;
+      }
+    }
+
     const newStrategy: Omit<TradingStrategy, 'id'> = {
       name: strategy.name,
       type: strategy.type as TradingStrategy['type'],
@@ -202,10 +220,41 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       min_capital: strategy.min_capital || 10000,
       is_active: true, // Ensure it's active
       configuration: strategy.configuration || {},
+      account_id: strategy.account_id,
+      quantity_per_grid: strategy.quantity_per_grid,
+      grid_mode: strategy.grid_mode || 'arithmetic',
     };
 
     onSave(newStrategy);
   };
+
+  // Auto-calculate quantity per grid for spot grid strategies
+  React.useEffect(() => {
+    if (selectedType === 'spot_grid' && strategy.configuration) {
+      const { allocated_capital, number_of_grids, price_range_lower, price_range_upper } = strategy.configuration;
+      
+      if (allocated_capital && number_of_grids && price_range_lower && price_range_upper && 
+          price_range_lower > 0 && price_range_upper > price_range_lower) {
+        
+        // Calculate average price in the range
+        const averagePrice = (price_range_lower + price_range_upper) / 2;
+        
+        // Calculate quantity per grid: (allocated capital / number of grids) / average price
+        const quantityPerGrid = (allocated_capital / number_of_grids) / averagePrice;
+        
+        setStrategy(prev => ({
+          ...prev,
+          quantity_per_grid: Math.round(quantityPerGrid * 1000000) / 1000000, // Round to 6 decimal places
+        }));
+      }
+    }
+  }, [
+    selectedType,
+    strategy.configuration?.allocated_capital,
+    strategy.configuration?.number_of_grids,
+    strategy.configuration?.price_range_lower,
+    strategy.configuration?.price_range_upper,
+  ]);
 
   const renderTypeSelection = () => (
     <div className="space-y-6">
@@ -292,6 +341,33 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
+              Brokerage Account
+            </label>
+            <select
+              value={strategy.account_id || ''}
+              onChange={(e) => setStrategy(prev => ({ ...prev, account_id: e.target.value }))}
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select an account</option>
+              {brokerageAccounts
+                .filter(account => account.is_connected)
+                .map(account => (
+                <option key={account.id} value={account.id}>
+                  {account.account_name} ({account.brokerage.toUpperCase()}) - {formatCurrency(account.balance)}
+                </option>
+              ))}
+            </select>
+            {brokerageAccounts.filter(account => account.is_connected).length === 0 && (
+              <p className="text-xs text-yellow-400 mt-1">
+                No connected accounts. Please connect a brokerage account first.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Minimum Capital
             </label>
             <NumericInput
@@ -299,6 +375,23 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               onChange={(value) => setStrategy(prev => ({ ...prev, min_capital: value }))}
               min={1000}
               step={1000}
+              prefix="$"
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Allocated Capital
+            </label>
+            <NumericInput
+              value={strategy.configuration?.allocated_capital || 1000}
+              onChange={(value) => setStrategy(prev => ({
+                ...prev,
+                configuration: { ...prev.configuration, allocated_capital: value }
+              }))}
+              min={100}
+              step={100}
               prefix="$"
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
             />
@@ -357,7 +450,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         {selectedType === 'spot_grid' && (
           <div className="space-y-4">
             <h4 className="font-medium text-white">Grid Bot Configuration</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
                 <input
@@ -368,8 +462,13 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                     configuration: { ...prev.configuration, symbol: e.target.value.toUpperCase() }
                   }))}
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  placeholder="e.g., BTC, ETH, AAPL"
                 />
+                <p className="text-xs text-gray-400 mt-1">
+                  Enter symbol (crypto or stock)
+                </p>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Number of Grids</label>
                 <NumericInput
@@ -384,6 +483,112 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
                 />
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Grid Mode</label>
+                <select
+                  value={strategy.grid_mode || 'arithmetic'}
+                  onChange={(e) => setStrategy(prev => ({ 
+                    ...prev, 
+                    grid_mode: e.target.value as 'arithmetic' | 'geometric' 
+                  }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="arithmetic">Arithmetic</option>
+                  <option value="geometric">Geometric</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Lower Price Limit</label>
+                <NumericInput
+                  value={strategy.configuration?.price_range_lower || 50000}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, price_range_lower: value }
+                  }))}
+                  min={0.01}
+                  step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
+                  allowDecimals={true}
+                  prefix="$"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Grid will place buy orders at this level and below
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Upper Price Limit</label>
+                <NumericInput
+                  value={strategy.configuration?.price_range_upper || 60000}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, price_range_upper: value }
+                  }))}
+                  min={0.01}
+                  step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
+                  allowDecimals={true}
+                  prefix="$"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Grid will place sell orders at this level and above
+                </p>
+              </div>
+            </div>
+            
+            {/* Auto-calculated quantity per grid display */}
+            {strategy.quantity_per_grid && strategy.quantity_per_grid > 0 && (
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="w-4 h-4 text-blue-400" />
+                  <h5 className="font-medium text-blue-400">Auto-Calculated Grid Settings</h5>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-400">Quantity per Grid:</span>
+                    <span className="text-white ml-2 font-medium">
+                      {strategy.quantity_per_grid.toFixed(6)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Grid Spacing:</span>
+                    <span className="text-white ml-2 font-medium">
+                      ${((strategy.configuration?.price_range_upper - strategy.configuration?.price_range_lower) / (strategy.configuration?.number_of_grids - 1)).toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Capital per Grid:</span>
+                    <span className="text-white ml-2 font-medium">
+                      {formatCurrency((strategy.configuration?.allocated_capital || 0) / (strategy.configuration?.number_of_grids || 1))}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Price Range:</span>
+                    <span className="text-white ml-2 font-medium">
+                      {((strategy.configuration?.price_range_upper - strategy.configuration?.price_range_lower) / strategy.configuration?.price_range_lower * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Validation warnings */}
+            {strategy.configuration?.price_range_lower && strategy.configuration?.price_range_upper && 
+             strategy.configuration.price_range_lower >= strategy.configuration.price_range_upper && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                  <span className="text-red-400 font-medium">Invalid Price Range</span>
+                </div>
+                <p className="text-sm text-red-300 mt-1">
+                  Upper price limit must be greater than lower price limit.
+                </p>
+              </div>
+            )}
             </div>
           </div>
         )}
@@ -453,6 +658,17 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               <p className="font-semibold text-green-400">Will be Active</p>
             </div>
           </div>
+          {strategy.account_id && (
+            <div className="flex items-center gap-3">
+              <Settings className="w-5 h-5 text-purple-400" />
+              <div>
+                <p className="text-sm text-gray-400">Account</p>
+                <p className="font-semibold text-white">
+                  {brokerageAccounts.find(acc => acc.id === strategy.account_id)?.account_name || 'Selected'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -467,6 +683,14 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               </span>
             </div>
           ))}
+          {strategy.quantity_per_grid && strategy.quantity_per_grid > 0 && (
+            <div className="flex justify-between">
+              <span className="text-gray-400">Quantity per Grid:</span>
+              <span className="text-white font-medium">
+                {strategy.quantity_per_grid.toFixed(6)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -507,7 +731,17 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       case 'type':
         return selectedType && hasAccess;
       case 'config':
-        return strategy.name && strategy.type;
+        if (!strategy.name || !strategy.type) return false;
+        
+        // Additional validation for spot grid
+        if (selectedType === 'spot_grid') {
+          return strategy.account_id && 
+                 strategy.configuration?.price_range_lower && 
+                 strategy.configuration?.price_range_upper &&
+                 strategy.configuration.price_range_lower < strategy.configuration.price_range_upper;
+        }
+        
+        return true;
       case 'review':
         return true;
       default:
