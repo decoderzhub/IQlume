@@ -4,6 +4,7 @@ import { X, TrendingUp, Shield, DollarSign, Target, Settings, AlertTriangle, Inf
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { NumericInput } from '../ui/NumericInput';
+import { SymbolSearchInput } from '../ui/SymbolSearchInput';
 import { OptionsBellCurve } from './OptionsBellCurve';
 import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';

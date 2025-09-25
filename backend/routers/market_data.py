@@ -29,6 +29,75 @@ import numpy as np
 router = APIRouter(prefix="/api/market-data", tags=["market-data"])
 logger = logging.getLogger(__name__)
 
+# Popular symbols for quick access
+POPULAR_SYMBOLS = [
+    # Major stocks
+    "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "NFLX", "ADBE", "CRM",
+    "SPY", "QQQ", "IWM", "VTI", "VOO", "VEA", "VWO", "BND", "AGG", "GLD",
+    # Major crypto pairs
+    "BTC/USD", "ETH/USD", "LTC/USD", "BCH/USD", "LINK/USD", "UNI/USD", "AAVE/USD", "DOT/USD"
+]
+
+# Common stock symbols with company names for search
+STOCK_SYMBOLS_WITH_NAMES = [
+    {"symbol": "AAPL", "name": "Apple Inc.", "type": "stock"},
+    {"symbol": "MSFT", "name": "Microsoft Corporation", "type": "stock"},
+    {"symbol": "GOOGL", "name": "Alphabet Inc.", "type": "stock"},
+    {"symbol": "AMZN", "name": "Amazon.com Inc.", "type": "stock"},
+    {"symbol": "TSLA", "name": "Tesla Inc.", "type": "stock"},
+    {"symbol": "META", "name": "Meta Platforms Inc.", "type": "stock"},
+    {"symbol": "NVDA", "name": "NVIDIA Corporation", "type": "stock"},
+    {"symbol": "NFLX", "name": "Netflix Inc.", "type": "stock"},
+    {"symbol": "ADBE", "name": "Adobe Inc.", "type": "stock"},
+    {"symbol": "CRM", "name": "Salesforce Inc.", "type": "stock"},
+    {"symbol": "ORCL", "name": "Oracle Corporation", "type": "stock"},
+    {"symbol": "IBM", "name": "International Business Machines", "type": "stock"},
+    {"symbol": "INTC", "name": "Intel Corporation", "type": "stock"},
+    {"symbol": "AMD", "name": "Advanced Micro Devices", "type": "stock"},
+    {"symbol": "CSCO", "name": "Cisco Systems Inc.", "type": "stock"},
+    {"symbol": "V", "name": "Visa Inc.", "type": "stock"},
+    {"symbol": "MA", "name": "Mastercard Inc.", "type": "stock"},
+    {"symbol": "JPM", "name": "JPMorgan Chase & Co.", "type": "stock"},
+    {"symbol": "BAC", "name": "Bank of America Corp.", "type": "stock"},
+    {"symbol": "WFC", "name": "Wells Fargo & Company", "type": "stock"},
+    {"symbol": "GS", "name": "Goldman Sachs Group Inc.", "type": "stock"},
+    {"symbol": "MS", "name": "Morgan Stanley", "type": "stock"},
+    {"symbol": "C", "name": "Citigroup Inc.", "type": "stock"},
+    {"symbol": "JNJ", "name": "Johnson & Johnson", "type": "stock"},
+    {"symbol": "PFE", "name": "Pfizer Inc.", "type": "stock"},
+    {"symbol": "UNH", "name": "UnitedHealth Group Inc.", "type": "stock"},
+    {"symbol": "HD", "name": "Home Depot Inc.", "type": "stock"},
+    {"symbol": "WMT", "name": "Walmart Inc.", "type": "stock"},
+    {"symbol": "PG", "name": "Procter & Gamble Co.", "type": "stock"},
+    {"symbol": "KO", "name": "Coca-Cola Company", "type": "stock"},
+    {"symbol": "PEP", "name": "PepsiCo Inc.", "type": "stock"},
+    {"symbol": "DIS", "name": "Walt Disney Company", "type": "stock"},
+    {"symbol": "NKE", "name": "Nike Inc.", "type": "stock"},
+    {"symbol": "MCD", "name": "McDonald's Corporation", "type": "stock"},
+    {"symbol": "SBUX", "name": "Starbucks Corporation", "type": "stock"},
+    # ETFs
+    {"symbol": "SPY", "name": "SPDR S&P 500 ETF Trust", "type": "etf"},
+    {"symbol": "QQQ", "name": "Invesco QQQ Trust", "type": "etf"},
+    {"symbol": "IWM", "name": "iShares Russell 2000 ETF", "type": "etf"},
+    {"symbol": "VTI", "name": "Vanguard Total Stock Market ETF", "type": "etf"},
+    {"symbol": "VOO", "name": "Vanguard S&P 500 ETF", "type": "etf"},
+    {"symbol": "VEA", "name": "Vanguard FTSE Developed Markets ETF", "type": "etf"},
+    {"symbol": "VWO", "name": "Vanguard FTSE Emerging Markets ETF", "type": "etf"},
+    {"symbol": "BND", "name": "Vanguard Total Bond Market ETF", "type": "etf"},
+    {"symbol": "AGG", "name": "iShares Core U.S. Aggregate Bond ETF", "type": "etf"},
+    {"symbol": "GLD", "name": "SPDR Gold Shares", "type": "etf"},
+    {"symbol": "SLV", "name": "iShares Silver Trust", "type": "etf"},
+    # Crypto
+    {"symbol": "BTC/USD", "name": "Bitcoin", "type": "crypto"},
+    {"symbol": "ETH/USD", "name": "Ethereum", "type": "crypto"},
+    {"symbol": "LTC/USD", "name": "Litecoin", "type": "crypto"},
+    {"symbol": "BCH/USD", "name": "Bitcoin Cash", "type": "crypto"},
+    {"symbol": "LINK/USD", "name": "Chainlink", "type": "crypto"},
+    {"symbol": "UNI/USD", "name": "Uniswap", "type": "crypto"},
+    {"symbol": "AAVE/USD", "name": "Aave", "type": "crypto"},
+    {"symbol": "DOT/USD", "name": "Polkadot", "type": "crypto"},
+]
+
 # --------- helpers ---------
 STOCK_ETFS = {"SPY", "QQQ", "VTI", "IWM", "GLD", "SLV"}
 
@@ -697,3 +766,95 @@ async def get_options_chain(
     except Exception as e:
         logger.error(f"Error fetching options chain: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch options chain: {str(e)}")
+
+@router.get("/symbols/search")
+async def search_symbols(
+    query: str = Query(..., description="Search query for symbols", min_length=1),
+    limit: int = Query(20, description="Maximum number of results", le=50),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+):
+    """Search for trading symbols (stocks, ETFs, crypto)"""
+    try:
+        query_lower = query.lower().strip()
+        
+        if not query_lower:
+            return {"symbols": POPULAR_SYMBOLS[:limit]}
+        
+        # Search through our symbol database
+        matching_symbols = []
+        
+        for symbol_data in STOCK_SYMBOLS_WITH_NAMES:
+            symbol = symbol_data["symbol"]
+            name = symbol_data["name"]
+            symbol_type = symbol_data["type"]
+            
+            # Check if query matches symbol or company name
+            if (query_lower in symbol.lower() or 
+                query_lower in name.lower() or
+                symbol.lower().startswith(query_lower)):
+                
+                matching_symbols.append({
+                    "symbol": symbol,
+                    "name": name,
+                    "type": symbol_type,
+                    "score": 100 if symbol.lower().startswith(query_lower) else 50
+                })
+        
+        # Sort by relevance score (exact matches first)
+        matching_symbols.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Limit results
+        results = matching_symbols[:limit]
+        
+        # If we have few results, add popular symbols that match
+        if len(results) < limit:
+            for popular_symbol in POPULAR_SYMBOLS:
+                if query_lower in popular_symbol.lower() and popular_symbol not in [r["symbol"] for r in results]:
+                    symbol_type = "crypto" if "/" in popular_symbol else "stock"
+                    results.append({
+                        "symbol": popular_symbol,
+                        "name": popular_symbol,
+                        "type": symbol_type,
+                        "score": 25
+                    })
+                    if len(results) >= limit:
+                        break
+        
+        return {"symbols": results}
+        
+    except Exception as e:
+        logger.error(f"Error searching symbols: {e}")
+        # Return popular symbols as fallback
+        return {"symbols": [{"symbol": s, "name": s, "type": "stock", "score": 0} for s in POPULAR_SYMBOLS[:limit]]}
+
+@router.get("/symbols/popular")
+async def get_popular_symbols(
+    limit: int = Query(20, description="Maximum number of results", le=50),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+):
+    """Get popular trading symbols"""
+    try:
+        popular_with_details = []
+        
+        for symbol in POPULAR_SYMBOLS[:limit]:
+            # Find details if available
+            symbol_data = next((s for s in STOCK_SYMBOLS_WITH_NAMES if s["symbol"] == symbol), None)
+            if symbol_data:
+                popular_with_details.append(symbol_data)
+            else:
+                # Add basic info for symbols not in detailed list
+                symbol_type = "crypto" if "/" in symbol else "stock"
+                popular_with_details.append({
+                    "symbol": symbol,
+                    "name": symbol,
+                    "type": symbol_type,
+                    "score": 100
+                })
+        
+        return {"symbols": popular_with_details}
+        
+    except Exception as e:
+        logger.error(f"Error fetching popular symbols: {e}")
+        return {"symbols": [{"symbol": s, "name": s, "type": "stock", "score": 0} for s in POPULAR_SYMBOLS[:limit]]}
