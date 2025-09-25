@@ -627,17 +627,19 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               : 'bg-gradient-to-r from-green-600/80 to-green-700/80 hover:from-green-600/90 hover:to-green-700/90 text-white shadow-md hover:shadow-green-500/15'
           }`}
         >
-          {strategy.is_active ? (
-            <>
-              <Pause className="w-4 h-4 mr-2" />
-              Pause
-            </>
-          ) : (
-            <>
-              <Play className="w-4 h-4 mr-2" />
-              Start
-            </>
-          )}
+          <div className="flex flex-col items-center gap-1">
+            {strategy.is_active ? (
+              <>
+                <Pause className="w-4 h-4" />
+                <span className="text-xs font-medium">Pause</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4" />
+                <span className="text-xs font-medium">Start</span>
+              </>
+            )}
+          </div>
         </Button>
 
         {strategy.is_active && isAvailable && (
