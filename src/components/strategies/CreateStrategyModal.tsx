@@ -11,7 +11,7 @@ import { useStore } from '../../store/useStore';
 
 interface CreateStrategyModalProps {
   onClose: () => void;
-  onSave: (strategy: Omit<TradingStrategy, 'id'>) => void;
+  onSave: (strategy: Omit<TradingStrategy, 'id'>) => Promise<TradingStrategy | null>;
 }
 
 const strategyTypes = [

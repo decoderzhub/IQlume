@@ -161,7 +161,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
 
   // Determine price position relative to grid
   const getPricePosition = () => {
-    if (!gridConfig || !currentPrice || !gridConfig.lower || !gridConfig.upper) return null;
+    if (!gridConfig || !currentPrice || !gridConfig.lower || !gridConfig.upper || gridConfig.lower <= 0 || gridConfig.upper <= 0) return null;
     
     if (currentPrice < gridConfig.lower) return 'below';
     if (currentPrice > gridConfig.upper) return 'above';
@@ -523,10 +523,10 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         </div>
       )}
       {/* Performance Metrics */}
-      {performance && (
+      {performance && typeof performance === 'object' && (
         <div className="space-y-4 mb-6">
           {/* Real-time Telemetry for Active Strategies */}
-          {strategy.is_active && telemetryData && (
+          {strategy.is_active && telemetryData && typeof telemetryData === 'object' && (
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
               <h5 className="text-xs font-medium text-blue-400 mb-2 flex items-center gap-1">
                 <Activity className="w-3 h-3" />
@@ -537,23 +537,23 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
                 <div>
                   <span className="text-gray-400">P&L:</span>
                   <span className={`ml-2 font-medium ${
-                    telemetryData.current_profit_loss_usd >= 0 ? 'text-green-400' : 'text-red-400'
+                    (telemetryData.current_profit_loss_usd || 0) >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
-                    {telemetryData.current_profit_loss_usd >= 0 ? '+' : ''}
-                    {formatCurrency(telemetryData.current_profit_loss_usd)}
+                    {(telemetryData.current_profit_loss_usd || 0) >= 0 ? '+' : ''}
+                    {formatCurrency(telemetryData.current_profit_loss_usd || 0)}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-400">Orders:</span>
-                  <span className="text-white ml-2 font-medium">{telemetryData.active_orders_count}</span>
+                  <span className="text-white ml-2 font-medium">{telemetryData.active_orders_count || 0}</span>
                 </div>
                 <div>
                   <span className="text-gray-400">Fill Rate:</span>
-                  <span className="text-blue-400 ml-2 font-medium">{telemetryData.fill_rate_percent.toFixed(1)}%</span>
+                  <span className="text-blue-400 ml-2 font-medium">{(telemetryData.fill_rate_percent || 0).toFixed(1)}%</span>
                 </div>
                 <div>
                   <span className="text-gray-400">Deployed:</span>
-                  <span className="text-purple-400 ml-2 font-medium">{telemetryData.grid_utilization_percent.toFixed(1)}%</span>
+                  <span className="text-purple-400 ml-2 font-medium">{(telemetryData.grid_utilization_percent || 0).toFixed(1)}%</span>
                 </div>
               </div>
             </div>
@@ -581,7 +581,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               <span className="text-xs text-gray-400">Win Rate</span>
             </div>
             <p className="font-semibold text-blue-400">
-              {formatPercent(performance.win_rate)}
+              {formatPercent(performance.win_rate || 0)}
             </p>
           </div>
 
@@ -591,7 +591,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               <span className="text-xs text-gray-400">Max Drawdown</span>
             </div>
             <p className="font-semibold text-purple-400">
-              {formatPercent(performance.max_drawdown)}
+              {formatPercent(performance.max_drawdown || 0)}
             </p>
           </div>
 
@@ -601,7 +601,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               <span className="text-xs text-gray-400">Trades</span>
             </div>
             <p className="font-semibold text-yellow-400">
-              {performance.total_trades || 0}
+              {(performance.total_trades || 0)}
             </p>
           </div>
           </div>

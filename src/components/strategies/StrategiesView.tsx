@@ -252,9 +252,11 @@ export function StrategiesView() {
       setStrategies(prev => [...prev, newStrategy]);
       setShowCreateModal(false);
       alert('Strategy created successfully!');
+      return newStrategy;
     } catch (error) {
       console.error('Error creating strategy:', error);
       alert(`Failed to create strategy: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return null;
     }
   };
 
