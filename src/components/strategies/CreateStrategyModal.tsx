@@ -437,9 +437,9 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
                 <SymbolSearchInput
                   value={strategy.configuration?.symbol || 'AAPL'}
-                  onChange={(e) => setStrategy(prev => ({
+                  onChange={(value) => setStrategy(prev => ({
                     ...prev,
-                    configuration: { ...prev.configuration, symbol: e }
+                    configuration: { ...prev.configuration, symbol: value }
                   }))}
                   placeholder="Search for a stock symbol (e.g., AAPL, MSFT)"
                   className="w-full"
@@ -464,6 +464,74 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           </div>
         )}
 
+        {selectedType === 'wheel' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">Wheel Strategy Configuration</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                <SymbolSearchInput
+                  value={strategy.configuration?.symbol || 'AAPL'}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, symbol: value }
+                  }))}
+                  placeholder="Search for a stock symbol (e.g., AAPL, MSFT)"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Position Size</label>
+                <NumericInput
+                  value={strategy.configuration?.position_size || 100}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, position_size: value }
+                  }))}
+                  min={100}
+                  step={100}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedType === 'short_put' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">Cash-Secured Put Configuration</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                <SymbolSearchInput
+                  value={strategy.configuration?.symbol || 'AAPL'}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, symbol: value }
+                  }))}
+                  placeholder="Search for a stock symbol (e.g., AAPL, MSFT)"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Strike Delta</label>
+                <NumericInput
+                  value={strategy.configuration?.strike_delta || -0.30}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, strike_delta: value }
+                  }))}
+                  min={-0.5}
+                  max={-0.1}
+                  step={0.05}
+                  allowDecimals={true}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {selectedType === 'spot_grid' && (
           <div className="space-y-4">
             <h4 className="font-medium text-white">Grid Bot Configuration</h4>
@@ -471,19 +539,15 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
-                <input
-                  type="text"
+                <SymbolSearchInput
                   value={strategy.configuration?.symbol || 'BTC'}
-                  onChange={(e) => setStrategy(prev => ({
+                  onChange={(value) => setStrategy(prev => ({
                     ...prev,
-                    configuration: { ...prev.configuration, symbol: e.target.value.toUpperCase() }
+                    configuration: { ...prev.configuration, symbol: value }
                   }))}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
                   placeholder="e.g., BTC, ETH, AAPL"
+                  className="w-full"
                 />
-                <p className="text-xs text-gray-400 mt-1">
-                  Enter symbol (crypto or stock) - Predictive dropdown coming soon
-                </p>
               </div>
               
               <div>
@@ -609,20 +673,75 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           </div>
         )}
 
+        {(selectedType === 'futures_grid' || selectedType === 'infinity_grid') && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">
+              {selectedType === 'futures_grid' ? 'Futures Grid Bot Configuration' : 'Infinity Grid Bot Configuration'}
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                <SymbolSearchInput
+                  value={strategy.configuration?.symbol || 'BTC/USD'}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, symbol: value }
+                  }))}
+                  placeholder="e.g., BTC/USD, ETH/USD"
+                  className="w-full"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Number of Grids</label>
+                <NumericInput
+                  value={strategy.configuration?.number_of_grids || (selectedType === 'futures_grid' ? 25 : 30)}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, number_of_grids: value }
+                  }))}
+                  min={5}
+                  max={100}
+                  step={5}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+              
+              {selectedType === 'futures_grid' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Leverage</label>
+                  <NumericInput
+                    value={strategy.configuration?.leverage || 3}
+                    onChange={(value) => setStrategy(prev => ({
+                      ...prev,
+                      configuration: { ...prev.configuration, leverage: value }
+                    }))}
+                    min={1}
+                    max={10}
+                    step={1}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {selectedType === 'dca' && (
           <div className="space-y-4">
             <h4 className="font-medium text-white">DCA Configuration</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
-                <input
-                  type="text"
+                <SymbolSearchInput
                   value={strategy.configuration?.symbol || 'BTC'}
-                  onChange={(e) => setStrategy(prev => ({
+                  onChange={(value) => setStrategy(prev => ({
                     ...prev,
-                    configuration: { ...prev.configuration, symbol: e.target.value.toUpperCase() }
+                    configuration: { ...prev.configuration, symbol: value }
                   }))}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  placeholder="Search for a symbol (e.g., BTC, ETH, AAPL)"
+                  className="w-full"
                 />
               </div>
               <div>
@@ -636,6 +755,44 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   min={10}
                   step={10}
                   prefix="$"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedType === 'smart_rebalance' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">Smart Rebalance Configuration</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Rebalance Frequency</label>
+                <select
+                  value={strategy.configuration?.rebalance_frequency || 'weekly'}
+                  onChange={(e) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, rebalance_frequency: e.target.value }
+                  }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Threshold Deviation</label>
+                <NumericInput
+                  value={strategy.configuration?.threshold_deviation_percent || 5}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, threshold_deviation_percent: value }
+                  }))}
+                  min={1}
+                  max={20}
+                  step={1}
+                  suffix="%"
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
                 />
               </div>
