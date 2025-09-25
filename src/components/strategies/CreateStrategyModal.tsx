@@ -590,7 +590,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                 </p>
               </div>
             )}
-            </div>
           </div>
         )}
 
