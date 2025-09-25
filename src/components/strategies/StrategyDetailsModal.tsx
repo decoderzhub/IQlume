@@ -530,7 +530,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
   );
 
   const renderPerformanceTab = () => {
-    const performance = strategy.performance;
+    const performance = strategy.performance && typeof strategy.performance === 'object' ? strategy.performance : null;
     
     if (!performance) {
       return (
@@ -561,7 +561,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
               <span className="text-sm text-gray-400">Win Rate</span>
             </div>
             <p className="text-xl font-bold text-blue-400">
-              {formatPercent(performance.win_rate)}
+              {formatPercent(performance.win_rate || 0)}
             </p>
           </Card>
 
@@ -571,7 +571,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
               <span className="text-sm text-gray-400">Max Drawdown</span>
             </div>
             <p className="text-xl font-bold text-purple-400">
-              {formatPercent(performance.max_drawdown)}
+              {formatPercent(performance.max_drawdown || 0)}
             </p>
           </Card>
 
@@ -587,21 +587,21 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
         </div>
 
         {/* Additional Performance Metrics */}
-        {(performance.sharpe_ratio || performance.volatility || performance.beta) && (
+        {((performance.sharpe_ratio && performance.sharpe_ratio !== 0) || (performance.volatility && performance.volatility !== 0) || (performance.beta && performance.beta !== 0)) && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {performance.sharpe_ratio && (
+            {(performance.sharpe_ratio && performance.sharpe_ratio !== 0) && (
               <Card className="p-4">
                 <p className="text-sm text-gray-400 mb-1">Sharpe Ratio</p>
                 <p className="text-lg font-bold text-white">{performance.sharpe_ratio.toFixed(2)}</p>
               </Card>
             )}
-            {performance.volatility && (
+            {(performance.volatility && performance.volatility !== 0) && (
               <Card className="p-4">
                 <p className="text-sm text-gray-400 mb-1">Volatility</p>
                 <p className="text-lg font-bold text-white">{(performance.volatility * 100).toFixed(2)}%</p>
               </Card>
             )}
-            {performance.beta && (
+            {(performance.beta && performance.beta !== 0) && (
               <Card className="p-4">
                 <p className="text-sm text-gray-400 mb-1">Beta</p>
                 <p className="text-lg font-bold text-white">{performance.beta.toFixed(2)}</p>

@@ -256,7 +256,7 @@ export function TradesView() {
             <p className="text-sm text-gray-400 mb-4">
               Connect a brokerage account from the Accounts section to view your trade history.
             </p>
-            <Button onClick={() => window.location.href = '#/accounts'}>
+            <Button onClick={() => useStore.getState().setActiveView('accounts')}>
               <Plus className="w-4 h-4 mr-2" />
               Go to Accounts
             </Button>
@@ -287,6 +287,11 @@ export function TradesView() {
               <span className="text-sm text-gray-300">
                 {selectedAccount.is_connected ? 'Connected' : 'Disconnected'}
               </span>
+              {selectedAccount.is_connected && (
+                <div className="ml-2 text-xs text-green-400">
+                  Market Status: {new Date().getHours() >= 9 && new Date().getHours() < 16 ? 'Open' : 'Closed'}
+                </div>
+              )}
               <Button variant="ghost" size="sm">
                 <ExternalLink className="w-4 h-4" />
               </Button>
