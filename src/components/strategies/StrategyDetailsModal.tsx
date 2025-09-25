@@ -159,6 +159,25 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
 
   const renderConfigurationTab = () => (
     <div className="space-y-6">
+      {/* Base Symbol Field */}
+      {strategy.base_symbol && (
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Base Symbol</label>
+          {isEditing ? (
+            <SymbolSearchInput
+              value={editedStrategy.base_symbol || ''}
+              onChange={(value) => setEditedStrategy(prev => ({ ...prev, base_symbol: value }))}
+              placeholder="Search for a symbol"
+              className="w-full"
+            />
+          ) : (
+            <div className="px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg">
+              <span className="text-white font-medium">{strategy.base_symbol}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Enhanced Spot Grid Configuration Display */}
       {strategy.type === 'spot_grid' && (
         <div className="space-y-4">
@@ -402,7 +421,20 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
               </label>
               {isEditing ? (
                 <div>
-                  {typeof value === 'number' ? (
+                  {key === 'symbol' ? (
+                    <SymbolSearchInput
+                      value={editedStrategy.configuration?.[key] || ''}
+                      onChange={(newValue) => setEditedStrategy(prev => ({
+                        ...prev,
+                        configuration: {
+                          ...prev.configuration,
+                          [key]: newValue
+                        }
+                      }))}
+                      placeholder="Search for a symbol"
+                      className="w-full"
+                    />
+                  ) : typeof value === 'number' ? (
                     <NumericInput
                       value={editedStrategy.configuration?.[key] || 0}
                       onChange={(newValue) => setEditedStrategy(prev => ({
@@ -435,18 +467,33 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                       <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   ) : typeof value === 'string' ? (
-                    <input
-                      type="text"
-                      value={editedStrategy.configuration?.[key] || ''}
-                      onChange={(e) => setEditedStrategy(prev => ({
-                        ...prev,
-                        configuration: {
-                          ...prev.configuration,
-                          [key]: e.target.value
-                        }
-                      }))}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                    />
+                    key === 'symbol' ? (
+                      <SymbolSearchInput
+                        value={editedStrategy.configuration?.[key] || ''}
+                        onChange={(newValue) => setEditedStrategy(prev => ({
+                          ...prev,
+                          configuration: {
+                            ...prev.configuration,
+                            [key]: newValue
+                          }
+                        }))}
+                        placeholder="Search for a symbol"
+                        className="w-full"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={editedStrategy.configuration?.[key] || ''}
+                        onChange={(e) => setEditedStrategy(prev => ({
+                          ...prev,
+                          configuration: {
+                            ...prev.configuration,
+                            [key]: e.target.value
+                          }
+                        }))}
+                        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      />
+                    )
                   ) : (
                     <textarea
                       value={JSON.stringify(editedStrategy.configuration?.[key] || value, null, 2)}
