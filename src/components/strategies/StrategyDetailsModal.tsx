@@ -530,31 +530,6 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
   );
 
   const renderPerformanceTab = () => {
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Standard Configuration */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {Object.entries(strategy.configuration || {}).map(([key, value]) => (
-          <div key={key}>
-            <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
-              {key.replace('_', ' ')}
-            </label>
-            <div className="px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg">
-              <span className="text-white">
-                {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderPerformanceTab = () => {
     const performance = strategy.performance;
     
     if (!performance) {
