@@ -3,7 +3,7 @@ Base strategy executor with common functionality
 """
 
 import logging
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -15,6 +15,7 @@ from alpaca.data.requests import StockLatestQuoteRequest, CryptoLatestQuoteReque
 from alpaca.data.enums import DataFeed
 
 from supabase import Client
+from technical_indicators import TechnicalIndicators as TI
 
 logger = logging.getLogger(__name__)
 

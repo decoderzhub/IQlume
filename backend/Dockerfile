@@ -1,5 +1,4 @@
-# ---------- Builder ----------
-FROM python:3.11-slim AS builder
+# syntax=docker/dockerfile:1.7
 
 # ---------- Builder ----------
 FROM python:3.11-slim AS builder
@@ -36,7 +35,7 @@ COPY . .
 EXPOSE 8000
 
 # healthcheck expects /health in your app; adjust if different
-HEALTHCHECK --interval=30s --timeout=5s --retries=5 \
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:${PORT}/health" || exit 1
 
 USER app
