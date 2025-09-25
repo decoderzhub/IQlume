@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { NumericInput } from '../ui/NumericInput';
 import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent } from '../../lib/utils';
 import { TelemetryDashboard } from './TelemetryDashboard';
