@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { NumericInput } from '../ui/NumericInput';
 import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent } from '../../lib/utils';
 import { TelemetryDashboard } from './TelemetryDashboard';
@@ -170,19 +171,68 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Mode:</span>
-                  <span className="text-white capitalize">{strategy.grid_mode || 'arithmetic'}</span>
+                  {isEditing ? (
+                    <select
+                      value={editedStrategy.grid_mode || 'arithmetic'}
+                      onChange={(e) => setEditedStrategy(prev => ({ ...prev, grid_mode: e.target.value as 'arithmetic' | 'geometric' }))}
+                      className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs"
+                    >
+                      <option value="arithmetic">Arithmetic</option>
+                      <option value="geometric">Geometric</option>
+                    </select>
+                  ) : (
+                    <span className="text-white capitalize">{strategy.grid_mode || 'arithmetic'}</span>
+                  )}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Quantity per Grid:</span>
-                  <span className="text-white">{strategy.quantity_per_grid || 'Auto-calculate'}</span>
+                  {isEditing ? (
+                    <NumericInput
+                      value={editedStrategy.quantity_per_grid || 0}
+                      onChange={(value) => setEditedStrategy(prev => ({ ...prev, quantity_per_grid: value }))}
+                      min={0}
+                      step={0.001}
+                      allowDecimals={true}
+                      className="w-20 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs"
+                      placeholder="Auto"
+                    />
+                  ) : (
+                    <span className="text-white">{strategy.quantity_per_grid || 'Auto-calculate'}</span>
+                  )}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Volume Threshold:</span>
-                  <span className="text-white">{strategy.volume_threshold || 'None'}</span>
+                  {isEditing ? (
+                    <NumericInput
+                      value={editedStrategy.volume_threshold || 0}
+                      onChange={(value) => setEditedStrategy(prev => ({ ...prev, volume_threshold: value }))}
+                      min={0}
+                      step={1000}
+                      className="w-20 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs"
+                      placeholder="None"
+                    />
+                  ) : (
+                    <span className="text-white">{strategy.volume_threshold || 'None'}</span>
+                  )}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Price Movement Threshold:</span>
-                  <span className="text-white">{strategy.price_movement_threshold || 0}%</span>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1">
+                      <NumericInput
+                        value={editedStrategy.price_movement_threshold || 0}
+                        onChange={(value) => setEditedStrategy(prev => ({ ...prev, price_movement_threshold: value }))}
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        allowDecimals={true}
+                        className="w-16 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs"
+                      />
+                      <span className="text-gray-400 text-xs">%</span>
+                    </div>
+                  ) : (
+                    <span className="text-white">{strategy.price_movement_threshold || 0}%</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -192,9 +242,21 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Auto Start:</span>
-                  <span className={`${strategy.auto_start ? 'text-green-400' : 'text-gray-400'}`}>
-                    {strategy.auto_start ? 'Enabled' : 'Disabled'}
-                  </span>
+                  {isEditing ? (
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editedStrategy.auto_start || false}
+                        onChange={(e) => setEditedStrategy(prev => ({ ...prev, auto_start: e.target.checked }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  ) : (
+                    <span className={`${strategy.auto_start ? 'text-green-400' : 'text-gray-400'}`}>
+                      {strategy.auto_start ? 'Enabled' : 'Disabled'}
+                    </span>
+                  )}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Execution Count:</span>
@@ -216,21 +278,54 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
               <h5 className="text-sm font-medium text-red-400 mb-3">Risk Management</h5>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {strategy.stop_loss_percent && (
-                  <div>
-                    <span className="text-gray-400 text-sm">Stop Loss:</span>
-                    <span className="text-red-400 ml-2 font-medium">{strategy.stop_loss_percent}%</span>
-                  </div>
-                )}
+                <div>
+                  <span className="text-gray-400 text-sm">Stop Loss:</span>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1 mt-1">
+                      <NumericInput
+                        value={editedStrategy.stop_loss_percent || 0}
+                        onChange={(value) => setEditedStrategy(prev => ({ ...prev, stop_loss_percent: value }))}
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        allowDecimals={true}
+                        className="w-20 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs"
+                        placeholder="0"
+                      />
+                      <span className="text-gray-400 text-xs">%</span>
+                    </div>
+                  ) : (
+                    <span className="text-red-400 ml-2 font-medium">
+                      {strategy.stop_loss_percent ? `${strategy.stop_loss_percent}%` : 'Not set'}
+                    </span>
+                  )}
+                </div>
                 
-                {strategy.trailing_stop_loss_percent && (
-                  <div>
-                    <span className="text-gray-400 text-sm">Trailing Stop:</span>
-                    <span className="text-red-400 ml-2 font-medium">{strategy.trailing_stop_loss_percent}%</span>
-                  </div>
-                )}
+                <div>
+                  <span className="text-gray-400 text-sm">Trailing Stop:</span>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1 mt-1">
+                      <NumericInput
+                        value={editedStrategy.trailing_stop_loss_percent || 0}
+                        onChange={(value) => setEditedStrategy(prev => ({ ...prev, trailing_stop_loss_percent: value }))}
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        allowDecimals={true}
+                        className="w-20 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs"
+                        placeholder="0"
+                      />
+                      <span className="text-gray-400 text-xs">%</span>
+                    </div>
+                  ) : (
+                    <span className="text-red-400 ml-2 font-medium">
+                      {strategy.trailing_stop_loss_percent ? `${strategy.trailing_stop_loss_percent}%` : 'Not set'}
+                    </span>
+                  )}
+                </div>
               </div>
               
+              {/* Take Profit Levels - Display only for now */}
               {strategy.take_profit_levels && strategy.take_profit_levels.length > 0 && (
                 <div className="mt-3">
                   <h6 className="text-sm font-medium text-green-400 mb-2">Take Profit Levels</h6>
@@ -249,41 +344,192 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
             </div>
           )}
           
-          {/* Technical Indicators */}
+          {/* Technical Indicators - Display only for now */}
           {strategy.technical_indicators && Object.values(strategy.technical_indicators).some((ind: any) => ind?.enabled) && (
             <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
               <h5 className="text-sm font-medium text-purple-400 mb-3">Technical Indicators</h5>
               
               <div className="space-y-2">
                 {strategy.technical_indicators.rsi?.enabled && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">RSI ({strategy.technical_indicators.rsi.period}):</span>
-                    <span className="text-white">
-                      Buy ≤{strategy.technical_indicators.rsi.buy_threshold}, Sell ≥{strategy.technical_indicators.rsi.sell_threshold}
-                    </span>
+                  <div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">RSI ({strategy.technical_indicators.rsi.period}):</span>
+                      <span className="text-white">
+                        Buy ≤{strategy.technical_indicators.rsi.buy_threshold}, Sell ≥{strategy.technical_indicators.rsi.sell_threshold}
+                      </span>
+                    </div>
                   </div>
                 )}
                 
                 {strategy.technical_indicators.macd?.enabled && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">MACD:</span>
-                    <span className="text-white">
-                      {strategy.technical_indicators.macd.additional_params?.fast_period}/
-                      {strategy.technical_indicators.macd.additional_params?.slow_period}/
-                      {strategy.technical_indicators.macd.additional_params?.signal_period}
-                    </span>
+                  <div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">MACD:</span>
+                      <span className="text-white">
+                        {strategy.technical_indicators.macd.additional_params?.fast_period}/
+                        {strategy.technical_indicators.macd.additional_params?.slow_period}/
+                        {strategy.technical_indicators.macd.additional_params?.signal_period}
+                      </span>
+                    </div>
                   </div>
                 )}
                 
                 {strategy.technical_indicators.bollinger_bands?.enabled && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Bollinger Bands:</span>
-                    <span className="text-white">
-                      Period {strategy.technical_indicators.bollinger_bands.period}, 
-                      StdDev {strategy.technical_indicators.bollinger_bands.additional_params?.std_dev}
-                    </span>
+                  <div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Bollinger Bands:</span>
+                      <span className="text-white">
+                        Period {strategy.technical_indicators.bollinger_bands.period}, 
+                        StdDev {strategy.technical_indicators.bollinger_bands.additional_params?.std_dev}
+                      </span>
+                    </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Standard Configuration */}
+      <div>
+        <h4 className="font-medium text-white mb-4">Strategy Configuration</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {Object.entries(strategy.configuration || {}).map(([key, value]) => (
+            <div key={key}>
+              <label className="block text-sm font-medium text-gray-300 mb-2 capitalize">
+                {key.replace('_', ' ')}
+              </label>
+              {isEditing ? (
+                <div>
+                  {typeof value === 'number' ? (
+                    <NumericInput
+                      value={editedStrategy.configuration?.[key] || 0}
+                      onChange={(newValue) => setEditedStrategy(prev => ({
+                        ...prev,
+                        configuration: {
+                          ...prev.configuration,
+                          [key]: newValue
+                        }
+                      }))}
+                      min={key.includes('percent') ? 0 : undefined}
+                      max={key.includes('percent') ? 100 : undefined}
+                      step={key.includes('percent') ? 0.1 : key.includes('price') ? 0.01 : 1}
+                      allowDecimals={true}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    />
+                  ) : typeof value === 'boolean' ? (
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editedStrategy.configuration?.[key] || false}
+                        onChange={(e) => setEditedStrategy(prev => ({
+                          ...prev,
+                          configuration: {
+                            ...prev.configuration,
+                            [key]: e.target.checked
+                          }
+                        }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  ) : typeof value === 'string' ? (
+                    <input
+                      type="text"
+                      value={editedStrategy.configuration?.[key] || ''}
+                      onChange={(e) => setEditedStrategy(prev => ({
+                        ...prev,
+                        configuration: {
+                          ...prev.configuration,
+                          [key]: e.target.value
+                        }
+                      }))}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    />
+                  ) : (
+                    <textarea
+                      value={JSON.stringify(editedStrategy.configuration?.[key] || value, null, 2)}
+                      onChange={(e) => {
+                        try {
+                          const parsedValue = JSON.parse(e.target.value);
+                          setEditedStrategy(prev => ({
+                            ...prev,
+                            configuration: {
+                              ...prev.configuration,
+                              [key]: parsedValue
+                            }
+                          }));
+                        } catch (error) {
+                          // Invalid JSON, don't update
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white font-mono text-xs"
+                      rows={3}
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg">
+                  <span className="text-white">
+                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Risk Level and Min Capital */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Risk Level</label>
+          {isEditing ? (
+            <select
+              value={editedStrategy.risk_level}
+              onChange={(e) => setEditedStrategy(prev => ({ ...prev, risk_level: e.target.value as 'low' | 'medium' | 'high' }))}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+            >
+              <option value="low">Low Risk</option>
+              <option value="medium">Medium Risk</option>
+              <option value="high">High Risk</option>
+            </select>
+          ) : (
+            <div className="px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg">
+              <span className={`px-2 py-1 rounded text-sm font-medium border ${getRiskColor(strategy.risk_level)}`}>
+                {strategy.risk_level}
+              </span>
+            </div>
+          )}
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Minimum Capital</label>
+          {isEditing ? (
+            <NumericInput
+              value={editedStrategy.min_capital}
+              onChange={(value) => setEditedStrategy(prev => ({ ...prev, min_capital: value }))}
+              min={100}
+              step={100}
+              prefix="$"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+            />
+          ) : (
+            <div className="px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg">
+              <span className="text-white">{formatCurrency(strategy.min_capital)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderTelemetryTab = () => (
+    <TelemetryDashboard strategy={strategy} />
+  );
+
+  const renderPerformanceTab = () => {
               </div>
             </div>
           )}
@@ -483,7 +729,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
           {/* Tab Content */}
           <div className="min-h-[400px]">
             {activeTab === 'overview' && renderOverviewTab()}
-            {activeTab === 'telemetry' && <TelemetryDashboard strategy={strategy} />}
+            {activeTab === 'telemetry' && renderTelemetryTab()}
             {activeTab === 'configuration' && renderConfigurationTab()}
             {activeTab === 'performance' && renderPerformanceTab()}
             {activeTab === 'risk' && renderRiskTab()}
