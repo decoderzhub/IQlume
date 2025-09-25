@@ -412,6 +412,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         </div>
 
         {/* Strategy-specific configuration */}
+        <>
         {selectedType === 'covered_calls' && (
           <div className="space-y-4">
             <h4 className="font-medium text-white">Covered Calls Configuration</h4>
@@ -626,6 +627,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
           </div>
         )}
+        </>
       </div>
     );
   };
