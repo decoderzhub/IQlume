@@ -10,6 +10,7 @@ from dependencies import (
     get_alpaca_stock_data_client,
     get_alpaca_crypto_data_client,
 )
+from strategy_executors.factory import StrategyExecutorFactory
 
 logger = logging.getLogger(__name__)
 
@@ -161,29 +162,28 @@ class TradingScheduler:
             
             logger.info(f"✅ Trading clients obtained successfully")
             
-            # Execute strategy based on type
-            result = None
-            if strategy_type == "spot_grid":
-                from routers.strategies import execute_spot_grid_strategy
-                result = await execute_spot_grid_strategy(strategy, trading_client, stock_client, crypto_client, self.supabase)
-            elif strategy_type == "dca":
-                from routers.strategies import execute_dca_strategy
-                result = await execute_dca_strategy(strategy, trading_client, stock_client, crypto_client, self.supabase)
-            elif strategy_type == "covered_calls":
-                from routers.strategies import execute_covered_calls_strategy
-                result = await execute_covered_calls_strategy(strategy, trading_client, stock_client, crypto_client, self.supabase)
-            elif strategy_type == "wheel":
-                from routers.strategies import execute_wheel_strategy
-                result = await execute_wheel_strategy(strategy, trading_client, stock_client, crypto_client, self.supabase)
-            elif strategy_type == "smart_rebalance":
-                from routers.strategies import execute_smart_rebalance_strategy
-                result = await execute_smart_rebalance_strategy(strategy, trading_client, stock_client, crypto_client, self.supabase)
-            else:
-                logger.warning(f"⚠️ Strategy type {strategy_type} not implemented for autonomous execution")
+            # Get strategy executor from factory
+            executor = StrategyExecutorFactory.create_executor(
+                strategy_type,
+                trading_client,
+                stock_client,
+                crypto_client,
+                self.supabase
+            )
+            
+            if not executor:
+                logger.warning(f"⚠️ No executor available for strategy type: {strategy_type}")
                 result = {
                     "action": "hold",
-                    "reason": f"Strategy type {strategy_type} not implemented for autonomous execution"
+                    "symbol": strategy.get("configuration", {}).get("symbol", "N/A"),
+                    "quantity": 0,
+                    "price": 0,
+                    "reason": f"Strategy type {strategy_type} not yet implemented"
                 }
+            else:
+                # Execute strategy using the appropriate executor
+                logger.info(f"🚀 Executing {strategy_type} strategy with dedicated executor")
+                result = await executor.execute(strategy)
             
             logger.info(f"📊 [SCHEDULER] Strategy execution result: {result}")
             
@@ -213,22 +213,22 @@ class TradingScheduler:
                     
                     if trade_resp.data:
                         trade_id = trade_resp.data[0]["id"]
-                        self.logger.info(f"✅ [SCHEDULER] Trade recorded in database: {trade_id}")
+                        logger.info(f"✅ [SCHEDULER] Trade recorded in database: {trade_id}")
                         
                         # Update result with trade ID for logging
                         result["trade_id"] = trade_id
                     else:
-                        self.logger.error(f"❌ [SCHEDULER] Failed to record trade in database")
+                        logger.error(f"❌ [SCHEDULER] Failed to record trade in database")
                         
                 except Exception as trade_error:
-                    self.logger.error(f"❌ [SCHEDULER] Error recording trade: {trade_error}")
+                    logger.error(f"❌ [SCHEDULER] Error recording trade: {trade_error}")
             
             # Update strategy performance if trade was executed
             if result and result.get("action") in ["buy", "sell"]:
                 try:
                     from routers.strategies import update_strategy_performance
-                    await update_strategy_performance(strategy.get("id"), strategy.get("user_id"), self.supabase, trading_client)
-                    logger.info(f"📊 Updated performance for strategy {strategy.get('name')}")
+                    await update_strategy_performance(strategy_id, user_id, self.supabase, trading_client)
+                    logger.info(f"📊 Updated performance for strategy {strategy_name}")
                 except Exception as perf_error:
                     logger.error(f"❌ Failed to update strategy performance: {perf_error}")
             
@@ -241,15 +241,15 @@ class TradingScheduler:
                 from sse_manager import publish
                 update_data = {
                     "type": "trade_executed",
-                    "strategy_id": strategy.get("id"),
-                    "strategy_name": strategy.get("name"),
+                    "strategy_id": strategy_id,
+                    "strategy_name": strategy_name,
                     "action": result.get("action", "unknown"),
                     "symbol": result.get("symbol", "N/A"),
                     "quantity": result.get("quantity", 0),
                     "price": result.get("price", 0),
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }
-                await publish(strategy.get("user_id"), update_data)
+                await publish(user_id, update_data)
                 logger.info(f"📡 Broadcasted SSE update to user {user_id}")
             except Exception as broadcast_error:
                 logger.error(f"Error broadcasting update: {broadcast_error}")

@@ -466,7 +466,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   placeholder="e.g., BTC, ETH, AAPL"
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  Enter symbol (crypto or stock)
+                  Enter symbol (crypto or stock) - Predictive dropdown coming soon
                 </p>
               </div>
               
