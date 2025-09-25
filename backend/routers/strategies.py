@@ -27,7 +27,6 @@ from schemas import (
     TechnicalIndicators, 
     TelemetryData
 )
-from strategy_executors.factory import StrategyExecutorFactory
 
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
