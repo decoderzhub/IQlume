@@ -74,5 +74,5 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             set -e
-            curl -fsSL --retry 5 --retry-connrefused --retry-delay 2 https://api.handler.brokernomex.com/health \
+            curl -fsSL --retry 5 --retry-connrefused --retry-delay 5 https://api.handler.brokernomex.com/health \
               || (docker logs $(docker compose ps -q backend) | tail -n 200 && exit 1)
