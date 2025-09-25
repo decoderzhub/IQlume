@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { NumericInput } from '../ui/NumericInput';
 import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent } from '../../lib/utils';
 import { TelemetryDashboard } from './TelemetryDashboard';
@@ -704,7 +703,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
           {/* Tab Content */}
           <div className="min-h-[400px]">
             {activeTab === 'overview' && renderOverviewTab()}
-            {activeTab === 'telemetry' && renderTelemetryTab()}
+            {activeTab === 'telemetry' && <TelemetryDashboard strategy={strategy} />}
             {activeTab === 'configuration' && renderConfigurationTab()}
             {activeTab === 'performance' && renderPerformanceTab()}
             {activeTab === 'risk' && renderRiskTab()}
