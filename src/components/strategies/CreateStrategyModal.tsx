@@ -19,6 +19,7 @@ import {
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { NumericInput } from '../ui/NumericInput';
+import { NumericInput } from '../ui/NumericInput';
 import { OptionsBellCurve } from './OptionsBellCurve';
 import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';
@@ -220,7 +221,9 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     description: '',
     risk_level: 'medium' as TradingStrategy['risk_level'],
     min_capital: 10000,
-    is_active: false,
+    configuration: {
+      symbol: 'AAPL', // Default for covered_calls
+    },
   });
   const [assetSearchTerms, setAssetSearchTerms] = useState<Record<number, string>>({});
   const [assetSuggestions, setAssetSuggestions] = useState<Record<number, TradableAsset[]>>({});
@@ -447,6 +450,36 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const selectedStrategyType = selectedCategoryData?.strategies.find(s => s.type === selectedType);
   const selectedAccountData = brokerageAccounts.find(acc => acc.id === selectedAccount);
   const userTier = getEffectiveSubscriptionTier();
+
+  // Update default symbol when strategy type changes
+  useEffect(() => {
+    const getDefaultSymbol = (strategyType: string): string => {
+      // Crypto-related strategies
+      if (['spot_grid', 'futures_grid', 'infinity_grid', 'dca', 'smart_rebalance'].includes(strategyType)) {
+        return 'BTC/USD';
+      }
+      
+      // Stock/options-related strategies
+      return 'AAPL';
+    };
+
+    const defaultSymbol = getDefaultSymbol(newStrategy.type);
+    
+    // Only update if the current symbol is empty or if we're switching strategy types
+    if (!newStrategy.configuration?.symbol || 
+        (newStrategy.configuration.symbol !== defaultSymbol && 
+         ((newStrategy.configuration.symbol === 'BTC/USD' && !['spot_grid', 'futures_grid', 'infinity_grid', 'dca', 'smart_rebalance'].includes(newStrategy.type)) ||
+          (newStrategy.configuration.symbol === 'AAPL' && ['spot_grid', 'futures_grid', 'infinity_grid', 'dca', 'smart_rebalance'].includes(newStrategy.type))))) {
+      
+      setNewStrategy(prev => ({
+        ...prev,
+        configuration: {
+          ...prev.configuration,
+          symbol: defaultSymbol,
+        }
+      }));
+    }
+  }, [newStrategy.type]);
 
   const tierOrder = { starter: 0, pro: 1, elite: 2 };
   const hasAccess = (requiredTier: string) => tierOrder[userTier] >= tierOrder[requiredTier as keyof typeof tierOrder];
