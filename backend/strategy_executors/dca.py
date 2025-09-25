@@ -8,6 +8,9 @@ DCA involves making regular purchases of an asset regardless of price.
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
+from alpaca.trading.requests import MarketOrderRequest
+from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.common.exceptions import APIError as AlpacaAPIError
 from .base import BaseStrategyExecutor
 
 logger = logging.getLogger(__name__)
@@ -48,13 +51,45 @@ class DCAExecutor(BaseStrategyExecutor):
                 # Calculate quantity to buy
                 quantity = investment_amount / current_price
                 
-                return {
-                    "action": "buy",
-                    "symbol": symbol,
-                    "quantity": quantity,
-                    "price": current_price,
-                    "reason": f"DCA {frequency} investment of ${investment_amount}"
-                }
+                # Try to place the order with Alpaca
+                try:
+                    order_request = MarketOrderRequest(
+                        symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
+                        qty=quantity,
+                        side=OrderSide.BUY,
+                        time_in_force=TimeInForce.DAY
+                    )
+                    
+                    # Submit order to Alpaca
+                    order = self.trading_client.submit_order(order_request)
+                    
+                    return {
+                        "action": "buy",
+                        "symbol": symbol,
+                        "quantity": quantity,
+                        "price": current_price,
+                        "order_id": str(order.id),
+                        "reason": f"DCA {frequency} investment of ${investment_amount} | Order ID: {order.id}"
+                    }
+                    
+                except AlpacaAPIError as e:
+                    self.logger.error(f"❌ [DCA] Failed to place order with Alpaca: {e}")
+                    return {
+                        "action": "error",
+                        "symbol": symbol,
+                        "quantity": 0,
+                        "price": current_price,
+                        "reason": f"Failed to place DCA order: {str(e)}"
+                    }
+                except Exception as e:
+                    self.logger.error(f"❌ [DCA] Unexpected error placing order: {e}")
+                    return {
+                        "action": "error",
+                        "symbol": symbol,
+                        "quantity": 0,
+                        "price": current_price,
+                        "reason": f"Unexpected error: {str(e)}"
+                    }
             else:
                 return {
                     "action": "hold",

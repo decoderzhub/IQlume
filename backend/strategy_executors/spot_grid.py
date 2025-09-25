@@ -105,6 +105,37 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 symbol
             )
             
+            # If we have a buy or sell action, try to place the order with Alpaca
+            if action_result.get("action") in ["buy", "sell"]:
+                try:
+                    order_side = OrderSide.BUY if action_result["action"] == "buy" else OrderSide.SELL
+                    
+                    # Create market order request
+                    order_request = MarketOrderRequest(
+                        symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
+                        qty=action_result["quantity"],
+                        side=order_side,
+                        time_in_force=TimeInForce.DAY
+                    )
+                    
+                    # Submit order to Alpaca
+                    order = self.trading_client.submit_order(order_request)
+                    
+                    # Add order ID to result
+                    action_result["order_id"] = str(order.id)
+                    action_result["reason"] += f" | Order ID: {order.id}"
+                    
+                    self.logger.info(f"✅ [GRID] Order placed with Alpaca: {order.id}")
+                    
+                except AlpacaAPIError as e:
+                    self.logger.error(f"❌ [GRID] Failed to place order with Alpaca: {e}")
+                    action_result["action"] = "error"
+                    action_result["reason"] = f"Failed to place order: {str(e)}"
+                except Exception as e:
+                    self.logger.error(f"❌ [GRID] Unexpected error placing order: {e}")
+                    action_result["action"] = "error"
+                    action_result["reason"] = f"Unexpected error: {str(e)}"
+            
             # Update telemetry
             telemetry_data = self.calculate_telemetry(
                 strategy_data,

@@ -187,6 +187,42 @@ class TradingScheduler:
             
             logger.info(f"📊 [SCHEDULER] Strategy execution result: {result}")
             
+            # Record trade in Supabase if action was taken
+            if result and result.get("action") in ["buy", "sell"]:
+                try:
+                    trade_data = {
+                        "user_id": user_id,
+                        "strategy_id": strategy_id,
+                        "symbol": result.get("symbol", "UNKNOWN"),
+                        "type": result.get("action"),  # "buy" or "sell"
+                        "quantity": result.get("quantity", 0),
+                        "price": result.get("price", 0),
+                        "profit_loss": 0,  # Will be updated by trade sync service
+                        "status": "pending",  # Initial status
+                        "order_type": "market",  # Default order type
+                        "time_in_force": "day",  # Default time in force
+                        "filled_qty": 0,  # Will be updated by trade sync service
+                        "filled_avg_price": 0,  # Will be updated by trade sync service
+                        "commission": 0,  # Will be updated by trade sync service
+                        "fees": 0,  # Will be updated by trade sync service
+                        "alpaca_order_id": result.get("order_id"),  # If available from execution
+                    }
+                    
+                    # Insert trade record into Supabase
+                    trade_resp = self.supabase.table("trades").insert(trade_data).execute()
+                    
+                    if trade_resp.data:
+                        trade_id = trade_resp.data[0]["id"]
+                        self.logger.info(f"✅ [SCHEDULER] Trade recorded in database: {trade_id}")
+                        
+                        # Update result with trade ID for logging
+                        result["trade_id"] = trade_id
+                    else:
+                        self.logger.error(f"❌ [SCHEDULER] Failed to record trade in database")
+                        
+                except Exception as trade_error:
+                    self.logger.error(f"❌ [SCHEDULER] Error recording trade: {trade_error}")
+            
             # Update strategy performance if trade was executed
             if result and result.get("action") in ["buy", "sell"]:
                 try:

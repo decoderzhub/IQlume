@@ -23,7 +23,7 @@ const strategiesToSeed = [
     description: 'Automates buy-low/sell-high trades within a defined price range for cryptocurrency trading.',
     risk_level: 'low',
     min_capital: 1000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 1000,
       price_range_lower: 0,
@@ -38,7 +38,7 @@ const strategiesToSeed = [
     description: 'Grid trading on futures market with leverage support for advanced traders.',
     risk_level: 'medium',
     min_capital: 2000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 2000,
       symbol: 'BTC/USDT',
@@ -69,7 +69,7 @@ const strategiesToSeed = [
     description: 'Grid trading without upper price limit for trending markets and bull runs.',
     risk_level: 'medium',
     min_capital: 1500,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 1500,
       symbol: 'ETH/USDT',
@@ -97,7 +97,7 @@ const strategiesToSeed = [
     description: 'Automatically invests at fixed intervals to minimize volatility risk through systematic purchasing.',
     risk_level: 'low',
     min_capital: 500,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 500,
       symbol: 'BTC/USDT',
@@ -125,7 +125,7 @@ const strategiesToSeed = [
     description: 'Maintains target allocations in a portfolio of selected assets through automatic rebalancing.',
     risk_level: 'low',
     min_capital: 5000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 5000,
       assets: [
@@ -157,7 +157,7 @@ const strategiesToSeed = [
     description: 'Generate income by selling call options on owned stocks while maintaining the underlying position.',
     risk_level: 'low',
     min_capital: 15000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 15000,
       symbol: 'AAPL',
@@ -188,7 +188,7 @@ const strategiesToSeed = [
     description: 'Profit from low volatility with defined risk spreads on an underlying asset.',
     risk_level: 'medium',
     min_capital: 5000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 5000,
       symbol: 'SPY',
@@ -219,7 +219,7 @@ const strategiesToSeed = [
     description: 'Profit from high volatility in either direction using long straddle options strategy.',
     risk_level: 'medium',
     min_capital: 8000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 8000,
       symbol: 'SPY',
@@ -250,7 +250,7 @@ const strategiesToSeed = [
     description: 'Systematic approach combining cash-secured puts and covered calls for consistent income generation.',
     risk_level: 'low',
     min_capital: 20000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 20000,
       symbol: 'AAPL',
@@ -281,7 +281,7 @@ const strategiesToSeed = [
     description: 'Trade breakouts from the first 15-30 minutes of market open for momentum capture.',
     risk_level: 'medium',
     min_capital: 5000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 5000,
       symbol: 'SPY',
@@ -311,7 +311,7 @@ const strategiesToSeed = [
     description: 'Bullish momentum play using long call options for leveraged upside exposure on an underlying asset.',
     risk_level: 'medium',
     min_capital: 5000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 5000,
       symbol: 'AAPL',
@@ -371,7 +371,7 @@ const strategiesToSeed = [
     description: 'Range-bound profit strategy using long condor spreads on an underlying asset for sideways market conditions.',
     risk_level: 'low',
     min_capital: 3000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 3000,
       symbol: 'SPY',
@@ -402,7 +402,7 @@ const strategiesToSeed = [
     description: 'Low volatility income strategy using iron butterfly on an underlying stock for range-bound markets.',
     risk_level: 'medium',
     min_capital: 4000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 4000,
       symbol: 'SPY',
@@ -433,7 +433,7 @@ const strategiesToSeed = [
     description: 'High-risk premium collection strategy selling naked calls on an underlying stock with defined risk management.',
     risk_level: 'high',
     min_capital: 15000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 15000,
       symbol: 'AAPL',
@@ -463,7 +463,7 @@ const strategiesToSeed = [
     description: 'Ultra-high risk volatility selling strategy using short straddles on an underlying stock for premium income.',
     risk_level: 'high',
     min_capital: 20000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 20000,
       symbol: 'SPY',
@@ -494,7 +494,7 @@ const strategiesToSeed = [
     description: 'Precision targeting strategy using long butterfly spreads on an underlying asset for specific price level profits.',
     risk_level: 'low',
     min_capital: 2500,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 2500,
       symbol: 'SPY',
@@ -524,7 +524,7 @@ const strategiesToSeed = [
     description: 'Directional volatility strategy using long strangles on an underlying asset for large directional moves.',
     risk_level: 'medium',
     min_capital: 6000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 6000,
       symbol: 'SPY',
@@ -555,7 +555,7 @@ const strategiesToSeed = [
     description: 'Bearish spread strategy using short call verticals on an underlying stock with defined maximum risk.',
     risk_level: 'medium',
     min_capital: 3000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 3000,
       symbol: 'QQQ',
@@ -648,7 +648,7 @@ const strategiesToSeed = [
     description: 'Bullish spread strategy using short put verticals on an underlying asset with limited risk profile.',
     risk_level: 'medium',
     min_capital: 2500,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 2500,
       symbol: 'QQQ',
@@ -741,7 +741,7 @@ const strategiesToSeed = [
     description: 'Contrarian strategy that profits from price reversions to the mean using statistical analysis.',
     risk_level: 'medium',
     min_capital: 7500,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 7500,
       symbol: 'SPY',
@@ -771,7 +771,7 @@ const strategiesToSeed = [
     description: 'Trend following strategy that captures momentum breakouts using technical indicators.',
     risk_level: 'medium',
     min_capital: 6000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 6000,
       symbol: 'QQQ',
@@ -801,7 +801,7 @@ const strategiesToSeed = [
     description: 'Market neutral strategy trading correlated pairs to profit from relative price movements.',
     risk_level: 'low',
     min_capital: 10000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 10000,
       pair_symbols: ['AAPL', 'MSFT'],
@@ -831,7 +831,7 @@ const strategiesToSeed = [
     description: 'High frequency scalping strategy for quick profits on small price movements.',
     risk_level: 'high',
     min_capital: 15000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 15000,
       symbol: 'SPY',
@@ -861,7 +861,7 @@ const strategiesToSeed = [
     description: 'Multi-day swing trading strategy capturing intermediate price movements using technical analysis.',
     risk_level: 'medium',
     min_capital: 8000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 8000,
       symbol: 'QQQ',
@@ -893,7 +893,7 @@ const strategiesToSeed = [
     description: 'Cross-exchange arbitrage strategy exploiting price differences between trading venues.',
     risk_level: 'low',
     min_capital: 12000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 12000,
       symbol: 'BTC/USDT',
@@ -922,7 +922,7 @@ const strategiesToSeed = [
     description: 'Event-driven strategy that trades based on news sentiment and market reactions.',
     risk_level: 'high',
     min_capital: 10000,
-    is_active: false,
+    is_active: true,
     configuration: {
       allocated_capital: 10000,
       symbol: 'SPY',
