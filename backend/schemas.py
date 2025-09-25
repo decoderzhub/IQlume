@@ -89,7 +89,7 @@ class TradingStrategyBase(BaseModel):
     description: Optional[str] = None
     risk_level: RiskLevel = RiskLevel.MEDIUM
     min_capital: float = 0.0
-    is_active: bool = False
+    is_active: bool = True
 
     # Universal Bot Fields - simplified to match frontend
     account_id: Optional[str] = None
