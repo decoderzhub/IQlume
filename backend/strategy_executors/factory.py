@@ -6,7 +6,7 @@ based on the strategy type.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from alpaca.trading.client import TradingClient
 from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
 from supabase import Client

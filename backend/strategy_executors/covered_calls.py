@@ -6,7 +6,7 @@ Covered calls involve owning stock and selling call options against it.
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from .base import BaseStrategyExecutor
 
 logger = logging.getLogger(__name__)

@@ -7,7 +7,7 @@ Each strategy type will inherit from BaseStrategyExecutor and implement its spec
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from alpaca.trading.client import TradingClient
 from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient

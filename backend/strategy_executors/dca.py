@@ -6,7 +6,7 @@ DCA involves making regular purchases of an asset regardless of price.
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 from .base import BaseStrategyExecutor
 

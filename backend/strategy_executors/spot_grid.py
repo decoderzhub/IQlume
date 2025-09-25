@@ -6,7 +6,7 @@ Grid trading involves placing buy and sell orders at regular intervals above and
 """
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Any as AnyType
 from datetime import datetime, timezone
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
