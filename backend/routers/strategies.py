@@ -44,7 +44,7 @@ async def create_strategy(
         logger.info(f"➕ Creating new strategy for user {current_user.id}: {strategy_data.name}")
         
         # Convert Pydantic model to dictionary for Supabase insert
-        strategy_dict = strategy_data.model_dump()
+        strategy_dict = strategy_data.model_dump(mode='json')
         strategy_dict["user_id"] = current_user.id
         
         # Ensure enum values are strings for Supabase
@@ -63,9 +63,9 @@ async def create_strategy(
         
         # Handle nested Pydantic models for JSONB fields
         if strategy_dict.get("technical_indicators"):
-            strategy_dict["technical_indicators"] = TechnicalIndicators(**strategy_dict["technical_indicators"]).model_dump()
+            strategy_dict["technical_indicators"] = TechnicalIndicators(**strategy_dict["technical_indicators"]).model_dump(mode='json')
         if strategy_dict.get("telemetry_data"):
-            strategy_dict["telemetry_data"] = TelemetryData(**strategy_dict["telemetry_data"]).model_dump()
+            strategy_dict["telemetry_data"] = TelemetryData(**strategy_dict["telemetry_data"]).model_dump(mode='json')
 
         resp = supabase.table("trading_strategies").insert(strategy_dict).execute()
         
@@ -140,7 +140,7 @@ async def update_strategy(
         logger.info(f"✏️ Updating strategy {strategy_id} for user {current_user.id}")
         
         # Convert Pydantic model to dictionary for Supabase update
-        update_dict = strategy_data.model_dump(exclude_unset=True)
+        update_dict = strategy_data.model_dump(exclude_unset=True, mode='json')
         
         # Ensure enum values are strings for Supabase
         if isinstance(update_dict.get("risk_level"), RiskLevel):
@@ -158,9 +158,9 @@ async def update_strategy(
             
         # Handle nested Pydantic models for JSONB fields
         if update_dict.get("technical_indicators"):
-            update_dict["technical_indicators"] = TechnicalIndicators(**update_dict["technical_indicators"]).model_dump()
+            update_dict["technical_indicators"] = TechnicalIndicators(**update_dict["technical_indicators"]).model_dump(mode='json')
         if update_dict.get("telemetry_data"):
-            update_dict["telemetry_data"] = TelemetryData(**update_dict["telemetry_data"]).model_dump()
+            update_dict["telemetry_data"] = TelemetryData(**update_dict["telemetry_data"]).model_dump(mode='json')
 
         resp = supabase.table("trading_strategies").update(update_dict).eq("id", strategy_id).eq("user_id", current_user.id).execute()
         
