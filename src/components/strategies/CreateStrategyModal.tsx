@@ -197,6 +197,21 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const handleCreateStrategy = () => {
     if (!strategy.name || !strategy.type) return;
 
+    // Show immediate execution notice
+    const confirmMessage = `Create and immediately execute "${strategy.name}"?\n\n` +
+      `This strategy will:\n` +
+      `• Be saved to your database\n` +
+      `• Execute immediately if market is open\n` +
+      `• Place its first trade automatically\n` +
+      `• Continue running autonomously\n\n` +
+      `Symbol: ${strategy.configuration?.symbol || 'N/A'}\n` +
+      `Capital: ${formatCurrency(strategy.configuration?.allocated_capital || 0)}\n` +
+      `Risk Level: ${strategy.risk_level}`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
     // Validation for spot grid
     if (selectedType === 'spot_grid') {
       if (!strategy.account_id) {
@@ -420,14 +435,14 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
-                <input
-                  type="text"
+                <SymbolSearchInput
                   value={strategy.configuration?.symbol || 'AAPL'}
                   onChange={(e) => setStrategy(prev => ({
                     ...prev,
-                    configuration: { ...prev.configuration, symbol: e.target.value.toUpperCase() }
+                    configuration: { ...prev.configuration, symbol: e }
                   }))}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  placeholder="Search for a stock symbol (e.g., AAPL, MSFT)"
+                  className="w-full"
                 />
               </div>
               <div>
