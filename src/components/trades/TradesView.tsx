@@ -37,7 +37,7 @@ export function TradesView() {
   const [stats, setStats] = useState<TradeStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('1');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'buy' | 'sell'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'executed' | 'pending' | 'failed'>('all');
@@ -48,18 +48,20 @@ export function TradesView() {
 
   // Set default selected account to first connected account
   useEffect(() => {
-    if (brokerageAccounts.length > 0 && !selectedAccountId) {
+    if (brokerageAccounts.length > 0 && selectedAccountId === null) {
       const firstConnectedAccount = brokerageAccounts.find(acc => acc.is_connected);
       if (firstConnectedAccount) {
         setSelectedAccountId(firstConnectedAccount.id);
       } else {
         setSelectedAccountId(brokerageAccounts[0].id);
       }
+    } else if (brokerageAccounts.length === 0) {
+      setSelectedAccountId(null);
     }
   }, [brokerageAccounts, selectedAccountId]);
 
-  const loadTradesForAccount = async (accountId: string) => {
-    if (!user) {
+  const loadTradesForAccount = async (accountId: string | null) => {
+    if (!user || !accountId) {
       setLoading(false);
       return;
     }
@@ -78,6 +80,7 @@ export function TradesView() {
       // Build query parameters for date range filtering
       const params = new URLSearchParams();
       params.append('limit', '100');
+      params.append('account_id', accountId);
       
       if (dateRange !== 'all') {
         const days = dateRange === '1d' ? 1 : dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;

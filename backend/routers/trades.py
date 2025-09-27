@@ -97,6 +97,7 @@ async def get_portfolio(
 @router.get("/trades")
 async def get_trades(
     limit: Optional[int] = Query(50, description="Maximum number of trades to return"),
+    account_id: Optional[str] = Query(None, description="Filter trades by brokerage account ID"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -107,8 +108,37 @@ async def get_trades(
     try:
         logger.info(f"📋 Fetching trades from Supabase for user {current_user.id}")
         
-        # Build Supabase query
-        query = supabase.table("trades").select("*").eq("user_id", current_user.id)
+        # If account_id is provided, filter trades by strategies associated with that account
+        if account_id:
+            logger.info(f"🔍 Filtering trades by account_id: {account_id}")
+            
+            # First, get strategy IDs associated with this account
+            strategy_resp = supabase.table("trading_strategies").select("id").eq("user_id", current_user.id).eq("account_id", account_id).execute()
+            
+            strategy_ids = [s["id"] for s in (strategy_resp.data or [])]
+            logger.info(f"📊 Found {len(strategy_ids)} strategies for account {account_id}")
+            
+            if not strategy_ids:
+                # No strategies found for this account, return empty results
+                logger.info(f"📭 No strategies found for account {account_id}, returning empty results")
+                return {
+                    "trades": [],
+                    "stats": {
+                        "total_trades": 0,
+                        "executed_trades": 0,
+                        "pending_trades": 0,
+                        "failed_trades": 0,
+                        "total_profit_loss": 0,
+                        "win_rate": 0,
+                        "avg_trade_duration": 0,
+                    }
+                }
+            
+            # Build query filtered by strategy IDs
+            query = supabase.table("trades").select("*").eq("user_id", current_user.id).in_("strategy_id", strategy_ids)
+        else:
+            # Build Supabase query for all user trades
+            query = supabase.table("trades").select("*").eq("user_id", current_user.id)
         
         # Apply date filters
         if start_date:
