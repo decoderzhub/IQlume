@@ -86,7 +86,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const { brokerageAccounts, getEffectiveSubscriptionTier, user } = useStore();
   const [selectedType, setSelectedType] = useState<string>('');
   const [step, setStep] = useState<'type' | 'config' | 'review'>('type');
-  const [isFetchingSymbolData, setIsFetchingSymbolData] = useState(false);
+  const [isAIConfiguring, setIsAIConfiguring] = useState(false);
   const [strategy, setStrategy] = useState<Partial<TradingStrategy>>({
     name: '',
     description: '',
@@ -192,6 +192,66 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         };
       default:
         return {};
+    }
+  };
+
+  const handleAIConfigure = async () => {
+    if (!strategy.configuration?.symbol || !user) {
+      alert('Please select a symbol first');
+      return;
+    }
+
+    setIsAIConfiguring(true);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No valid session found. Please log in again.');
+      }
+
+      console.log(`🤖 AI configuring grid range for ${strategy.configuration.symbol}...`);
+      
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/ai-configure-grid-range`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          symbol: strategy.configuration.symbol,
+          allocated_capital: strategy.configuration?.allocated_capital || 1000,
+          number_of_grids: strategy.configuration?.number_of_grids || 20,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to get AI configuration: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ AI configuration received:', data);
+      
+      // Update strategy with AI-configured limits
+      setStrategy(prev => ({
+        ...prev,
+        configuration: {
+          ...prev.configuration,
+          price_range_lower: data.lower_limit,
+          price_range_upper: data.upper_limit,
+        }
+      }));
+      
+      // Show success message with reasoning
+      if (data.reasoning) {
+        alert(`✅ AI Configuration Complete!\n\n${data.reasoning}`);
+      }
+      
+    } catch (error) {
+      console.error('Error in AI configuration:', error);
+      alert(`Failed to configure grid range: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsAIConfiguring(false);
     }
   };
 
@@ -548,14 +608,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   }))}
                   placeholder="Search for a symbol (e.g., BTC, ETH, AAPL)"
                   className="w-full"
-                  disabled={isFetchingSymbolData}
                 />
-                {isFetchingSymbolData && (
-                  <div className="flex items-center gap-2 mt-2 text-sm text-blue-400">
-                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    <span>Fetching yearly price data...</span>
-                  </div>
-                )}
               </div>
               
               <div>
@@ -589,7 +642,26 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
+              {/* AI Configure Button */}
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/20 rounded-lg">
+                <div>
+                  <h5 className="font-medium text-purple-400 mb-1">AI Grid Configuration</h5>
+                  <p className="text-sm text-purple-300">
+                    Let AI analyze market data to set optimal grid range using technical indicators, volatility, and mean reversion
+                  </p>
+                </div>
+                <Button
+                  onClick={handleAIConfigure}
+                  disabled={!strategy.configuration?.symbol || isAIConfiguring}
+                  isLoading={isAIConfiguring}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                >
+                  {isAIConfiguring ? 'AI Configuring...' : 'AI Configure'}
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Lower Price Limit</label>
                 <div className="relative">
@@ -604,16 +676,16 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                     allowDecimals={true}
                     prefix="$"
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                    disabled={isFetchingSymbolData}
+                    disabled={isAIConfiguring}
                   />
-                  {isFetchingSymbolData && (
+                  {isAIConfiguring && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin" />
                     </div>
                   )}
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Auto-set to yearly low, configurable by user
+                  AI-optimized lower bound, manually configurable
                 </p>
               </div>
               
@@ -631,17 +703,18 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                     allowDecimals={true}
                     prefix="$"
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                    disabled={isFetchingSymbolData}
+                    disabled={isAIConfiguring}
                   />
-                  {isFetchingSymbolData && (
+                  {isAIConfiguring && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin" />
                     </div>
                   )}
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Auto-set to yearly high, configurable by user
+                  AI-optimized upper bound, manually configurable
                 </p>
+              </div>
               </div>
             </div>
             
@@ -689,7 +762,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   <span className="text-yellow-400 font-medium">Symbol Required</span>
                 </div>
                 <p className="text-sm text-yellow-300 mt-1">
-                  Please select a symbol to automatically set price limits based on yearly high/low.
+                  Please select a symbol to enable AI configuration of optimal grid range.
                 </p>
               </div>
             )}

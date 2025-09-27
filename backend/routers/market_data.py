@@ -25,6 +25,7 @@ from dependencies import (
 import math
 from scipy.stats import norm
 import numpy as np
+from technical_indicators import TechnicalIndicators
 
 router = APIRouter(prefix="/api/market-data", tags=["market-data"])
 logger = logging.getLogger(__name__)
@@ -827,6 +828,222 @@ async def search_symbols(
         logger.error(f"Error searching symbols: {e}")
         # Return popular symbols as fallback
         return {"symbols": [{"symbol": s, "name": s, "type": "stock", "score": 0} for s in POPULAR_SYMBOLS[:limit]]}
+
+@router.post("/ai-configure-grid-range")
+async def ai_configure_grid_range(
+    request_data: Dict[str, Any],
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+):
+    """AI-powered grid range configuration using technical analysis and market data"""
+    try:
+        symbol = request_data.get("symbol")
+        allocated_capital = request_data.get("allocated_capital", 1000)
+        number_of_grids = request_data.get("number_of_grids", 20)
+        
+        if not symbol:
+            raise HTTPException(status_code=400, detail="Symbol is required")
+        
+        logger.info(f"🤖 AI configuring grid range for {symbol} with ${allocated_capital} capital and {number_of_grids} grids")
+        
+        # Fetch 1-year historical data
+        end_time = datetime.now(timezone.utc)
+        start_time = end_time - timedelta(days=365)
+        
+        historical_data = await get_bars_data(
+            symbols=[symbol.upper()],
+            timeframe="1Day",
+            start_time=start_time,
+            end_time=end_time,
+            limit=365,
+            credentials=credentials
+        )
+        
+        # Get the symbol key (handle crypto normalization)
+        symbol_key = symbol.upper()
+        if not is_stock_symbol(symbol):
+            normalized = normalize_crypto_symbol(symbol)
+            if normalized:
+                symbol_key = normalized
+        
+        bars = historical_data.get("bars", {}).get(symbol_key, [])
+        
+        if not bars or len(bars) < 30:
+            logger.warning(f"⚠️ Insufficient historical data for {symbol}, using fallback calculation")
+            # Fallback to current price with percentage range
+            current_price_data = await get_live_prices_data([symbol], credentials)
+            current_price = current_price_data.get(symbol.upper(), {}).get("price", 100)
+            
+            fallback_lower = current_price * 0.8  # 20% below
+            fallback_upper = current_price * 1.2  # 20% above
+            
+            return {
+                "lower_limit": round(fallback_lower, 2),
+                "upper_limit": round(fallback_upper, 2),
+                "reasoning": f"Used fallback 20% range around current price (${current_price:.2f}) due to limited historical data."
+            }
+        
+        logger.info(f"📊 Analyzing {len(bars)} historical bars for {symbol}")
+        
+        # Extract price data
+        closing_prices = [float(bar["close"]) for bar in bars]
+        high_prices = [float(bar["high"]) for bar in bars]
+        low_prices = [float(bar["low"]) for bar in bars]
+        
+        # Calculate yearly extremes
+        yearly_high = max(high_prices)
+        yearly_low = min(low_prices)
+        current_price = closing_prices[-1]
+        
+        logger.info(f"📈 Yearly range: ${yearly_low:.2f} - ${yearly_high:.2f}, Current: ${current_price:.2f}")
+        
+        # Calculate Bollinger Bands (20-period, 2 std dev)
+        bb_data = TechnicalIndicators.calculate_bollinger_bands(closing_prices, period=20, std_dev=2.0)
+        bb_upper = bb_data["upper"]
+        bb_lower = bb_data["lower"]
+        bb_middle = bb_data["middle"]
+        
+        logger.info(f"📊 Bollinger Bands: Lower=${bb_lower:.2f}, Middle=${bb_middle:.2f}, Upper=${bb_upper:.2f}")
+        
+        # Calculate recent volatility (last 30 days)
+        recent_prices = closing_prices[-30:] if len(closing_prices) >= 30 else closing_prices
+        recent_volatility = np.std(recent_prices) if len(recent_prices) > 1 else 0
+        
+        # Calculate RSI for momentum analysis
+        rsi = TechnicalIndicators.calculate_rsi(closing_prices, period=14)
+        
+        # Calculate price momentum (20-day moving average)
+        ma_20 = np.mean(closing_prices[-20:]) if len(closing_prices) >= 20 else current_price
+        momentum = (current_price - ma_20) / ma_20 if ma_20 > 0 else 0
+        
+        logger.info(f"📊 Technical indicators: RSI={rsi:.1f}, Volatility=${recent_volatility:.2f}, Momentum={momentum:.2%}")
+        
+        # AI LOGIC FOR OPTIMAL GRID RANGE
+        
+        # 1. Start with Bollinger Bands as base mean-reversion range
+        ai_lower_base = bb_lower
+        ai_upper_base = bb_upper
+        
+        # 2. Adjust based on volatility
+        volatility_multiplier = 1.0
+        if recent_volatility > np.std(closing_prices) * 1.5:  # High recent volatility
+            volatility_multiplier = 1.3  # Widen range
+            logger.info("🔥 High volatility detected, widening range by 30%")
+        elif recent_volatility < np.std(closing_prices) * 0.7:  # Low recent volatility
+            volatility_multiplier = 0.8  # Narrow range
+            logger.info("😴 Low volatility detected, narrowing range by 20%")
+        
+        # 3. Adjust based on RSI (momentum)
+        rsi_adjustment = 1.0
+        if rsi > 70:  # Overbought - expect downward movement
+            rsi_adjustment = 0.9  # Favor lower range
+            logger.info("📈 Overbought conditions (RSI>70), favoring lower range")
+        elif rsi < 30:  # Oversold - expect upward movement
+            rsi_adjustment = 1.1  # Favor upper range
+            logger.info("📉 Oversold conditions (RSI<30), favoring upper range")
+        
+        # 4. Apply adjustments
+        range_width = (ai_upper_base - ai_lower_base) * volatility_multiplier
+        range_center = (ai_upper_base + ai_lower_base) / 2
+        
+        # Adjust center based on momentum
+        if momentum > 0.05:  # Strong upward momentum
+            range_center *= 1.05  # Shift range up
+            logger.info("🚀 Strong upward momentum, shifting range up 5%")
+        elif momentum < -0.05:  # Strong downward momentum
+            range_center *= 0.95  # Shift range down
+            logger.info("📉 Strong downward momentum, shifting range down 5%")
+        
+        # 5. Calculate final range
+        ai_lower_limit = range_center - (range_width / 2)
+        ai_upper_limit = range_center + (range_width / 2)
+        
+        # 6. Ensure current price is comfortably within range (20% buffer from edges)
+        range_span = ai_upper_limit - ai_lower_limit
+        min_distance_from_edge = range_span * 0.2
+        
+        if current_price - ai_lower_limit < min_distance_from_edge:
+            ai_lower_limit = current_price - min_distance_from_edge
+            logger.info("🔧 Adjusted lower limit to maintain 20% buffer from current price")
+        
+        if ai_upper_limit - current_price < min_distance_from_edge:
+            ai_upper_limit = current_price + min_distance_from_edge
+            logger.info("🔧 Adjusted upper limit to maintain 20% buffer from current price")
+        
+        # 7. Ensure we don't exceed yearly extremes (with small buffer)
+        yearly_buffer = (yearly_high - yearly_low) * 0.05  # 5% buffer
+        ai_lower_limit = max(ai_lower_limit, yearly_low - yearly_buffer)
+        ai_upper_limit = min(ai_upper_limit, yearly_high + yearly_buffer)
+        
+        # 8. Final validation - ensure minimum range
+        if ai_upper_limit - ai_lower_limit < current_price * 0.1:  # Minimum 10% range
+            logger.info("🔧 Range too narrow, applying minimum 15% range around current price")
+            ai_lower_limit = current_price * 0.925  # 7.5% below
+            ai_upper_limit = current_price * 1.075  # 7.5% above
+        
+        # 9. Round to appropriate precision
+        if current_price > 1000:  # High-value assets like BTC
+            ai_lower_limit = round(ai_lower_limit, 0)
+            ai_upper_limit = round(ai_upper_limit, 0)
+        elif current_price > 100:  # Medium-value assets
+            ai_lower_limit = round(ai_lower_limit, 1)
+            ai_upper_limit = round(ai_upper_limit, 1)
+        else:  # Low-value assets
+            ai_lower_limit = round(ai_lower_limit, 2)
+            ai_upper_limit = round(ai_upper_limit, 2)
+        
+        # Calculate grid spacing for user information
+        grid_spacing = (ai_upper_limit - ai_lower_limit) / (number_of_grids - 1)
+        range_percentage = ((ai_upper_limit - ai_lower_limit) / current_price) * 100
+        
+        # Generate reasoning explanation
+        reasoning = f"""AI Grid Configuration for {symbol}:
+
+📊 Market Analysis:
+• Current Price: ${current_price:.2f}
+• Yearly Range: ${yearly_low:.2f} - ${yearly_high:.2f}
+• RSI: {rsi:.1f} ({'Overbought' if rsi > 70 else 'Oversold' if rsi < 30 else 'Neutral'})
+• Recent Volatility: {recent_volatility:.2f}
+• Momentum: {momentum:.1%}
+
+🎯 Optimized Grid Range:
+• Lower Limit: ${ai_lower_limit:.2f}
+• Upper Limit: ${ai_upper_limit:.2f}
+• Range Width: {range_percentage:.1f}% of current price
+• Grid Spacing: ${grid_spacing:.2f}
+
+🧠 AI Reasoning:
+• Used Bollinger Bands as base mean-reversion range
+• Applied volatility adjustment (×{volatility_multiplier:.1f})
+• Considered RSI momentum signals
+• Ensured 20% buffer from current price
+• Optimized for {number_of_grids} grid levels"""
+        
+        logger.info(f"✅ AI configuration complete: ${ai_lower_limit:.2f} - ${ai_upper_limit:.2f}")
+        
+        return {
+            "lower_limit": ai_lower_limit,
+            "upper_limit": ai_upper_limit,
+            "reasoning": reasoning,
+            "technical_data": {
+                "current_price": current_price,
+                "yearly_high": yearly_high,
+                "yearly_low": yearly_low,
+                "bollinger_upper": bb_upper,
+                "bollinger_lower": bb_lower,
+                "rsi": rsi,
+                "volatility": recent_volatility,
+                "momentum": momentum,
+                "grid_spacing": grid_spacing,
+                "range_percentage": range_percentage,
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in AI grid configuration: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to configure grid range: {str(e)}")
 
 @router.get("/symbols/popular")
 async def get_popular_symbols(
