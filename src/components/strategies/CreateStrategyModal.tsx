@@ -86,6 +86,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const { brokerageAccounts, getEffectiveSubscriptionTier, user } = useStore();
   const [selectedType, setSelectedType] = useState<string>('');
   const [step, setStep] = useState<'type' | 'config' | 'review'>('type');
+  const [isFetchingSymbolData, setIsFetchingSymbolData] = useState(false);
   const [strategy, setStrategy] = useState<Partial<TradingStrategy>>({
     name: '',
     description: '',
@@ -124,7 +125,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     switch (type) {
       case 'covered_calls':
         return {
-          symbol: 'AAPL',
+          symbol: '',
           strike_delta: 0.30,
           dte_target: 30,
           profit_target: 0.5,
@@ -132,7 +133,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         };
       case 'wheel':
         return {
-          symbol: 'AAPL',
+          symbol: '',
           put_strike_delta: -0.30,
           call_strike_delta: 0.30,
           dte_target: 30,
@@ -140,7 +141,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         };
       case 'short_put':
         return {
-          symbol: 'AAPL',
+          symbol: '',
           strike_delta: -0.30,
           dte_target: 30,
           profit_target: 0.5,
@@ -148,16 +149,16 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         };
       case 'spot_grid':
         return {
-          symbol: 'BTC',
+          symbol: '',
           allocated_capital: 1000,
-          price_range_lower: 50000,
-          price_range_upper: 60000,
+          price_range_lower: 0,
+          price_range_upper: 0,
           number_of_grids: 20,
           grid_spacing_percent: 1.0,
         };
       case 'futures_grid':
         return {
-          symbol: 'BTC/USDT',
+          symbol: '',
           allocated_capital: 2000,
           price_range_lower: 0,
           price_range_upper: 0,
@@ -166,14 +167,14 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         };
       case 'infinity_grid':
         return {
-          symbol: 'ETH/USDT',
+          symbol: '',
           allocated_capital: 1500,
           price_range_lower: 0,
           number_of_grids: 30,
         };
       case 'dca':
         return {
-          symbol: 'BTC',
+          symbol: '',
           investment_amount_per_interval: 100,
           frequency: 'daily',
           investment_target_percent: 20,
