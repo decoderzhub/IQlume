@@ -199,6 +199,7 @@ export interface TradingStrategy {
     active_orders_count: number;
     fill_rate_percent: number;
     grid_utilization_percent: number;
+    initial_buy_order_submitted?: boolean;
     last_updated: string;
   };
   last_execution?: string;

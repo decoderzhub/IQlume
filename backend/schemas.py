@@ -47,6 +47,7 @@ class TelemetryData(BaseModel):
     active_orders_count: int = 0
     fill_rate_percent: float = 0
     grid_utilization_percent: float = 0
+    initial_buy_order_submitted: bool = False
     last_updated: datetime = Field(default_factory=datetime.utcnow)
 
 # Enums for new fields

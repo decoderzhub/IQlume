@@ -35,7 +35,15 @@ class SpotGridExecutor(BaseStrategyExecutor):
             number_of_grids = configuration.get("number_of_grids", 20)
             grid_mode = strategy_data.get("grid_mode", "arithmetic")
             
+            # Get telemetry data and check initial buy status
+            telemetry_data = strategy_data.get("telemetry_data", {})
+            if not isinstance(telemetry_data, dict):
+                telemetry_data = {}
+            
+            initial_buy_order_submitted = telemetry_data.get("initial_buy_order_submitted", False)
+            
             self.logger.info(f"📊 Grid config: {symbol} | Range: ${price_range_lower}-${price_range_upper} | Grids: {number_of_grids}")
+            self.logger.info(f"🎯 Initial buy order submitted: {initial_buy_order_submitted}")
             
             # Get current market price
             current_price = self.get_current_price(symbol)
@@ -50,8 +58,136 @@ class SpotGridExecutor(BaseStrategyExecutor):
             
             self.logger.info(f"💰 Current price for {symbol}: ${current_price}")
             
+            # INITIAL MARKET BUY LOGIC - Execute once per strategy
+            if not initial_buy_order_submitted:
+                self.logger.info(f"🚀 [INITIAL BUY] Performing initial market buy for {strategy_name}")
+                
+                # Calculate initial buy quantity
+                quantity_per_grid = strategy_data.get("quantity_per_grid", 0)
+                
+                if quantity_per_grid and quantity_per_grid > 0:
+                    buy_quantity = quantity_per_grid
+                    self.logger.info(f"💡 Using configured quantity per grid: {buy_quantity}")
+                else:
+                    # Fallback calculation
+                    safe_number_of_grids = max(number_of_grids, 1)  # Prevent division by zero
+                    buy_quantity = max(0.001, (allocated_capital / safe_number_of_grids) / current_price)
+                    self.logger.info(f"💡 Calculated fallback quantity: {buy_quantity}")
+                
+                if buy_quantity > 0:
+                    try:
+                        # Determine time in force based on market status
+                        is_market_open = self.is_market_open(symbol)
+                        time_in_force = TimeInForce.DAY if is_market_open else TimeInForce.OPG
+                        
+                        self.logger.info(f"📈 Market open: {is_market_open}, Using time in force: {time_in_force}")
+                        
+                        # Create market order request
+                        order_request = MarketOrderRequest(
+                            symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
+                            qty=buy_quantity,
+                            side=OrderSide.BUY,
+                            time_in_force=time_in_force
+                        )
+                        
+                        # Submit order to Alpaca
+                        order = self.trading_client.submit_order(order_request)
+                        order_id = str(order.id)
+                        
+                        self.logger.info(f"✅ [INITIAL BUY] Order placed with Alpaca: {order_id}")
+                        
+                        # Record trade in Supabase
+                        try:
+                            trade_data = {
+                                "user_id": strategy_data.get("user_id"),
+                                "strategy_id": strategy_id,
+                                "symbol": symbol,
+                                "type": "buy",
+                                "quantity": buy_quantity,
+                                "price": current_price,
+                                "profit_loss": 0,
+                                "status": "pending",
+                                "order_type": "market",
+                                "time_in_force": time_in_force.value if hasattr(time_in_force, 'value') else str(time_in_force),
+                                "filled_qty": 0,
+                                "filled_avg_price": 0,
+                                "commission": 0,
+                                "fees": 0,
+                                "alpaca_order_id": order_id,
+                            }
+                            
+                            trade_resp = self.supabase.table("trades").insert(trade_data).execute()
+                            
+                            if trade_resp.data:
+                                trade_id = trade_resp.data[0]["id"]
+                                self.logger.info(f"✅ [INITIAL BUY] Trade recorded in database: {trade_id}")
+                            else:
+                                self.logger.error(f"❌ [INITIAL BUY] Failed to record trade in database")
+                                
+                        except Exception as trade_error:
+                            self.logger.error(f"❌ [INITIAL BUY] Error recording trade: {trade_error}")
+                        
+                        # Mark initial buy as completed
+                        telemetry_data["initial_buy_order_submitted"] = True
+                        telemetry_data["last_updated"] = datetime.now(timezone.utc).isoformat()
+                        
+                        # Update telemetry in database
+                        self.update_strategy_telemetry(strategy_id, telemetry_data)
+                        
+                        # Return result
+                        market_status = "Market is open" if is_market_open else "Market is closed - order will execute at market open"
+                        return {
+                            "action": "buy",
+                            "symbol": symbol,
+                            "quantity": buy_quantity,
+                            "price": current_price,
+                            "order_id": order_id,
+                            "reason": f"Initial market buy order placed. {market_status}. Order ID: {order_id}"
+                        }
+                        
+                    except AlpacaAPIError as e:
+                        self.logger.error(f"❌ [INITIAL BUY] Failed to place order with Alpaca: {e}")
+                        return {
+                            "action": "error",
+                            "symbol": symbol,
+                            "quantity": 0,
+                            "price": current_price,
+                            "reason": f"Failed to place initial buy order: {str(e)}"
+                        }
+                    except Exception as e:
+                        self.logger.error(f"❌ [INITIAL BUY] Unexpected error placing order: {e}")
+                        return {
+                            "action": "error",
+                            "symbol": symbol,
+                            "quantity": 0,
+                            "price": current_price,
+                            "reason": f"Unexpected error during initial buy: {str(e)}"
+                        }
+                else:
+                    self.logger.warning(f"⚠️ [INITIAL BUY] Invalid buy quantity: {buy_quantity}")
+                    return {
+                        "action": "hold",
+                        "symbol": symbol,
+                        "quantity": 0,
+                        "price": current_price,
+                        "reason": f"Invalid initial buy quantity calculated: {buy_quantity}"
+                    }
+            
+            # REGULAR GRID LOGIC - Only execute after initial buy is completed
+            if not initial_buy_order_submitted:
+                return {
+                    "action": "hold",
+                    "symbol": symbol,
+                    "quantity": 0,
+                    "price": current_price,
+                    "reason": "Waiting for initial buy order to be submitted"
+                }
+            
+            self.logger.info(f"🔄 [GRID LOGIC] Initial buy completed, proceeding with regular grid operations")
+            
             # Check if market is open before attempting to trade
-            if not self.is_market_open(symbol):
+            is_market_open = self.is_market_open(symbol)
+            if not is_market_open:
                 market_status = self.get_market_status_message(symbol)
                 return {
                     "action": "hold",
@@ -156,7 +292,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     action_result["reason"] = f"Unexpected error: {str(e)}"
             
             # Update telemetry
-            telemetry_data = self.calculate_telemetry(
+            updated_telemetry = self.calculate_telemetry(
                 strategy_data,
                 current_price,
                 grid_levels,
@@ -165,7 +301,10 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 allocated_capital
             )
             
-            self.update_strategy_telemetry(strategy_id, telemetry_data)
+            # Ensure initial_buy_order_submitted flag is preserved
+            updated_telemetry["initial_buy_order_submitted"] = telemetry_data.get("initial_buy_order_submitted", True)
+            
+            self.update_strategy_telemetry(strategy_id, updated_telemetry)
             
             return action_result
             
