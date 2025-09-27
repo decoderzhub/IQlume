@@ -911,6 +911,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         // Additional validation for spot grid
         if (selectedType === 'spot_grid') {
           return strategy.account_id && 
+                 strategy.configuration?.symbol &&
+                 strategy.configuration.symbol.trim() !== '' &&
                  strategy.configuration?.price_range_lower && 
                  strategy.configuration?.price_range_upper &&
                  strategy.configuration.price_range_lower < strategy.configuration.price_range_upper;
