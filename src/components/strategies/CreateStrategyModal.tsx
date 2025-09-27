@@ -541,14 +541,21 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
                 <SymbolSearchInput
-                  value={strategy.configuration?.symbol || 'BTC'}
+                  value={strategy.configuration?.symbol || ''}
                   onChange={(value) => setStrategy(prev => ({
                     ...prev,
                     configuration: { ...prev.configuration, symbol: value }
                   }))}
-                  placeholder="e.g., BTC, ETH, AAPL"
+                  placeholder="Search for a symbol (e.g., BTC, ETH, AAPL)"
                   className="w-full"
+                  disabled={isFetchingSymbolData}
                 />
+                {isFetchingSymbolData && (
+                  <div className="flex items-center gap-2 mt-2 text-sm text-blue-400">
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <span>Fetching yearly price data...</span>
+                  </div>
+                )}
               </div>
               
               <div>
@@ -585,39 +592,55 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Lower Price Limit</label>
-                <NumericInput
-                  value={strategy.configuration?.price_range_lower || 50000}
-                  onChange={(value) => setStrategy(prev => ({
-                    ...prev,
-                    configuration: { ...prev.configuration, price_range_lower: value }
-                  }))}
-                  min={0.01}
-                  step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
-                  allowDecimals={true}
-                  prefix="$"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                />
+                <div className="relative">
+                  <NumericInput
+                    value={strategy.configuration?.price_range_lower || 0}
+                    onChange={(value) => setStrategy(prev => ({
+                      ...prev,
+                      configuration: { ...prev.configuration, price_range_lower: value }
+                    }))}
+                    min={0.01}
+                    step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
+                    allowDecimals={true}
+                    prefix="$"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    disabled={isFetchingSymbolData}
+                  />
+                  {isFetchingSymbolData && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Grid will place buy orders at this level and below
+                  Auto-set to yearly low, configurable by user
                 </p>
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Upper Price Limit</label>
-                <NumericInput
-                  value={strategy.configuration?.price_range_upper || 60000}
-                  onChange={(value) => setStrategy(prev => ({
-                    ...prev,
-                    configuration: { ...prev.configuration, price_range_upper: value }
-                  }))}
-                  min={0.01}
-                  step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
-                  allowDecimals={true}
-                  prefix="$"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                />
+                <div className="relative">
+                  <NumericInput
+                    value={strategy.configuration?.price_range_upper || 0}
+                    onChange={(value) => setStrategy(prev => ({
+                      ...prev,
+                      configuration: { ...prev.configuration, price_range_upper: value }
+                    }))}
+                    min={0.01}
+                    step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
+                    allowDecimals={true}
+                    prefix="$"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    disabled={isFetchingSymbolData}
+                  />
+                  {isFetchingSymbolData && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Grid will place sell orders at this level and above
+                  Auto-set to yearly high, configurable by user
                 </p>
               </div>
             </div>
@@ -659,6 +682,18 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             )}
             
             {/* Validation warnings */}
+            {selectedType === 'spot_grid' && !strategy.configuration?.symbol && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                  <span className="text-yellow-400 font-medium">Symbol Required</span>
+                </div>
+                <p className="text-sm text-yellow-300 mt-1">
+                  Please select a symbol to automatically set price limits based on yearly high/low.
+                </p>
+              </div>
+            )}
+            
             {strategy.configuration?.price_range_lower && strategy.configuration?.price_range_upper && 
              strategy.configuration.price_range_lower >= strategy.configuration.price_range_upper && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
@@ -910,6 +945,10 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         
         // Additional validation for spot grid
         if (selectedType === 'spot_grid') {
+          if (!strategy.configuration?.symbol || strategy.configuration.symbol.trim() === '') {
+            alert('Please select a symbol for the grid strategy.');
+            return;
+          }
           return strategy.account_id && 
                  strategy.configuration?.symbol &&
                  strategy.configuration.symbol.trim() !== '' &&
