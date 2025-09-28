@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, Filter, TrendingUp, Activity, Settings, Play, Pause, BarChart3 } from 'lucide-react';
+import { Plus, Search, Filter, TrendingUp, Activity, Settings, Play, Pause, BarChart3, Grid3X3, Bot, Target, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { StrategyCard } from './StrategyCard';
@@ -12,10 +12,52 @@ import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
 import { INITIAL_LAUNCH_STRATEGY_TYPES } from '../../lib/constants';
 
+// Strategy categorization
+const strategyCategories = {
+  'Grid Bots': {
+    icon: Grid3X3,
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/10',
+    borderColor: 'border-blue-500/20',
+    description: 'Automated buy-low/sell-high trading within defined price ranges',
+    types: ['spot_grid', 'futures_grid', 'infinity_grid']
+  },
+  'Autonomous Bots': {
+    icon: Bot,
+    color: 'text-green-400',
+    bgColor: 'bg-green-500/10',
+    borderColor: 'border-green-500/20',
+    description: 'Set-and-forget strategies for systematic investing and rebalancing',
+    types: ['dca', 'smart_rebalance']
+  },
+  'Options Strategies': {
+    icon: Target,
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-500/10',
+    borderColor: 'border-purple-500/20',
+    description: 'Income generation and risk management using options contracts',
+    types: ['covered_calls', 'wheel', 'short_put', 'iron_condor', 'straddle', 'long_call', 'long_straddle', 'long_condor', 'iron_butterfly', 'short_call', 'short_straddle', 'long_butterfly', 'short_strangle', 'short_put_vertical', 'short_call_vertical', 'broken_wing_butterfly', 'option_collar', 'long_strangle']
+  },
+  'Algorithmic Trading': {
+    icon: Activity,
+    color: 'text-orange-400',
+    bgColor: 'bg-orange-500/10',
+    borderColor: 'border-orange-500/20',
+    description: 'Advanced algorithmic strategies for momentum and mean reversion',
+    types: ['mean_reversion', 'momentum_breakout', 'pairs_trading', 'scalping', 'swing_trading', 'arbitrage', 'news_based_trading', 'orb']
+  }
+};
+
 export function StrategiesView() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRisk, setFilterRisk] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    'Grid Bots': true,
+    'Autonomous Bots': true,
+    'Options Strategies': true,
+    'Algorithmic Trading': true,
+  });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedStrategy, setSelectedStrategy] = useState<TradingStrategy | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -85,6 +127,29 @@ export function StrategiesView() {
                          (filterStatus === 'inactive' && !strategy.is_active);
     return matchesSearch && matchesRisk && matchesStatus;
   });
+
+  // Group strategies by category
+  const categorizedStrategies = Object.entries(strategyCategories).reduce((acc, [categoryName, categoryData]) => {
+    const categoryStrategies = displayStrategies.filter(strategy => 
+      categoryData.types.includes(strategy.type)
+    );
+    
+    if (categoryStrategies.length > 0) {
+      acc[categoryName] = {
+        ...categoryData,
+        strategies: categoryStrategies
+      };
+    }
+    
+    return acc;
+  }, {} as Record<string, any>);
+
+  const toggleCategory = (categoryName: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryName]: !prev[categoryName]
+    }));
+  };
 
   const handleToggleStrategy = (strategyId: string) => {
     return new Promise<void>(async (resolve, reject) => {
@@ -402,27 +467,83 @@ export function StrategiesView() {
         </div>
       </Card>
 
-      {/* Strategies Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {displayStrategies.map((strategy, index) => (
-          <motion.div
-            key={strategy.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <StrategyCard
-              strategy={strategy}
-              onToggle={() => handleToggleStrategy(strategy.id)}
-              onViewDetails={() => handleViewDetails(strategy)}
-              onBacktest={() => handleBacktest(strategy)}
-              onExecute={handleExecuteStrategy}
-            />
-          </motion.div>
-        ))}
+      {/* Categorized Strategies */}
+      <div className="space-y-8">
+        {Object.entries(categorizedStrategies).map(([categoryName, categoryData]) => {
+          const Icon = categoryData.icon;
+          const isExpanded = expandedCategories[categoryName];
+          
+          return (
+            <motion.div
+              key={categoryName}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-4"
+            >
+              {/* Category Header */}
+              <Card className={`p-6 ${categoryData.bgColor} ${categoryData.borderColor} border`}>
+                <button
+                  onClick={() => toggleCategory(categoryName)}
+                  className="w-full flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 ${categoryData.bgColor} rounded-xl flex items-center justify-center border ${categoryData.borderColor}`}>
+                      <Icon className={`w-6 h-6 ${categoryData.color}`} />
+                    </div>
+                    <div className="text-left">
+                      <h3 className={`text-xl font-bold ${categoryData.color}`}>{categoryName}</h3>
+                      <p className="text-gray-300 text-sm">{categoryData.description}</p>
+                      <p className="text-gray-400 text-xs mt-1">
+                        {categoryData.strategies.length} strateg{categoryData.strategies.length === 1 ? 'y' : 'ies'} • {categoryData.strategies.filter((s: TradingStrategy) => s.is_active).length} active
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${categoryData.bgColor} ${categoryData.color} border ${categoryData.borderColor}`}>
+                      {categoryData.strategies.length}
+                    </span>
+                    {isExpanded ? (
+                      <ChevronUp className="w-5 h-5 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                    )}
+                  </div>
+                </button>
+              </Card>
+
+              {/* Category Strategies */}
+              {isExpanded && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
+                  {categoryData.strategies.map((strategy: TradingStrategy, index: number) => (
+                    <motion.div
+                      key={strategy.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <StrategyCard
+                        strategy={strategy}
+                        onToggle={() => handleToggleStrategy(strategy.id)}
+                        onViewDetails={() => handleViewDetails(strategy)}
+                        onBacktest={() => handleBacktest(strategy)}
+                        onExecute={handleExecuteStrategy}
+                      />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </motion.div>
+          );
+        })}
       </div>
 
-      {displayStrategies.length === 0 && (
+      {Object.keys(categorizedStrategies).length === 0 && (
         <Card className="p-12 text-center">
           <TrendingUp className="w-12 h-12 text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-white mb-2">No strategies found</h3>
