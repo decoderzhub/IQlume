@@ -23,6 +23,7 @@ const strategyTypes = [
     risk: 'low' as const,
     minCapital: 15000,
     tier: 'pro' as const,
+    category: 'options' as const,
   },
   {
     id: 'wheel',
@@ -31,6 +32,7 @@ const strategyTypes = [
     risk: 'low' as const,
     minCapital: 20000,
     tier: 'pro' as const,
+    category: 'options' as const,
   },
   {
     id: 'short_put',
@@ -39,6 +41,7 @@ const strategyTypes = [
     risk: 'medium' as const,
     minCapital: 10000,
     tier: 'pro' as const,
+    category: 'options' as const,
   },
   {
     id: 'spot_grid',
@@ -47,6 +50,7 @@ const strategyTypes = [
     risk: 'low' as const,
     minCapital: 1000,
     tier: 'pro' as const,
+    category: 'grid' as const,
   },
   {
     id: 'futures_grid',
@@ -55,6 +59,7 @@ const strategyTypes = [
     risk: 'medium' as const,
     minCapital: 2000,
     tier: 'elite' as const,
+    category: 'grid' as const,
   },
   {
     id: 'infinity_grid',
@@ -63,6 +68,7 @@ const strategyTypes = [
     risk: 'medium' as const,
     minCapital: 1500,
     tier: 'elite' as const,
+    category: 'grid' as const,
   },
   {
     id: 'dca',
@@ -71,6 +77,7 @@ const strategyTypes = [
     risk: 'low' as const,
     minCapital: 500,
     tier: 'starter' as const,
+    category: 'autonomous' as const,
   },
   {
     id: 'smart_rebalance',
@@ -79,9 +86,36 @@ const strategyTypes = [
     risk: 'low' as const,
     minCapital: 5000,
     tier: 'starter' as const,
+    category: 'autonomous' as const,
   },
 ];
 
+const strategyCategories = {
+  grid: {
+    name: 'Grid Bots',
+    icon: Grid3X3,
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/10',
+    borderColor: 'border-blue-500/20',
+    description: 'Automated buy-low/sell-high trading within defined price ranges',
+  },
+  autonomous: {
+    name: 'Autonomous Bots',
+    icon: Bot,
+    color: 'text-green-400',
+    bgColor: 'bg-green-500/10',
+    borderColor: 'border-green-500/20',
+    description: 'Set-and-forget strategies for systematic investing',
+  },
+  options: {
+    name: 'Options Strategies',
+    icon: Target,
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-500/10',
+    borderColor: 'border-purple-500/20',
+    description: 'Income generation using options contracts',
+  },
+};
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
   const { brokerageAccounts, getEffectiveSubscriptionTier, user } = useStore();
   const [selectedType, setSelectedType] = useState<string>('');
