@@ -108,15 +108,13 @@ export function StrategiesView() {
 
     loadStrategies();
   }, [user]);
-  // Filter strategies based on initial launch types
 
-  // Calculate KPIs only for initial launch strategies
-  const initialLaunchStrategiesForKPIs = strategies.filter(s => INITIAL_LAUNCH_STRATEGY_TYPES.includes(s.type));
-  const activeStrategies = initialLaunchStrategiesForKPIs.filter(s => s.is_active).length;
-  const totalReturn = initialLaunchStrategiesForKPIs.length > 0 ?
-    initialLaunchStrategiesForKPIs.reduce((sum, s) => sum + (s.performance?.total_return || 0), 0) / initialLaunchStrategiesForKPIs.length : 0;
-  const avgWinRate = initialLaunchStrategiesForKPIs.length > 0 ?
-    initialLaunchStrategiesForKPIs.reduce((sum, s) => sum + (s.performance?.win_rate || 0), 0) / initialLaunchStrategiesForKPIs.length : 0;
+  // Calculate KPIs for all strategies
+  const activeStrategies = strategies.filter(s => s.is_active).length;
+  const totalReturn = strategies.length > 0 ?
+    strategies.reduce((sum, s) => sum + (s.performance?.total_return || 0), 0) / strategies.length : 0;
+  const avgWinRate = strategies.length > 0 ?
+    strategies.reduce((sum, s) => sum + (s.performance?.win_rate || 0), 0) / strategies.length : 0;
 
   const displayStrategies = strategies.filter(strategy => {
     const matchesSearch = strategy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
