@@ -374,49 +374,75 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         <p className="text-gray-400 mb-6">Select the trading strategy that best fits your goals and risk tolerance</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {strategyTypes.map((type) => {
-          const tierAccess = tierOrder[userTier] >= tierOrder[type.tier];
-          const isComingSoon = !tierAccess;
-
+      <div className="space-y-6">
+        {Object.entries(strategyCategories).map(([categoryKey, categoryData]) => {
+          const Icon = categoryData.icon;
+          const categoryStrategies = strategyTypes.filter(type => type.category === categoryKey);
+          
+          if (categoryStrategies.length === 0) return null;
+          
           return (
-            <motion.div
-              key={type.id}
-              whileHover={tierAccess ? { scale: 1.02 } : {}}
-              whileTap={tierAccess ? { scale: 0.98 } : {}}
-              onClick={tierAccess ? () => handleTypeSelect(type.id) : undefined}
-              className={`p-6 rounded-lg border transition-all relative ${
-                tierAccess
-                  ? 'bg-gray-800/30 border-gray-700 cursor-pointer hover:border-blue-500'
-                  : 'bg-gray-800/10 border-gray-800 cursor-not-allowed opacity-60'
-              }`}
-            >
-              {!tierAccess && (
-                <div className="absolute top-2 right-2 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30">
-                  {type.tier === 'pro' ? 'Pro' : 'Elite'} Required
-                </div>
-              )}
-              
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h4 className="font-semibold text-white mb-2">{type.name}</h4>
-                  <p className="text-sm text-gray-400 mb-3">{type.description}</p>
+            <div key={categoryKey} className="space-y-4">
+              {/* Category Header */}
+              <div className={`p-4 rounded-lg ${categoryData.bgColor} border ${categoryData.borderColor}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 ${categoryData.bgColor} rounded-xl flex items-center justify-center border ${categoryData.borderColor}`}>
+                    <Icon className={`w-5 h-5 ${categoryData.color}`} />
+                  </div>
+                  <div>
+                    <h4 className={`font-bold ${categoryData.color}`}>{categoryData.name}</h4>
+                    <p className="text-gray-300 text-sm">{categoryData.description}</p>
+                  </div>
                 </div>
               </div>
               
-              <div className="flex items-center justify-between">
-                <span className={`px-2 py-1 rounded text-xs font-medium border ${
-                  type.risk === 'low' ? 'text-green-400 bg-green-400/10 border-green-400/20' :
-                  type.risk === 'medium' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' :
-                  'text-red-400 bg-red-400/10 border-red-400/20'
-                }`}>
-                  {type.risk} risk
-                </span>
-                <div className="text-sm text-gray-400">
-                  Min: {formatCurrency(type.minCapital)}
-                </div>
+              {/* Category Strategies */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {categoryStrategies.map((type) => {
+                  const tierAccess = tierOrder[userTier] >= tierOrder[type.tier];
+                  
+                  return (
+                    <motion.div
+                      key={type.id}
+                      whileHover={tierAccess ? { scale: 1.02 } : {}}
+                      whileTap={tierAccess ? { scale: 0.98 } : {}}
+                      onClick={tierAccess ? () => handleTypeSelect(type.id) : undefined}
+                      className={`p-6 rounded-lg border transition-all relative ${
+                        tierAccess
+                          ? 'bg-gray-800/30 border-gray-700 cursor-pointer hover:border-blue-500'
+                          : 'bg-gray-800/10 border-gray-800 cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      {!tierAccess && (
+                        <div className="absolute top-2 right-2 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30">
+                          {type.tier === 'pro' ? 'Pro' : 'Elite'} Required
+                        </div>
+                      )}
+                      
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h4 className="font-semibold text-white mb-2">{type.name}</h4>
+                          <p className="text-sm text-gray-400 mb-3">{type.description}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2 py-1 rounded text-xs font-medium border ${
+                          type.risk === 'low' ? 'text-green-400 bg-green-400/10 border-green-400/20' :
+                          type.risk === 'medium' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' :
+                          'text-red-400 bg-red-400/10 border-red-400/20'
+                        }`}>
+                          {type.risk} risk
+                        </span>
+                        <div className="text-sm text-gray-400">
+                          Min: {formatCurrency(type.minCapital)}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
