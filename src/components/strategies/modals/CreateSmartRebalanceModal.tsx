@@ -36,6 +36,100 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
   // Auto-configure assets based on allocation method
   React.useEffect(() => {
     const configureAssets = () => {
+      // Get current assets to preserve user additions
+      const currentAssets = [...assets];
+      
+      // Define base configurations for each method
+      const baseConfigurations = {
+        even_split: [
+          { symbol: 'BTC', allocation: 26.67 },
+          { symbol: 'ETH', allocation: 26.67 },
+          { symbol: 'AAPL', allocation: 26.66 },
+        ],
+        market_cap_weighted: [
+          { symbol: 'BTC', allocation: 35 },
+          { symbol: 'ETH', allocation: 20 },
+          { symbol: 'AAPL', allocation: 15 },
+          { symbol: 'MSFT', allocation: 10 },
+        ],
+        majority_cash_market_cap: [
+          { symbol: 'BTC', allocation: 20 },
+          { symbol: 'ETH', allocation: 12 },
+          { symbol: 'AAPL', allocation: 8 },
+        ],
+        majority_cash_even_split: [
+          { symbol: 'BTC', allocation: 13.33 },
+          { symbol: 'ETH', allocation: 13.33 },
+          { symbol: 'AAPL', allocation: 13.34 },
+        ],
+      };
+      
+      const baseConfig = baseConfigurations[allocationMethod];
+      const newCashBalance = allocationMethod.includes('majority_cash') ? 60 : 20;
+      
+      // Create a map of existing user assets
+      const userAssetMap = new Map(currentAssets.map(asset => [asset.symbol, asset]));
+      
+      // Start with base configuration
+      const updatedAssets = [...baseConfig];
+      
+      // Add any user-added assets that aren't in the base configuration
+      const baseSymbols = new Set(baseConfig.map(asset => asset.symbol));
+      currentAssets.forEach(userAsset => {
+        if (!baseSymbols.has(userAsset.symbol) && userAsset.symbol.trim()) {
+          // Calculate allocation for user-added assets based on method
+          let userAssetAllocation = 0;
+          
+          if (allocationMethod === 'even_split') {
+            // For even split, give equal weight to all assets
+            const totalAssets = updatedAssets.length + 1;
+            const availableAllocation = 100 - newCashBalance;
+            userAssetAllocation = availableAllocation / totalAssets;
+            
+            // Redistribute existing assets
+            updatedAssets.forEach(asset => {
+              asset.allocation = availableAllocation / totalAssets;
+            });
+          } else if (allocationMethod === 'market_cap_weighted') {
+            // For market cap weighted, give smaller allocation to user assets
+            userAssetAllocation = 5; // 5% default for user-added assets
+            
+            // Proportionally reduce existing allocations
+            const reductionFactor = (100 - newCashBalance - userAssetAllocation) / (100 - newCashBalance);
+            updatedAssets.forEach(asset => {
+              asset.allocation *= reductionFactor;
+            });
+          } else {
+            // For majority cash methods, give smaller allocation
+            userAssetAllocation = 3; // 3% default for user-added assets
+            
+            // Proportionally reduce existing allocations
+            const totalExistingAllocation = updatedAssets.reduce((sum, asset) => sum + asset.allocation, 0);
+            const availableAllocation = 100 - newCashBalance - userAssetAllocation;
+            const reductionFactor = availableAllocation / totalExistingAllocation;
+            
+            updatedAssets.forEach(asset => {
+              asset.allocation *= reductionFactor;
+            });
+          }
+          
+          updatedAssets.push({
+            symbol: userAsset.symbol,
+            allocation: userAssetAllocation
+          });
+        }
+      });
+      
+      // Update state
+      setAssets(updatedAssets);
+      setCashBalance(newCashBalance);
+    };
+
+    // Only run auto-configuration if we have a method selected
+    if (allocationMethod) {
+      configureAssets();
+    }
+  }, [allocationMethod]); // Removed 'assets' from dependency array to prevent infinite loops
       switch (allocationMethod) {
         case 'even_split':
           // Default 3-asset portfolio with even split
