@@ -124,11 +124,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const [step, setStep] = useState<'type' | 'config' | 'review'>('type');
   const [isAIConfiguring, setIsAIConfiguring] = useState(false);
   const [strategy, setStrategy] = useState<Partial<TradingStrategy>>({
-    name: '',
-    description: '',
-    risk_level: 'medium',
-    min_capital: 10000,
-    is_active: true,
+    assets: [],
     configuration: {},
     account_id: '',
     quantity_per_grid: 0,
@@ -144,7 +140,18 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     const strategyType = strategyTypes.find(type => type.id === typeId);
     if (!strategyType) return;
 
-    setSelectedType(typeId);
+    const newAssets = [...formData.assets, { symbol: '', allocation: 0 }];
+    
+    // Calculate even split for all assets
+    const evenAllocation = Math.floor(100 / newAssets.length);
+    const remainder = 100 - (evenAllocation * newAssets.length);
+    
+    // Distribute allocations evenly, giving remainder to first asset
+    const updatedAssets = newAssets.map((asset, index) => ({
+      ...asset,
+      allocation: index === 0 ? evenAllocation + remainder : evenAllocation
+    }));
+    
     setStrategy(prev => ({
       ...prev,
       type: typeId as TradingStrategy['type'],
@@ -152,7 +159,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       description: strategyType.description,
       risk_level: strategyType.risk,
       min_capital: strategyType.minCapital,
-      configuration: getDefaultConfiguration(typeId),
+      assets: updatedAssets
     }));
     setStep('config');
   };
@@ -239,10 +246,22 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
 
     setIsAIConfiguring(true);
     
-    try {
-      console.log('Checking supabase object:', supabase);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
+    const newAssets = formData.assets.filter((_, i) => i !== index);
+    
+    // Recalculate even split for remaining assets
+    const evenAllocation = Math.floor(100 / newAssets.length);
+    const remainder = 100 - (evenAllocation * newAssets.length);
+    
+    // Distribute allocations evenly, giving remainder to first asset
+    const updatedAssets = newAssets.map((asset, index) => ({
+      ...asset,
+      allocation: index === 0 ? evenAllocation + remainder : evenAllocation
+    }));
+    
+    setFormData(prev => ({
+      ...prev,
+      assets: updatedAssets
+    }));
         throw new Error('No valid session found. Please log in again.');
       }
 
