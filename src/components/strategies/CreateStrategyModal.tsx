@@ -615,6 +615,59 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                   </div>
                 )}
                 
+                {/* AI Configure Section */}
+                {symbol && (
+                  <div className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">🤖</span>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-purple-400">AI Grid Configuration</h4>
+                          <p className="text-sm text-gray-400">Let AI analyze {symbol} and suggest optimal grid range</p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleAIConfigureGrid}
+                        disabled={aiConfiguring || !symbol}
+                        variant="outline"
+                        className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                      >
+                        {aiConfiguring ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            <span>Analyzing...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span>🧠</span>
+                            <span>AI Configure</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
+                    
+                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-white text-sm">✨</span>
+                        </div>
+                        <div>
+                          <h5 className="font-medium text-purple-400 mb-2">How AI Configuration Works</h5>
+                          <ul className="text-sm text-purple-300 space-y-1">
+                            <li>• Analyzes 1-year price history and volatility patterns</li>
+                            <li>• Calculates Bollinger Bands and technical indicators</li>
+                            <li>• Considers current market momentum and RSI levels</li>
+                            <li>• Suggests optimal grid range with 20% safety buffer</li>
+                            <li>• Provides detailed reasoning for the configuration</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Lower Price</label>
