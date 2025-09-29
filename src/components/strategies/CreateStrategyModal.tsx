@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, TrendingUp, Shield, DollarSign, Target, Settings, AlertTriangle, Info } from 'lucide-react';
+import { X, TrendingUp, Shield, DollarSign, Target, Settings, AlertTriangle, Info, Grid3X3, Bot } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { NumericInput } from '../ui/NumericInput';
@@ -9,6 +9,7 @@ import { OptionsBellCurve } from './OptionsBellCurve';
 import { TradingStrategy, BrokerageAccount } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
+import { supabase } from '../../lib/supabase';
 
 interface CreateStrategyModalProps {
   onClose: () => void;
@@ -116,6 +117,7 @@ const strategyCategories = {
     description: 'Income generation using options contracts',
   },
 };
+
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
   const { brokerageAccounts, getEffectiveSubscriptionTier, user } = useStore();
   const [selectedType, setSelectedType] = useState<string>('');
@@ -126,7 +128,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     description: '',
     risk_level: 'medium',
     min_capital: 10000,
-    is_active: true, // Set to true by default
+    is_active: true,
     configuration: {},
     account_id: '',
     quantity_per_grid: 0,
@@ -238,6 +240,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     setIsAIConfiguring(true);
     
     try {
+      console.log('Checking supabase object:', supabase);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('No valid session found. Please log in again.');
@@ -266,7 +269,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       const data = await response.json();
       console.log('✅ AI configuration received:', data);
       
-      // Update strategy with AI-configured limits
       setStrategy(prev => ({
         ...prev,
         configuration: {
@@ -276,7 +278,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         }
       }));
       
-      // Show success message with reasoning
       if (data.reasoning) {
         alert(`✅ AI Configuration Complete!\n\n${data.reasoning}`);
       }
@@ -292,7 +293,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   const handleCreateStrategy = () => {
     if (!strategy.name || !strategy.type) return;
 
-    // Show immediate execution notice
     const confirmMessage = `Create and immediately execute "${strategy.name}"?\n\n` +
       `This strategy will:\n` +
       `• Be saved to your database\n` +
@@ -307,7 +307,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       return;
     }
 
-    // Validation for spot grid
     if (selectedType === 'spot_grid') {
       if (!strategy.account_id) {
         alert('Please select a brokerage account for this strategy.');
@@ -329,7 +328,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       description: strategy.description || '',
       risk_level: strategy.risk_level || 'medium',
       min_capital: strategy.min_capital || 10000,
-      is_active: true, // Ensure it's active
+      is_active: true,
       configuration: strategy.configuration || {},
       account_id: strategy.account_id,
       quantity_per_grid: strategy.quantity_per_grid,
@@ -339,7 +338,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     onSave(newStrategy);
   };
 
-  // Auto-calculate quantity per grid for spot grid strategies
   React.useEffect(() => {
     if (selectedType === 'spot_grid' && strategy.configuration) {
       const { allocated_capital, number_of_grids, price_range_lower, price_range_upper } = strategy.configuration;
@@ -347,15 +345,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       if (allocated_capital && number_of_grids && price_range_lower && price_range_upper && 
           price_range_lower > 0 && price_range_upper > price_range_lower) {
         
-        // Calculate average price in the range
         const averagePrice = (price_range_lower + price_range_upper) / 2;
-        
-        // Calculate quantity per grid: (allocated capital / number of grids) / average price
         const quantityPerGrid = (allocated_capital / number_of_grids) / averagePrice;
         
         setStrategy(prev => ({
           ...prev,
-          quantity_per_grid: Math.round(quantityPerGrid * 1000000) / 1000000, // Round to 6 decimal places
+          quantity_per_grid: Math.round(quantityPerGrid * 1000000) / 1000000,
         }));
       }
     }
@@ -383,20 +378,18 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           
           return (
             <div key={categoryKey} className="space-y-4">
-              {/* Category Header */}
-              <div className={`p-4 rounded-lg ${categoryData.bgColor} border ${categoryData.borderColor}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 ${categoryData.bgColor} rounded-xl flex items-center justify-center border ${categoryData.borderColor}`}>
-                    <Icon className={`w-5 h-5 ${categoryData.color}`} />
+              <Card className={`p-6 ${categoryData.bgColor} ${categoryData.borderColor} border`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 ${categoryData.bgColor} rounded-xl flex items-center justify-center border ${categoryData.borderColor}`}>
+                    <Icon className={`w-6 h-6 ${categoryData.color}`} />
                   </div>
                   <div>
-                    <h4 className={`font-bold ${categoryData.color}`}>{categoryData.name}</h4>
+                    <h4 className={`text-xl font-bold ${categoryData.color}`}>{categoryData.name}</h4>
                     <p className="text-gray-300 text-sm">{categoryData.description}</p>
                   </div>
                 </div>
-              </div>
+              </Card>
               
-              {/* Category Strategies */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {categoryStrategies.map((type) => {
                   const tierAccess = tierOrder[userTier] >= tierOrder[type.tier];
@@ -549,7 +542,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         </div>
 
         {/* Strategy-specific configuration */}
-        <>
         {selectedType === 'covered_calls' && (
           <div className="space-y-4">
             <h4 className="font-medium text-white">Covered Calls Configuration</h4>
@@ -703,7 +695,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
             
             <div className="space-y-4">
-              {/* AI Configure Button */}
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/20 rounded-lg">
                 <div>
                   <h5 className="font-medium text-purple-400 mb-1">AI Grid Configuration</h5>
@@ -722,63 +713,62 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Lower Price Limit</label>
-                <div className="relative">
-                  <NumericInput
-                    value={strategy.configuration?.price_range_lower || 0}
-                    onChange={(value) => setStrategy(prev => ({
-                      ...prev,
-                      configuration: { ...prev.configuration, price_range_lower: value }
-                    }))}
-                    min={0.01}
-                    step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
-                    allowDecimals={true}
-                    prefix="$"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                    disabled={isAIConfiguring}
-                  />
-                  {isAIConfiguring && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin" />
-                    </div>
-                  )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Lower Price Limit</label>
+                  <div className="relative">
+                    <NumericInput
+                      value={strategy.configuration?.price_range_lower || 0}
+                      onChange={(value) => setStrategy(prev => ({
+                        ...prev,
+                        configuration: { ...prev.configuration, price_range_lower: value }
+                      }))}
+                      min={0.01}
+                      step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
+                      allowDecimals={true}
+                      prefix="$"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      disabled={isAIConfiguring}
+                    />
+                    {isAIConfiguring && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    AI-optimized lower bound, manually configurable
+                  </p>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  AI-optimized lower bound, manually configurable
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Upper Price Limit</label>
-                <div className="relative">
-                  <NumericInput
-                    value={strategy.configuration?.price_range_upper || 0}
-                    onChange={(value) => setStrategy(prev => ({
-                      ...prev,
-                      configuration: { ...prev.configuration, price_range_upper: value }
-                    }))}
-                    min={0.01}
-                    step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
-                    allowDecimals={true}
-                    prefix="$"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                    disabled={isAIConfiguring}
-                  />
-                  {isAIConfiguring && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin" />
-                    </div>
-                  )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Upper Price Limit</label>
+                  <div className="relative">
+                    <NumericInput
+                      value={strategy.configuration?.price_range_upper || 0}
+                      onChange={(value) => setStrategy(prev => ({
+                        ...prev,
+                        configuration: { ...prev.configuration, price_range_upper: value }
+                      }))}
+                      min={0.01}
+                      step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
+                      allowDecimals={true}
+                      prefix="$"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      disabled={isAIConfiguring}
+                    />
+                    {isAIConfiguring && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    AI-optimized upper bound, manually configurable
+                  </p>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  AI-optimized upper bound, manually configurable
-                </p>
-              </div>
               </div>
             </div>
             
-            {/* Auto-calculated quantity per grid display */}
             {strategy.quantity_per_grid && strategy.quantity_per_grid > 0 && (
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -814,7 +804,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               </div>
             )}
             
-            {/* Validation warnings */}
             {selectedType === 'spot_grid' && !strategy.configuration?.symbol && (
               <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
                 <div className="flex items-center gap-2">
@@ -968,7 +957,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
           </div>
         )}
-        </>
       </div>
     );
   };
@@ -1076,11 +1064,9 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
       case 'config':
         if (!strategy.name || !strategy.type) return false;
         
-        // Additional validation for spot grid
         if (selectedType === 'spot_grid') {
           if (!strategy.configuration?.symbol || strategy.configuration.symbol.trim() === '') {
-            alert('Please select a symbol for the grid strategy.');
-            return;
+            return false;
           }
           return strategy.account_id && 
                  strategy.configuration?.symbol &&
@@ -1128,7 +1114,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </Button>
           </div>
 
-          {/* Progress Indicator */}
           <div className="flex items-center justify-center mb-8">
             <div className="flex items-center gap-4">
               {['type', 'config', 'review'].map((stepName, index) => (
@@ -1154,14 +1139,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
           </div>
 
-          {/* Step Content */}
           <div className="min-h-[400px]">
             {step === 'type' && renderTypeSelection()}
             {step === 'config' && renderConfiguration()}
             {step === 'review' && renderReview()}
           </div>
 
-          {/* Action Buttons */}
           <div className="flex gap-4 mt-8 pt-6 border-t border-gray-800">
             {step !== 'type' && (
               <Button variant="secondary" onClick={handleBack}>
