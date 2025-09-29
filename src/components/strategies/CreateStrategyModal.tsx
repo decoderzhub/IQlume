@@ -302,6 +302,10 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       const needsUpgrade = isImplemented && !hasAccess;
                       const isAvailable = isImplemented && hasAccess;
 
+                     // Hide coming soon strategies completely
+                     if (isComingSoon) {
+                       return null;
+                     }
                       return (
                         <motion.div
                           key={strategy.id}
@@ -314,11 +318,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                               : 'bg-gray-800/30 border-gray-700 opacity-60 cursor-not-allowed'
                           }`}
                         >
-                          {isComingSoon && (
-                            <div className="absolute top-3 right-3 px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded border border-yellow-500/30">
-                              Coming Soon
-                            </div>
-                          )}
                           
                           {needsUpgrade && (
                             <div className="absolute top-3 right-3 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30">
