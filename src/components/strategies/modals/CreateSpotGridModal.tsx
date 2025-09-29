@@ -131,6 +131,56 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
             </Button>
           </div>
 
+          {/* AI Grid Configuration Section */}
+          {formData.symbol && (
+            <Card className="p-6 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border-purple-500/20">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center">
+                  <Bot className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">AI Grid Configuration</h3>
+                  <p className="text-sm text-purple-300">Let AI analyze {formData.symbol} and optimize your grid range</p>
+                </div>
+              </div>
+
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 mb-4">
+                <h4 className="font-medium text-purple-400 mb-2">How AI Analysis Works:</h4>
+                <ul className="text-sm text-purple-300 space-y-1">
+                  <li>• Analyzes 1-year historical price data for {formData.symbol}</li>
+                  <li>• Calculates Bollinger Bands for mean-reversion range</li>
+                  <li>• Considers RSI and momentum indicators</li>
+                  <li>• Adjusts for recent volatility patterns</li>
+                  <li>• Ensures current price is safely within range</li>
+                  <li>• Optimizes for {formData.number_of_grids} grid levels</li>
+                </ul>
+              </div>
+
+              <Button
+                onClick={handleAIConfigureGrid}
+                disabled={aiConfiguring}
+                isLoading={aiConfiguring}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                <Bot className="w-4 h-4 mr-2" />
+                {aiConfiguring ? 'Analyzing Market Data...' : `🤖 AI Configure Grid for ${formData.symbol}`}
+              </Button>
+
+              {aiResult && (
+                <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="w-4 h-4 text-green-400" />
+                    <span className="font-medium text-green-400">AI Configuration Applied</span>
+                  </div>
+                  <div className="text-sm text-green-300">
+                    <p>Range: ${aiResult.lower_limit} - ${aiResult.upper_limit}</p>
+                    <p className="text-xs text-gray-400 mt-1">Grid spacing optimized for current market conditions</p>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
           <div className="space-y-6">
             {/* Strategy Name */}
             <div>

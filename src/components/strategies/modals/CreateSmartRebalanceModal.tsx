@@ -100,6 +100,63 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
             </Button>
           </div>
 
+          {/* Asset Allocations */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <label className="block text-sm font-medium text-gray-300">
+                Asset Allocations
+              </label>
+              <Button variant="outline" size="sm" onClick={addAsset}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Asset
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {assets.map((asset, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg">
+                  <div className="flex-1">
+                    <SymbolSearchInput
+                      value={asset.symbol}
+                      onChange={(value) => updateAsset(index, 'symbol', value)}
+                      placeholder="Symbol"
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <NumericInput
+                      value={asset.allocation}
+                      onChange={(value) => updateAsset(index, 'allocation', value)}
+                      min={0}
+                      max={100}
+                      step={1}
+                      suffix="%"
+                      placeholder="0"
+                      className="w-full"
+                    />
+                  </div>
+                  {assets.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAsset(index)}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-400">Total Allocation:</span>
+              <span className={`font-medium ${totalAllocation === 100 ? 'text-green-400' : 'text-red-400'}`}>
+                {totalAllocation}%
+              </span>
+            </div>
+          </div>
+
           <div className="space-y-6">
             {/* Strategy Name */}
             <div>
