@@ -33,16 +33,60 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
   const [rebalanceFrequency, setRebalanceFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [deviationThreshold, setDeviationThreshold] = useState(5);
 
-  // Auto-configure assets based on allocation method
+  // Auto-configure allocations when allocation method changes
   React.useEffect(() => {
     const configureAssets = () => {
-      // Only update cash balance based on allocation method
+      if (assets.length === 0) {
+        // No assets to configure, just set cash balance
+        const newCashBalance = allocationMethod.includes('majority_cash') ? 60 : 20;
+        setCashBalance(newCashBalance);
+        return;
+      }
+
+      // Configure existing assets based on allocation method
       const newCashBalance = allocationMethod.includes('majority_cash') ? 60 : 20;
+      const availableForAssets = 100 - newCashBalance;
+      
+      let updatedAssets = [...assets];
+      
+      switch (allocationMethod) {
+        case 'even_split':
+        case 'majority_cash_even_split':
+          // Distribute available percentage evenly among all assets
+          const evenAllocation = availableForAssets / assets.length;
+          updatedAssets = assets.map(asset => ({
+            ...asset,
+            allocation: evenAllocation
+          }));
+          break;
+          
+        case 'market_cap_weighted':
+        case 'majority_cash_market_cap':
+          // Apply market cap weighting (simplified - in production would use real market cap data)
+          const marketCapWeights = assets.map((asset, index) => {
+            // Mock market cap weights - larger companies get higher weights
+            if (asset.symbol.includes('BTC')) return 0.4;
+            if (asset.symbol.includes('ETH')) return 0.3;
+            if (asset.symbol.includes('AAPL')) return 0.15;
+            if (asset.symbol.includes('MSFT')) return 0.15;
+            // For other assets, distribute remaining weight evenly
+            return 1.0 / assets.length;
+          });
+          
+          const totalWeight = marketCapWeights.reduce((sum, weight) => sum + weight, 0);
+          updatedAssets = assets.map((asset, index) => ({
+            ...asset,
+            allocation: (marketCapWeights[index] / totalWeight) * availableForAssets
+          }));
+          break;
+      }
+      
+      setAssets(updatedAssets);
       setCashBalance(newCashBalance);
     };
 
     configureAssets();
-  }, [allocationMethod]);
+  }, [allocationMethod, assets.length]); // Re-run when method changes or assets are added/removed
 
   const addAsset = () => {
     setAssets(prev => [...prev, { symbol: '', allocation: 0 }]);
