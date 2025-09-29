@@ -627,10 +627,8 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                   <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Brain className="w-6 h-6 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-white mb-2">AI Grid Configuration</h4>
-                        // If price is at bottom of range = 100% buy, at top = 0% buy
-                        price_position_percent = 1.0 - ((currentPrice - lowerPrice) / (upperPrice - lowerPrice));
+                    <p className="text-sm text-purple-300 mb-4">
+                      Let AI analyze market data to set optimal grid range using technical indicators, volatility, and mean reversion analysis.
                     </p>
                     
                     <div className="space-y-2 text-sm text-purple-200 mb-4">
