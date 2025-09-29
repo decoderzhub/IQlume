@@ -62,11 +62,34 @@ class SpotGridExecutor(BaseStrategyExecutor):
             if not initial_buy_order_submitted:
                 self.logger.info(f"🚀 [INITIAL BUY] Performing initial market buy for {strategy_name}")
                 
-                # Calculate initial buy quantity based on grid configuration
-                # Use 10% of allocated capital for initial buy, distributed across grid levels
-                initial_amount = allocated_capital * 0.1
+                # Calculate initial buy based on current price position within grid range
+                if price_range_lower == 0 or price_range_upper == 0:
+                    # If grid range not set, use 10% as fallback
+                    initial_amount = allocated_capital * 0.1
+                    self.logger.info(f"💡 Grid range not set, using 10% fallback: ${initial_amount}")
+                else:
+                    # Calculate where current price sits within the grid range (0-100%)
+                    if current_price <= price_range_lower:
+                        # Price below grid - buy 100% (maximum position)
+                        price_position_percent = 1.0
+                    elif current_price >= price_range_upper:
+                        # Price above grid - buy 0% (no initial position)
+                        price_position_percent = 0.0
+                    else:
+                        # Price within grid - calculate proportional position
+                        # If price is at bottom of range = 100% buy, at top = 0% buy
+                        price_position_percent = 1.0 - ((current_price - price_range_lower) / (price_range_upper - price_range_lower))
+                    
+                    initial_amount = allocated_capital * price_position_percent
+                    
+                    self.logger.info(f"💡 Price position analysis:")
+                    self.logger.info(f"   Current price: ${current_price:.2f}")
+                    self.logger.info(f"   Grid range: ${price_range_lower:.2f} - ${price_range_upper:.2f}")
+                    self.logger.info(f"   Position in range: {price_position_percent:.1%}")
+                    self.logger.info(f"   Initial buy amount: ${initial_amount:.2f}")
+                
                 buy_quantity = max(0.001, initial_amount / current_price)
-                self.logger.info(f"💡 Calculated initial buy: ${initial_amount} = {buy_quantity} {symbol}")
+                self.logger.info(f"💡 Calculated initial buy: ${initial_amount:.2f} = {buy_quantity:.6f} {symbol}")
                 
                 if buy_quantity > 0:
                     try:
