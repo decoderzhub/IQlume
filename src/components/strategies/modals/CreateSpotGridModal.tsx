@@ -404,7 +404,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                 </div>
               )}
             </div>
-
+          </div>
 
           <div className="flex gap-4 mt-8">
             <Button variant="secondary" onClick={onClose} className="flex-1">
