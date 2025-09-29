@@ -16,7 +16,6 @@ interface SymbolSearchInputProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  excludeSymbols?: string[];
 }
 
 export function SymbolSearchInput({ 
@@ -24,8 +23,7 @@ export function SymbolSearchInput({
   onChange, 
   placeholder = "Search symbols...", 
   className = "",
-  disabled = false,
-  excludeSymbols = []
+  disabled = false 
 }: SymbolSearchInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(value);
@@ -89,11 +87,7 @@ export function SymbolSearchInput({
 
           if (response.ok) {
             const data = await response.json();
-            // Filter out excluded symbols
-            const filteredSymbols = (data.symbols || []).filter((symbol: SymbolOption) => 
-              !excludeSymbols.includes(symbol.symbol)
-            );
-            setSymbols(filteredSymbols);
+            setSymbols(data.symbols || []);
           }
         } catch (error) {
           console.error('Error loading popular symbols:', error);
@@ -268,10 +262,7 @@ export function SymbolSearchInput({
                   onClick={() => handleOptionSelect(symbolOption.symbol)}
                   className={`w-full px-3 py-2 text-left hover:bg-gray-700 transition-colors flex items-center justify-between ${
                     selectedIndex === index ? 'bg-gray-700' : ''
-                  } ${
-                    excludeSymbols.includes(symbolOption.symbol) ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
-                  disabled={excludeSymbols.includes(symbolOption.symbol)}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     {getSymbolIcon(symbolOption.type)}
