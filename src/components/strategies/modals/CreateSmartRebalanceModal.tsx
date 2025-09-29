@@ -33,6 +33,59 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
   const [rebalanceFrequency, setRebalanceFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [deviationThreshold, setDeviationThreshold] = useState(5);
 
+  // Auto-configure assets based on allocation method
+  React.useEffect(() => {
+    const configureAssets = () => {
+      switch (allocationMethod) {
+        case 'even_split':
+          // Default 3-asset portfolio with even split
+          setAssets([
+            { symbol: 'BTC', allocation: 26.67 },
+            { symbol: 'ETH', allocation: 26.67 },
+            { symbol: 'AAPL', allocation: 26.66 },
+          ]);
+          setCashBalance(20);
+          break;
+          
+        case 'market_cap_weighted':
+          // Market cap weighted allocation
+          setAssets([
+            { symbol: 'BTC', allocation: 35 },
+            { symbol: 'ETH', allocation: 20 },
+            { symbol: 'AAPL', allocation: 15 },
+            { symbol: 'MSFT', allocation: 10 },
+          ]);
+          setCashBalance(20);
+          break;
+          
+        case 'majority_cash_market_cap':
+          // 60% cash, 40% market cap weighted
+          setAssets([
+            { symbol: 'BTC', allocation: 20 },
+            { symbol: 'ETH', allocation: 12 },
+            { symbol: 'AAPL', allocation: 8 },
+          ]);
+          setCashBalance(60);
+          break;
+          
+        case 'majority_cash_even_split':
+          // 60% cash, 40% evenly split
+          setAssets([
+            { symbol: 'BTC', allocation: 13.33 },
+            { symbol: 'ETH', allocation: 13.33 },
+            { symbol: 'AAPL', allocation: 13.34 },
+          ]);
+          setCashBalance(60);
+          break;
+          
+        default:
+          break;
+      }
+    };
+
+    configureAssets();
+  }, [allocationMethod]);
+
   const addAsset = () => {
     setAssets(prev => [...prev, { symbol: '', allocation: 0 }]);
   };
