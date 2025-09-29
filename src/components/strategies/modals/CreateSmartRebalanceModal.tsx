@@ -618,6 +618,21 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                               <DollarSign className="w-3 h-3" />
                               Initial Buy for {asset.symbol}
                             </h5>
+                            <div className="text-sm text-gray-300">
+                              <span className="font-medium">{formatCurrency((allocatedCapital * asset.allocation) / 100)}</span>
+                              <span className="text-gray-400 ml-2">({asset.allocation.toFixed(1)}% of {formatCurrency(allocatedCapital)})</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Allocation Summary */}
+              <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                <h4 className="font-medium text-white mb-3">Allocation Summary</h4>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Total Allocation:</span>
                   <span className={`font-bold ${isAllocationValid ? 'text-green-400' : 'text-red-400'}`}>
