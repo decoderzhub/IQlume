@@ -310,6 +310,64 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                 </div>
               </div>
 
+              {/* Dynamic Grid Statistics */}
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-blue-400 mb-3 flex items-center gap-2">
+                  <Grid3X3 className="w-4 h-4" />
+                  Grid Configuration Stats
+                </h4>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-400">Capital per Grid:</span>
+                    <span className="text-white ml-2 font-medium">
+                      {formatCurrency(allocatedCapital / numberOfGrids)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Total Grids:</span>
+                    <span className="text-blue-400 ml-2 font-medium">{numberOfGrids}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Grid Spacing:</span>
+                    <span className="text-purple-400 ml-2 font-medium">
+                      {lowerPrice && upperPrice && lowerPrice > 0 && upperPrice > 0 
+                        ? formatCurrency((upperPrice - lowerPrice) / (numberOfGrids - 1))
+                        : 'Set range first'
+                      }
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Range Width:</span>
+                    <span className="text-yellow-400 ml-2 font-medium">
+                      {lowerPrice && upperPrice && lowerPrice > 0 && upperPrice > 0 
+                        ? `${(((upperPrice - lowerPrice) / lowerPrice) * 100).toFixed(1)}%`
+                        : 'Set range first'
+                      }
+                    </span>
+                  </div>
+                </div>
+                
+                {lowerPrice && upperPrice && lowerPrice > 0 && upperPrice > 0 && (
+                  <div className="mt-4 pt-4 border-t border-blue-500/20">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">Estimated Trades per Cycle:</span>
+                        <span className="text-green-400 ml-2 font-medium">
+                          {Math.floor(numberOfGrids * 0.6)} - {numberOfGrids}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Profit per Grid Level:</span>
+                        <span className="text-green-400 ml-2 font-medium">
+                          {formatCurrency((allocatedCapital / numberOfGrids) * 0.005)} - {formatCurrency((allocatedCapital / numberOfGrids) * 0.02)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* AI Grid Configuration */}
               <Card className="p-6 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border-purple-500/20 mb-6">
                 <div className="flex items-start gap-4">
