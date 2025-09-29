@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, TrendingUp, Shield, DollarSign, Target, Settings, AlertTriangle, Info, Grid3X3, Bot } from 'lucide-react';
+import { X, TrendingUp, Shield, DollarSign, Target, Settings, AlertTriangle, Info, Grid3X3, Bot, Plus, Trash2 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { NumericInput } from '../ui/NumericInput';
@@ -923,6 +923,109 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         {selectedType === 'smart_rebalance' && (
           <div className="space-y-4">
             <h4 className="font-medium text-white">Smart Rebalance Configuration</h4>
+            
+            {/* Asset Allocation */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-300">Asset Allocation</label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const currentAssets = strategy.configuration?.assets || [];
+                    setStrategy(prev => ({
+                      ...prev,
+                      configuration: {
+                        ...prev.configuration,
+                        assets: [...currentAssets, { symbol: '', allocation: 0 }]
+                      }
+                    }));
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Asset
+                </Button>
+              </div>
+              
+              <div className="space-y-3">
+                {(strategy.configuration?.assets || []).map((asset: any, index: number) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                    <div className="flex-1">
+                      <SymbolSearchInput
+                        value={asset.symbol}
+                        onChange={(value) => {
+                          const updatedAssets = [...(strategy.configuration?.assets || [])];
+                          updatedAssets[index] = { ...updatedAssets[index], symbol: value };
+                          setStrategy(prev => ({
+                            ...prev,
+                            configuration: { ...prev.configuration, assets: updatedAssets }
+                          }));
+                        }}
+                        placeholder="Search symbol (e.g., BTC, AAPL)"
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    <div className="w-24">
+                      <NumericInput
+                        value={asset.allocation}
+                        onChange={(value) => {
+                          const updatedAssets = [...(strategy.configuration?.assets || [])];
+                          updatedAssets[index] = { ...updatedAssets[index], allocation: value };
+                          setStrategy(prev => ({
+                            ...prev,
+                            configuration: { ...prev.configuration, assets: updatedAssets }
+                          }));
+                        }}
+                        min={0}
+                        max={100}
+                        step={1}
+                        suffix="%"
+                        className="w-full px-2 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+                      />
+                    </div>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const updatedAssets = (strategy.configuration?.assets || []).filter((_: any, i: number) => i !== index);
+                        setStrategy(prev => ({
+                          ...prev,
+                          configuration: { ...prev.configuration, assets: updatedAssets }
+                        }));
+                      }}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2"
+                      disabled={(strategy.configuration?.assets || []).length <= 1}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Allocation Summary */}
+              {(strategy.configuration?.assets || []).length > 0 && (
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-blue-400">Total Allocation</span>
+                    <span className={`text-sm font-bold ${
+                      (strategy.configuration?.assets || []).reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0) === 100
+                        ? 'text-green-400'
+                        : 'text-yellow-400'
+                    }`}>
+                      {(strategy.configuration?.assets || []).reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0)}%
+                    </span>
+                  </div>
+                  {(strategy.configuration?.assets || []).reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0) !== 100 && (
+                    <p className="text-xs text-yellow-300">
+                      Allocation should total 100% for optimal rebalancing
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Rebalance Frequency</label>
