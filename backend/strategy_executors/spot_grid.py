@@ -58,51 +58,40 @@ class SpotGridExecutor(BaseStrategyExecutor):
             
             self.logger.info(f"💰 Current price for {symbol}: ${current_price}")
             
-            # Auto-configure grid range if not set
-            if price_range_lower == 0 or price_range_upper == 0:
-                # Set range to ±20% of current price
-                price_range_lower = current_price * 0.8
-                price_range_upper = current_price * 1.2
-                
-                # Update strategy configuration
-                updated_config = {**configuration}
-                updated_config["price_range_lower"] = price_range_lower
-                updated_config["price_range_upper"] = price_range_upper
-                
-                self.supabase.table("trading_strategies").update({
-                    "configuration": updated_config
-                }).eq("id", strategy_id).execute()
-                
-                self.logger.info(f"🔧 Auto-configured grid range: ${price_range_lower:.2f} - ${price_range_upper:.2f}")
-            
-            # INITIAL MARKET BUY LOGIC - Execute once per strategy using proper grid mechanics
+            # INITIAL MARKET BUY LOGIC - Execute once per strategy
             if not initial_buy_order_submitted:
                 self.logger.info(f"🚀 [INITIAL BUY] Performing initial market buy for {strategy_name}")
                 
-                # Calculate grid mechanics
-                capital_per_grid = allocated_capital / number_of_grids
-                grid_spacing = (price_range_upper - price_range_lower) / (number_of_grids - 1)
-                
-                # Find which grid level the current price is at
-                current_grid_level = max(0, (current_price - price_range_lower) / grid_spacing)
-                grid_levels_below_price = int(current_grid_level)
-                
-                # Calculate required initial position based on grid mechanics
-                # Need to "fill" all grid levels below current price
-                required_initial_position = grid_levels_below_price * capital_per_grid
-                
-                self.logger.info(f"💡 Grid mechanics calculation:")
-                self.logger.info(f"   Capital per grid: ${capital_per_grid:.2f}")
-                self.logger.info(f"   Grid spacing: ${grid_spacing:.2f}")
-                self.logger.info(f"   Current grid level: {current_grid_level:.1f}")
-                self.logger.info(f"   Grid levels below price: {grid_levels_below_price}")
-                self.logger.info(f"   Required initial position: ${required_initial_position:.2f}")
-                
-                # Calculate quantity to buy
-                if required_initial_position > 0:
-                    buy_quantity = max(0.001, required_initial_position / current_price)
-                    self.logger.info(f"💡 Calculated initial buy: ${required_initial_position:.2f} = {buy_quantity:.6f} {symbol}")
+                # Calculate initial buy based on current price position within grid range
+                if price_range_lower == 0 or price_range_upper == 0:
+                    # If grid range not set, use 10% as fallback
+                    initial_amount = allocated_capital * 0.1
+                    self.logger.info(f"💡 Grid range not set, using 10% fallback: ${initial_amount}")
+                else:
+                    # Calculate where current price sits within the grid range (0-100%)
+                    if current_price <= price_range_lower:
+                        # Price below grid - buy 100% (maximum position)
+                        price_position_percent = 1.0
+                    elif current_price >= price_range_upper:
+                        # Price above grid - buy 0% (no initial position)
+                        price_position_percent = 0.0
+                    else:
+                        # Price within grid - calculate proportional position
+                        # If price is at bottom of range = 100% buy, at top = 0% buy
+                        price_position_percent = 1.0 - ((current_price - price_range_lower) / (price_range_upper - price_range_lower))
                     
+                    initial_amount = allocated_capital * price_position_percent
+                    
+                    self.logger.info(f"💡 Price position analysis:")
+                    self.logger.info(f"   Current price: ${current_price:.2f}")
+                    self.logger.info(f"   Grid range: ${price_range_lower:.2f} - ${price_range_upper:.2f}")
+                    self.logger.info(f"   Position in range: {price_position_percent:.1%}")
+                    self.logger.info(f"   Initial buy amount: ${initial_amount:.2f}")
+                
+                buy_quantity = max(0.001, initial_amount / current_price)
+                self.logger.info(f"💡 Calculated initial buy: ${initial_amount:.2f} = {buy_quantity:.6f} {symbol}")
+                
+                if buy_quantity > 0:
                     try:
                         # Determine time in force based on market status
                         is_market_open = self.is_market_open(symbol)
@@ -155,15 +144,8 @@ class SpotGridExecutor(BaseStrategyExecutor):
                         except Exception as trade_error:
                             self.logger.error(f"❌ [INITIAL BUY] Error recording trade: {trade_error}")
                         
-                        # Mark initial buy as completed and store grid configuration
+                        # Mark initial buy as completed
                         telemetry_data["initial_buy_order_submitted"] = True
-                        telemetry_data["grid_configuration"] = {
-                            "capital_per_grid": capital_per_grid,
-                            "grid_spacing": grid_spacing,
-                            "current_grid_level": current_grid_level,
-                            "grid_levels_below_price": grid_levels_below_price,
-                            "initial_position_value": required_initial_position,
-                        }
                         telemetry_data["last_updated"] = datetime.now(timezone.utc).isoformat()
                         
                         # Update telemetry in database
@@ -177,7 +159,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
                             "quantity": buy_quantity,
                             "price": current_price,
                             "order_id": order_id,
-                            "reason": f"Initial grid position: filled {grid_levels_below_price} grid levels below market price. {market_status}. Order ID: {order_id}"
+                            "reason": f"Initial market buy order placed. {market_status}. Order ID: {order_id}"
                         }
                         
                     except AlpacaAPIError as e:
@@ -199,31 +181,16 @@ class SpotGridExecutor(BaseStrategyExecutor):
                             "reason": f"Unexpected error during initial buy: {str(e)}"
                         }
                 else:
-                    # Price is at or above the grid range - minimal initial position
-                    self.logger.info(f"💡 Price ${current_price:.2f} is at/above grid range, minimal initial position needed")
-                    
-                    # Mark initial buy as completed with minimal position
-                    telemetry_data["initial_buy_order_submitted"] = True
-                    telemetry_data["grid_configuration"] = {
-                        "capital_per_grid": capital_per_grid,
-                        "grid_spacing": grid_spacing,
-                        "current_grid_level": current_grid_level,
-                        "grid_levels_below_price": 0,
-                        "initial_position_value": 0,
-                    }
-                    telemetry_data["last_updated"] = datetime.now(timezone.utc).isoformat()
-                    
-                    self.update_strategy_telemetry(strategy_id, telemetry_data)
-                    
+                    self.logger.warning(f"⚠️ [INITIAL BUY] Invalid buy quantity: {buy_quantity}")
                     return {
                         "action": "hold",
                         "symbol": symbol,
                         "quantity": 0,
                         "price": current_price,
-                        "reason": f"Price ${current_price:.2f} is above grid range - no initial position needed, ready to buy as price falls into range"
+                        "reason": f"Invalid initial buy quantity calculated: {buy_quantity}"
                     }
             
-            # GRID TRADING LOGIC - Execute after initial buy is completed
+            # REGULAR GRID LOGIC - Only execute after initial buy is completed
             if not initial_buy_order_submitted:
                 return {
                     "action": "hold",
@@ -233,7 +200,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     "reason": "Waiting for initial buy order to be submitted"
                 }
             
-            self.logger.info(f"🔄 [GRID LOGIC] Initial buy completed, executing grid trading logic")
+            self.logger.info(f"🔄 [GRID LOGIC] Initial buy completed, proceeding with regular grid operations")
             
             # Check if market is open before attempting to trade
             is_market_open = self.is_market_open(symbol)
@@ -247,33 +214,39 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     "reason": f"Market is closed. {market_status}. Strategy will execute when market opens."
                 }
             
-            # Get grid configuration from telemetry
-            grid_config = telemetry_data.get("grid_configuration", {})
-            capital_per_grid = grid_config.get("capital_per_grid", allocated_capital / number_of_grids)
-            grid_spacing = grid_config.get("grid_spacing", (price_range_upper - price_range_lower) / (number_of_grids - 1))
+            # Auto-configure grid range if not set
+            if price_range_lower == 0 or price_range_upper == 0:
+                # Set range to ±20% of current price
+                price_range_lower = current_price * 0.8
+                price_range_upper = current_price * 1.2
+                
+                # Update strategy configuration
+                updated_config = {**configuration}
+                updated_config["price_range_lower"] = price_range_lower
+                updated_config["price_range_upper"] = price_range_upper
+                
+                self.supabase.table("trading_strategies").update({
+                    "configuration": updated_config
+                }).eq("id", strategy_id).execute()
+                
+                self.logger.info(f"🔧 Auto-configured grid range: ${price_range_lower:.2f} - ${price_range_upper:.2f}")
             
-            # Calculate all grid levels
-            grid_levels = []
-            for i in range(number_of_grids):
-                if grid_mode == "geometric":
-                    # Geometric progression
-                    ratio = (price_range_upper / price_range_lower) ** (1 / (number_of_grids - 1))
-                    level = price_range_lower * (ratio ** i)
-                else:
-                    # Arithmetic progression (default)
-                    level = price_range_lower + (grid_spacing * i)
-                grid_levels.append(level)
-            
-            self.logger.info(f"📊 Generated {len(grid_levels)} grid levels from ${grid_levels[0]:.2f} to ${grid_levels[-1]:.2f}")
+            # Calculate grid levels
+            grid_levels = self.calculate_grid_levels(
+                price_range_lower, 
+                price_range_upper, 
+                number_of_grids, 
+                grid_mode
+            )
             
             # Get existing positions and orders
             try:
                 positions = self.trading_client.get_all_positions()
-                current_position = next((p for p in positions if p.symbol == symbol.replace("/", "")), None)
+                current_position = next((p for p in positions if p.symbol == symbol), None)
                 current_qty = float(current_position.qty) if current_position else 0
                 
                 orders = self.trading_client.get_orders()
-                open_orders = [o for o in orders if o.symbol == symbol.replace("/", "") and o.status in ['new', 'accepted', 'partially_filled']]
+                open_orders = [o for o in orders if o.symbol == symbol and o.status in ['new', 'accepted', 'partially_filled']]
                 
                 self.logger.info(f"📊 Current position: {current_qty} {symbol}, Open orders: {len(open_orders)}")
             except AlpacaAPIError as e:
@@ -286,13 +259,13 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     "reason": f"Unable to fetch account data: {str(e)}"
                 }
             
-            # Determine grid action based on current price and grid levels
+            # Determine grid action
             action_result = self.determine_grid_action(
                 current_price,
                 grid_levels,
                 current_qty,
                 open_orders,
-                capital_per_grid,
+                allocated_capital,
                 symbol
             )
             
@@ -301,15 +274,12 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 try:
                     order_side = OrderSide.BUY if action_result["action"] == "buy" else OrderSide.SELL
                     
-                    # Create limit order at the grid level for better execution
-                    target_price = action_result.get("target_price", current_price)
-                    
-                    order_request = LimitOrderRequest(
+                    # Create market order request
+                    order_request = MarketOrderRequest(
                         symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
                         qty=action_result["quantity"],
                         side=order_side,
-                        time_in_force=TimeInForce.DAY,
-                        limit_price=target_price
+                        time_in_force=TimeInForce.DAY
                     )
                     
                     # Submit order to Alpaca
@@ -317,40 +287,9 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     
                     # Add order ID to result
                     action_result["order_id"] = str(order.id)
-                    action_result["reason"] += f" | Limit Order ID: {order.id} @ ${target_price:.2f}"
+                    action_result["reason"] += f" | Order ID: {order.id}"
                     
-                    self.logger.info(f"✅ [GRID] Limit order placed with Alpaca: {order.id} @ ${target_price:.2f}")
-                    
-                    # Record trade in Supabase
-                    try:
-                        trade_data = {
-                            "user_id": strategy_data.get("user_id"),
-                            "strategy_id": strategy_id,
-                            "symbol": symbol,
-                            "type": action_result["action"],
-                            "quantity": action_result["quantity"],
-                            "price": target_price,
-                            "profit_loss": 0,
-                            "status": "pending",
-                            "order_type": "limit",
-                            "time_in_force": "day",
-                            "filled_qty": 0,
-                            "filled_avg_price": 0,
-                            "commission": 0,
-                            "fees": 0,
-                            "alpaca_order_id": str(order.id),
-                        }
-                        
-                        trade_resp = self.supabase.table("trades").insert(trade_data).execute()
-                        
-                        if trade_resp.data:
-                            trade_id = trade_resp.data[0]["id"]
-                            self.logger.info(f"✅ [GRID] Trade recorded in database: {trade_id}")
-                        else:
-                            self.logger.error(f"❌ [GRID] Failed to record trade in database")
-                            
-                    except Exception as trade_error:
-                        self.logger.error(f"❌ [GRID] Error recording trade: {trade_error}")
+                    self.logger.info(f"✅ [GRID] Order placed with Alpaca: {order.id}")
                     
                 except AlpacaAPIError as e:
                     self.logger.error(f"❌ [GRID] Failed to place order with Alpaca: {e}")
@@ -369,7 +308,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     action_result["action"] = "error"
                     action_result["reason"] = f"Unexpected error: {str(e)}"
             
-            # Update telemetry with current grid status
+            # Update telemetry
             updated_telemetry = self.calculate_telemetry(
                 strategy_data,
                 current_price,
@@ -379,9 +318,8 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 allocated_capital
             )
             
-            # Preserve initial buy status and grid configuration
+            # Ensure initial_buy_order_submitted flag is preserved
             updated_telemetry["initial_buy_order_submitted"] = telemetry_data.get("initial_buy_order_submitted", True)
-            updated_telemetry["grid_configuration"] = telemetry_data.get("grid_configuration", {})
             
             self.update_strategy_telemetry(strategy_id, updated_telemetry)
             
@@ -397,18 +335,43 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 "reason": f"Execution error: {str(e)}"
             }
     
+    def calculate_grid_levels(
+        self, 
+        lower_price: float, 
+        upper_price: float, 
+        num_grids: int, 
+        mode: str = "arithmetic"
+    ) -> List[float]:
+        """Calculate grid price levels"""
+        levels = []
+        
+        if mode == "geometric":
+            # Geometric progression
+            ratio = (upper_price / lower_price) ** (1 / (num_grids - 1))
+            for i in range(num_grids):
+                level = lower_price * (ratio ** i)
+                levels.append(level)
+        else:
+            # Arithmetic progression (default)
+            step = (upper_price - lower_price) / (num_grids - 1)
+            for i in range(num_grids):
+                level = lower_price + (step * i)
+                levels.append(level)
+        
+        return levels
+    
     def determine_grid_action(
         self,
         current_price: float,
         grid_levels: List[float],
         current_qty: float,
         open_orders: List[Any],
-        capital_per_grid: float,
+        allocated_capital: float,
         symbol: str
     ) -> Dict[str, Any]:
         """Determine what action to take based on grid logic"""
         
-        # Find the closest grid levels above and below current price
+        # Find the closest grid levels
         buy_levels = [level for level in grid_levels if level < current_price]
         sell_levels = [level for level in grid_levels if level > current_price]
         
@@ -421,134 +384,54 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 "reason": "Current price is outside grid range"
             }
         
-        # Check for buy opportunities (price dropped to a grid level)
+        # Check if we should place a buy order (price near a buy level)
         if buy_levels:
             closest_buy_level = max(buy_levels)
-            buy_threshold = closest_buy_level * 1.002  # 0.2% tolerance for market fluctuations
+            buy_threshold = closest_buy_level * 1.005  # 0.5% tolerance
             
-            if current_price <= buy_threshold:
-                # Check if we already have a buy order at this level
-                existing_buy_orders = [o for o in open_orders 
-                                     if o.side == OrderSide.BUY and 
-                                     abs(float(o.limit_price or 0) - closest_buy_level) < closest_buy_level * 0.01]
-                
+            if current_price <= buy_threshold and current_qty >= 0:
+                # Check if we already have a buy order near this level
+                existing_buy_orders = [o for o in open_orders if o.side == OrderSide.BUY]
                 if not existing_buy_orders:
-                    # Calculate quantity based on capital per grid
-                    quantity = max(0.001, capital_per_grid / closest_buy_level)
+                    # Calculate quantity based on allocated capital and grid levels
+                    quantity_per_grid = allocated_capital / len(grid_levels) / current_price
+                    quantity = max(0.001, quantity_per_grid)  # Minimum quantity
                     
                     return {
                         "action": "buy",
                         "symbol": symbol,
                         "quantity": quantity,
                         "price": current_price,
-                        "target_price": closest_buy_level,
                         "reason": f"Price ${current_price:.2f} triggered buy at grid level ${closest_buy_level:.2f}"
                     }
         
-        # Check for sell opportunities (price rose to a grid level and we have position)
+        # Check if we should place a sell order (price near a sell level and we have position)
         if sell_levels and current_qty > 0:
             closest_sell_level = min(sell_levels)
-            sell_threshold = closest_sell_level * 0.998  # 0.2% tolerance for market fluctuations
+            sell_threshold = closest_sell_level * 0.995  # 0.5% tolerance
             
             if current_price >= sell_threshold:
-                # Check if we already have a sell order at this level
-                existing_sell_orders = [o for o in open_orders 
-                                      if o.side == OrderSide.SELL and 
-                                      abs(float(o.limit_price or 0) - closest_sell_level) < closest_sell_level * 0.01]
-                
+                # Check if we already have a sell order near this level
+                existing_sell_orders = [o for o in open_orders if o.side == OrderSide.SELL]
                 if not existing_sell_orders:
-                    # Calculate quantity to sell (one grid level worth)
-                    quantity = min(capital_per_grid / closest_sell_level, current_qty)
+                    # Sell a portion of our position
+                    quantity = min(current_qty * 0.1, current_qty)  # Sell 10% or all if less
                     
-                    if quantity > 0.001:  # Minimum quantity check
-                        return {
-                            "action": "sell",
-                            "symbol": symbol,
-                            "quantity": quantity,
-                            "price": current_price,
-                            "target_price": closest_sell_level,
-                            "reason": f"Price ${current_price:.2f} triggered sell at grid level ${closest_sell_level:.2f}"
-                        }
-                        return {
-                            "action": "sell",
-                            "symbol": symbol,  # Fixed: use symbol instead of current_price
-                            "quantity": quantity,
-                            "price": current_price,
-                            "target_price": level,
-                            "reason": f"Placing missing sell order at grid level ${level:.2f}"
-                        }
-        )
-        
-        if missing_orders:
-            return missing_orders
+                    return {
+                        "action": "sell",
+                        "symbol": symbol,
+                        "quantity": quantity,
+                        "price": current_price,
+                        "reason": f"Price ${current_price:.2f} triggered sell at grid level ${closest_sell_level:.2f}"
+                    }
         
         return {
             "action": "hold",
             "symbol": symbol,
             "quantity": 0,
             "price": current_price,
-            "reason": f"Grid orders in place, monitoring price ${current_price:.2f}"
+            "reason": f"No grid triggers at current price ${current_price:.2f}"
         }
-    
-    def check_missing_grid_orders(
-        self,
-        current_price: float,
-        grid_levels: List[float],
-        open_orders: List[Any],
-        current_qty: float,
-        capital_per_grid: float
-    ) -> Optional[Dict[str, Any]]:
-        """Check if we need to place any missing grid orders"""
-        
-        # Get existing order prices
-        existing_buy_prices = set()
-        existing_sell_prices = set()
-        
-        for order in open_orders:
-            price = float(order.limit_price or 0)
-            if order.side == OrderSide.BUY:
-                existing_buy_prices.add(price)
-            else:
-                existing_sell_prices.add(price)
-        
-        # Find missing buy orders (below current price)
-        for level in grid_levels:
-            if level < current_price * 0.99:  # 1% below current price
-                # Check if we have an order at this level
-                has_order = any(abs(price - level) < level * 0.01 for price in existing_buy_prices)
-                
-                if not has_order:
-                    quantity = max(0.001, capital_per_grid / level)
-                    return {
-                        "action": "buy",
-                        "symbol": symbol,  # Fixed: use symbol instead of current_price
-                        "quantity": quantity,
-                        "price": current_price,
-                        "target_price": level,
-                        "reason": f"Placing missing buy order at grid level ${level:.2f}"
-                    }
-        
-        # Find missing sell orders (above current price, only if we have position)
-        if current_qty > 0:
-            for level in grid_levels:
-                if level > current_price * 1.01:  # 1% above current price
-                    # Check if we have an order at this level
-                    has_order = any(abs(price - level) < level * 0.01 for price in existing_sell_prices)
-                    
-                    if not has_order:
-                        quantity = min(capital_per_grid / level, current_qty * 0.1)  # Sell up to 10% of position
-                        
-                        if quantity > 0.001:
-                            return {
-                                "action": "sell",
-                                "symbol": current_price,  # This should be symbol, fixing below
-                                "quantity": quantity,
-                                "price": current_price,
-                                "target_price": level,
-                                "reason": f"Placing missing sell order at grid level ${level:.2f}"
-                            }
-        
-        return None
     
     def calculate_telemetry(
         self,
@@ -566,18 +449,13 @@ class SpotGridExecutor(BaseStrategyExecutor):
         # Calculate current position value
         position_value = current_qty * current_price
         
-        # Calculate grid utilization (how many grid levels are "active" near current price)
-        active_range = current_price * 0.1  # 10% range around current price
-        active_grid_levels = len([level for level in grid_levels 
-                                if abs(level - current_price) <= active_range])
+        # Calculate unrealized P&L (simplified)
+        avg_cost = allocated_capital / len(grid_levels) if grid_levels else current_price
+        unrealized_pnl = (current_price - avg_cost) * current_qty
         
-        # Calculate grid utilization percentage
+        # Calculate grid utilization
+        active_grid_levels = len([level for level in grid_levels if abs(level - current_price) / current_price < 0.1])
         grid_utilization = (active_grid_levels / len(grid_levels)) * 100 if grid_levels else 0
-        
-        # Calculate unrealized P&L (simplified - would need cost basis tracking in production)
-        grid_config = strategy_data.get("telemetry_data", {}).get("grid_configuration", {})
-        initial_position_value = grid_config.get("initial_position_value", 0)
-        unrealized_pnl = position_value - initial_position_value
         
         return {
             "allocated_capital_usd": allocated_capital,
@@ -589,7 +467,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
             "current_profit_loss_percent": (unrealized_pnl / allocated_capital) * 100 if allocated_capital > 0 else 0,
             "grid_spacing_interval": (max(grid_levels) - min(grid_levels)) / len(grid_levels) if len(grid_levels) > 1 else 0,
             "active_orders_count": active_orders_count,
-            "fill_rate_percent": 85.0 + (hash(str(current_price)) % 15),  # Mock fill rate for now
+            "fill_rate_percent": 85.0 + (hash(str(current_price)) % 15),  # Mock fill rate
             "grid_utilization_percent": grid_utilization,
             "last_updated": datetime.now(timezone.utc).isoformat(),
         }
