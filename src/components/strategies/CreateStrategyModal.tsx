@@ -8,6 +8,7 @@ import { SymbolSearchInput } from '../ui/SymbolSearchInput';
 import { TradingStrategy } from '../../types';
 import { INITIAL_LAUNCH_STRATEGY_TYPES, STRATEGY_TIERS } from '../../lib/constants';
 import { useStore } from '../../store/useStore';
+import { supabase } from '../../lib/supabase';
 
 interface CreateStrategyModalProps {
   onClose: () => void;
@@ -61,6 +62,9 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
   // DCA specific state
   const [investmentAmount, setInvestmentAmount] = useState(100);
   const [dcaFrequency, setDcaFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
+  
+  // AI configuration state
+  const [aiConfiguring, setAiConfiguring] = useState(false);
 
   const { getEffectiveSubscriptionTier } = useStore();
 
@@ -232,6 +236,54 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
 
   const getTotalAllocation = () => {
     return getCashAllocation() + assets.reduce((sum, asset) => sum + asset.allocation, 0);
+  };
+  
+  const handleAIConfigureGrid = async () => {
+    if (!symbol || !user) return;
+    
+    setAiConfiguring(true);
+    try {
+      console.log(`🤖 AI configuring grid range for ${symbol}...`);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found. Please log in again.');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/ai-configure-grid-range`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          symbol: symbol,
+          allocated_capital: minCapital,
+          number_of_grids: numberOfGrids,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to get AI configuration: ${response.status} ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ AI configuration result:', result);
+      
+      // Update grid range with AI suggestions
+      setPriceRangeLower(result.lower_limit);
+      setPriceRangeUpper(result.upper_limit);
+      
+      // Show AI reasoning in an alert
+      alert(`🤖 AI Grid Configuration Complete!\n\n${result.reasoning}`);
+      
+    } catch (error) {
+      console.error('Error in AI grid configuration:', error);
+      alert(`Failed to configure grid with AI: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setAiConfiguring(false);
+    }
   };
 
   const handleNext = () => {
@@ -594,6 +646,59 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                     />
                   </div>
                 </div>
+                
+                {/* AI Configure Section */}
+                {symbol && (
+                  <div className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">🤖</span>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-purple-400">AI Grid Configuration</h4>
+                          <p className="text-sm text-gray-400">Let AI analyze {symbol} and suggest optimal grid range</p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleAIConfigureGrid}
+                        disabled={aiConfiguring || !symbol}
+                        variant="outline"
+                        className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                      >
+                        {aiConfiguring ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            <span>Analyzing...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span>🧠</span>
+                            <span>AI Configure</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
+                    
+                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-white text-sm">✨</span>
+                        </div>
+                        <div>
+                          <h5 className="font-medium text-purple-400 mb-2">How AI Configuration Works</h5>
+                          <ul className="text-sm text-purple-300 space-y-1">
+                            <li>• Analyzes 1-year price history and volatility patterns</li>
+                            <li>• Calculates Bollinger Bands and technical indicators</li>
+                            <li>• Considers current market momentum and RSI levels</li>
+                            <li>• Suggests optimal grid range with 20% safety buffer</li>
+                            <li>• Provides detailed reasoning for the configuration</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : selectedType === 'dca' ? (
               <div className="space-y-4">
