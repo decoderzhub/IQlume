@@ -125,37 +125,47 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
     // Use real market price
     const currentPrice = realMarketPrice;
     
-    // CORE GRID BOT MECHANICS: Calculate exact grid levels and required position using user's configuration
+    // CORE GRID BOT MECHANICS: Calculate position based on where price is in range
+    let price_position_percent = 0;
+    
+    if (currentPrice <= lowerPrice) {
+      // Price at/below bottom of range = need maximum position (100%)
+      price_position_percent = 1.0;
+    } else if (currentPrice >= upperPrice) {
+      // Price at/above top of range = need minimal position (0%)
+      price_position_percent = 0.0;
+    } else {
+      // Price within range - linear interpolation
+      // Bottom of range = 100% position, top of range = 0% position
+      price_position_percent = 1.0 - ((currentPrice - lowerPrice) / (upperPrice - lowerPrice));
+    }
+    
+    // Calculate required position
+    const amount = allocatedCapital * price_position_percent;
+    const percentage = price_position_percent * 100;
+    
+    // Calculate grid metrics for display
     const capitalPerGrid = allocatedCapital / numberOfGrids;
-    const gridSpacing = (upperPrice - lowerPrice) / (numberOfGrids - 1);
-    
-    // Find which grid level the current price is at
-    const currentGridLevel = Math.floor((currentPrice - lowerPrice) / gridSpacing);
+    const gridSpacing = numberOfGrids > 1 ? (upperPrice - lowerPrice) / (numberOfGrids - 1) : 0;
+    const currentGridLevel = gridSpacing > 0 ? Math.floor((currentPrice - lowerPrice) / gridSpacing) : 0;
     const gridLevelsBelowPrice = Math.max(0, currentGridLevel);
-    
-    // GRID BOT STRATEGY: Need to buy enough to fill all grid levels below current price
-    // Each grid level below current price should be "filled" with base position
-    const requiredBasePosition = gridLevelsBelowPrice * capitalPerGrid;
-    
-    // Calculate the actual buy amount needed (this is the core grid bot logic)
-    const amount = requiredBasePosition;
-    const percentage = (amount / allocatedCapital) * 100;
     
     let reason = '';
     let gridPosition = '';
     
     if (currentPrice <= lowerPrice) {
-      // Price below grid - need maximum position
-      reason = `Price below grid range - need maximum position (${numberOfGrids} levels × ${formatCurrency(capitalPerGrid)} = ${formatCurrency(amount)})`;
-      gridPosition = 'below grid (maximum buy zone)';
+      // Price at/below bottom - need maximum position to sell as price rises
+      reason = `Price at bottom of range - buy maximum position (${percentage.toFixed(1)}%) to sell as price rises`;
+      gridPosition = 'bottom of range (maximum buy)';
     } else if (currentPrice >= upperPrice) {
-      // Price above grid - minimal position
-      reason = 'Price above grid range - minimal initial position, ready to buy as price falls into range';
-      gridPosition = 'above grid (minimal buy zone)';
+      // Price at/above top - minimal position, ready to buy as price falls
+      reason = 'Price at top of range - minimal position, ready to buy as price falls';
+      gridPosition = 'top of range (minimal buy)';
     } else {
-      // Price within grid - calculate exact position
-      reason = `Price at grid level ${currentGridLevel + 1}/${numberOfGrids} - need to fill ${gridLevelsBelowPrice} levels below current price`;
-      gridPosition = `grid level ${currentGridLevel + 1} of ${numberOfGrids}`;
+      // Price within range - proportional position
+      const positionInRange = ((currentPrice - lowerPrice) / (upperPrice - lowerPrice)) * 100;
+      reason = `Price ${positionInRange.toFixed(1)}% up the range - need ${percentage.toFixed(1)}% position for optimal grid trading`;
+      gridPosition = `${positionInRange.toFixed(1)}% up the range`;
     }
     
     return { 
@@ -619,8 +629,8 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                   </div>
                   <div className="flex-1">
                     <h4 className="font-semibold text-white mb-2">AI Grid Configuration</h4>
-                    <p className="text-sm text-gray-300 mb-4">
-                      Let AI analyze market data to set optimal grid range using technical indicators, volatility, and mean reversion
+                        // If price is at bottom of range = 100% buy, at top = 0% buy
+                        price_position_percent = 1.0 - ((currentPrice - lowerPrice) / (upperPrice - lowerPrice));
                     </p>
                     
                     <div className="space-y-2 text-sm text-purple-200 mb-4">
