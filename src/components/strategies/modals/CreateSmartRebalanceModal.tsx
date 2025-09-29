@@ -422,7 +422,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
               {/* Allocation Method */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-300 mb-3">Allocation Method</label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                   <motion.div
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
@@ -449,6 +449,20 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                   >
                     <h4 className="font-medium text-white mb-2">Market Cap Weighted</h4>
                     <p className="text-sm text-gray-400">Allocation by market cap</p>
+                  </motion.div>
+
+                  <motion.div
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={() => setAllocationMethod('custom')}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                      allocationMethod === 'custom'
+                        ? 'border-purple-500 bg-purple-500/10'
+                        : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+                    }`}
+                  >
+                    <h4 className="font-medium text-white mb-2">Custom</h4>
+                    <p className="text-sm text-gray-400">Manual percentage control</p>
                   </motion.div>
 
                   <motion.div
@@ -488,13 +502,15 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                     <DollarSign className="w-5 h-5 text-green-400" />
                     <div>
                       <p className="font-medium text-white">USD Cash Balance</p>
-                      <p className="text-sm text-gray-400">Account cash allocation</p>
+                      <p className="text-sm text-gray-400">
+                        {allocationMethod === 'custom' ? 'Manual control - assets auto-balance' : 'Account cash allocation'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <NumericInput
                       value={cashBalance}
-                      onChange={setCashBalance}
+                      onChange={handleCashBalanceChange}
                       min={0}
                       max={100}
                       step={1}
@@ -538,12 +554,13 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                         <div className="flex items-center gap-2">
                           <NumericInput
                             value={asset.allocation}
-                            onChange={handleCashBalanceChange}
+                            onChange={(value) => updateAsset(index, 'allocation', value)}
                             min={0}
                             max={100}
                             step={0.1}
                             className="w-20 text-center"
                             allowDecimals={true}
+                            disabled={allocationMethod !== 'custom'}
                           />
                           <span className="text-white">%</span>
                         </div>
@@ -569,6 +586,11 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                     {totalAllocation.toFixed(1)}%
                   </span>
                 </div>
+                {allocationMethod === 'custom' && (
+                  <p className="text-xs text-blue-300 mt-2">
+                    💡 Tip: Change any percentage and others will auto-balance to 100%
+                  </p>
+                )}
                 {!isAllocationValid && (
                   <p className="text-sm text-red-400 mt-2">
                     Total allocation must equal 100%
