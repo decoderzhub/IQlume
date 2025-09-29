@@ -618,114 +618,6 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                               <DollarSign className="w-3 h-3" />
                               Initial Buy for {asset.symbol}
                             </h5>
-                            <div className="grid grid-cols-2 gap-3 text-xs">
-                              <div>
-                                <span className="text-gray-400">Target Allocation:</span>
-                                <span className="text-blue-400 ml-2 font-medium">{asset.allocation.toFixed(1)}%</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-400">Investment Amount:</span>
-                                <span className="text-green-400 ml-2 font-medium">
-                                  {formatCurrency((allocatedCapital * (100 - cashBalance) / 100) * (asset.allocation / (100 - cashBalance)))}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="mt-2 pt-2 border-t border-blue-500/20">
-                              <p className="text-xs text-blue-300">
-                                Will buy {formatCurrency((allocatedCapital * (100 - cashBalance) / 100) * (asset.allocation / (100 - cashBalance)))} worth of {asset.symbol} on strategy activation
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Portfolio Initial Buy Summary */}
-              {assets.length > 0 && assets.some(asset => asset.symbol && asset.allocation > 0) && (
-                <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-                  <h4 className="font-medium text-green-400 mb-3 flex items-center gap-2">
-                    <Target className="w-4 h-4" />
-                    Portfolio Initial Buy Summary
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <span className="text-gray-400 text-sm">Total Investment Amount:</span>
-                      <span className="text-green-400 ml-2 font-bold text-lg">
-                        {formatCurrency(allocatedCapital * (100 - cashBalance) / 100)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-sm">Cash Reserve:</span>
-                      <span className="text-blue-400 ml-2 font-bold text-lg">
-                        {formatCurrency(allocatedCapital * cashBalance / 100)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    {assets.filter(asset => asset.symbol && asset.allocation > 0).map((asset, index) => {
-                      const investmentAmount = (allocatedCapital * (100 - cashBalance) / 100) * (asset.allocation / (100 - cashBalance));
-                      return (
-                        <div key={index} className="flex justify-between items-center text-sm">
-                          <span className="text-gray-300">{asset.symbol}:</span>
-                          <div className="text-right">
-                            <span className="text-white font-medium">{formatCurrency(investmentAmount)}</span>
-                            <span className="text-gray-400 ml-2">({asset.allocation.toFixed(1)}%)</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  <div className="mt-3 pt-3 border-t border-green-500/20">
-                    <p className="text-xs text-green-300">
-                      💡 These amounts will be purchased when the strategy is activated, creating your target portfolio allocation.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Allocation Summary */}
-              <div className="bg-gray-800/30 rounded-lg p-4">
-                          <SymbolSearchInput
-                            value={asset.symbol}
-                            onChange={(value) => updateAsset(index, 'symbol', value)}
-                            placeholder="Search symbol"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <NumericInput
-                            value={asset.allocation}
-                            onChange={(value) => updateAsset(index, 'allocation', value)}
-                            min={0}
-                            max={100}
-                            step={0.1}
-                            className="w-20 text-center"
-                            allowDecimals={true}
-                            disabled={allocationMethod !== 'custom'}
-                          />
-                          <span className="text-white">%</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeAsset(index)}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Allocation Summary */}
-              <div className="bg-gray-800/30 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Total Allocation:</span>
                   <span className={`font-bold ${isAllocationValid ? 'text-green-400' : 'text-red-400'}`}>
@@ -743,7 +635,6 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                   </p>
                 )}
               </div>
-
 
               {/* Rebalance Settings */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
