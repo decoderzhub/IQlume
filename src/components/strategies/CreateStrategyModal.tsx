@@ -761,6 +761,10 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                           value={asset.symbol}
                           onChange={(value) => handleAssetSymbolChange(index, value)}
                           placeholder="Search symbol (e.g., BTC, AAPL)"
+                          excludeSymbols={[
+                            'USD', // Always exclude USD cash
+                            ...assets.filter((_, i) => i !== index).map(a => a.symbol) // Exclude other selected assets
+                          ]}
                           className="w-full"
                         />
                       </div>
