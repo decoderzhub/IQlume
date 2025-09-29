@@ -662,7 +662,6 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                     </Button>
                   </div>
                   </div>
-                </div>
               </Card>
 
               {/* Manual Grid Range Configuration */}
