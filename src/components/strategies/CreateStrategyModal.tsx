@@ -454,6 +454,219 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
 
   const renderConfiguration = () => {
     if (!selectedStrategyType) return null;
+    // Smart Rebalance specific configuration
+    if (selectedStrategy.type === 'smart_rebalance') {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-xl font-bold text-white mb-2">{selectedStrategy.name}</h3>
+            <p className="text-gray-400 mb-6">{selectedStrategy.description}</p>
+          </div>
+
+          {/* Strategy Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Strategy Name</label>
+            <input
+              type="text"
+              value={strategyName}
+              onChange={(e) => setStrategyName(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="My Smart Rebalance Strategy"
+            />
+          </div>
+
+          {/* Allocation Method */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-3">Allocation Method</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { id: 'even', name: 'Even Split', color: 'blue', description: 'Equal allocation across all assets' },
+                { id: 'market_cap', name: 'Market Cap Weighted', color: 'purple', description: 'Allocation based on market capitalization' },
+                { id: 'majority_cash_market_cap', name: 'Majority Cash + Market Cap', color: 'green', description: '60% cash, 40% market cap weighted' },
+                { id: 'majority_cash_even', name: 'Majority Cash + Even Split', color: 'yellow', description: '60% cash, 40% evenly split' },
+              ].map((method) => (
+                <motion.div
+                  key={method.id}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => setAllocationMethod(method.id as any)}
+                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                    allocationMethod === method.id
+                      ? `border-${method.color}-500 bg-${method.color}-500/10`
+                      : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+                  }`}
+                >
+                  <h4 className="font-medium text-white mb-1">{method.name}</h4>
+                  <p className="text-xs text-gray-400">{method.description}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Asset Allocation */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <label className="block text-sm font-medium text-gray-300">Asset Allocation</label>
+              <div className="text-sm">
+                <span className="text-gray-400">Total: </span>
+                <span className={`font-medium ${getTotalAllocation() === 100 ? 'text-green-400' : 'text-yellow-400'}`}>
+                  {getTotalAllocation().toFixed(1)}%
+                </span>
+              </div>
+            </div>
+
+            {/* USD Cash - Always present */}
+            <div className="mb-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                  <DollarSign className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium text-white">USD Cash</span>
+                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded border border-green-500/30">
+                      Cash Balance
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400">Account cash balance for rebalancing</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <NumericInput
+                    value={usdCashAllocation}
+                    onChange={setUsdCashAllocation}
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    allowDecimals={true}
+                    disabled={allocationMethod !== 'even'}
+                    className="w-20 text-center"
+                  />
+                  <span className="text-gray-400">%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Asset List */}
+            <div className="space-y-3">
+              {assets.map((asset, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                  <SymbolSearchInput
+                    value={asset.symbol}
+                    onChange={(value) => updateAsset(index, 'symbol', value)}
+                    placeholder="Search symbol..."
+                    className="flex-1"
+                  />
+                  <div className="flex items-center gap-2">
+                    <NumericInput
+                      value={asset.allocation}
+                      onChange={(value) => updateAsset(index, 'allocation', value)}
+                      min={0}
+                      max={100}
+                      step={0.1}
+                      allowDecimals={true}
+                      disabled={allocationMethod !== 'even'}
+                      className="w-20 text-center"
+                    />
+                    <span className="text-gray-400">%</span>
+                  </div>
+                  {assets.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAsset(index)}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Add Asset Button */}
+            <Button
+              variant="outline"
+              onClick={addAsset}
+              className="w-full mt-4"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {assets.length === 0 ? 'Add First Asset' : 'Add Asset'}
+            </Button>
+
+            {/* Allocation Method Info */}
+            {allocationMethod !== 'even' && (
+              <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-blue-400 mb-2">Automatic Allocation</h4>
+                    <p className="text-sm text-blue-300">
+                      {allocationMethod === 'market_cap' && 'Assets will be allocated based on their market capitalization. Larger companies receive higher allocation percentages.'}
+                      {allocationMethod === 'majority_cash_market_cap' && 'USD cash will receive 60% allocation, with the remaining 40% distributed among assets based on market cap.'}
+                      {allocationMethod === 'majority_cash_even' && 'USD cash will receive 60% allocation, with the remaining 40% split evenly among all assets.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Rebalancing Settings */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Rebalance Frequency</label>
+                <select
+                  value={rebalanceFrequency}
+                  onChange={(e) => setRebalanceFrequency(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Deviation Threshold</label>
+                <div className="flex items-center gap-2">
+                  <NumericInput
+                    value={deviationThreshold}
+                    onChange={setDeviationThreshold}
+                    min={1}
+                    max={50}
+                    step={0.5}
+                    allowDecimals={true}
+                    className="flex-1"
+                  />
+                  <span className="text-gray-400">%</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Rebalance when allocation deviates by this percentage
+                </p>
+              </div>
+            </div>
+
+            {/* Capital Allocation */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Total Capital to Allocate</label>
+              <NumericInput
+                value={minCapital}
+                onChange={setMinCapital}
+                min={1000}
+                step={1000}
+                prefix="$"
+                className="w-full"
+                placeholder="Enter total capital"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Total amount to be managed by this rebalancing strategy
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
 
     return (
       <div className="space-y-6">
@@ -1252,7 +1465,7 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
           </div>
 
-          <div className="min-h-[400px]">
+          <div className="min-h-[400px] mb-8">
             {step === 'type' && renderTypeSelection()}
             {step === 'config' && renderConfiguration()}
             {step === 'review' && renderReview()}
