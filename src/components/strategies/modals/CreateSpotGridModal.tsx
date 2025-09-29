@@ -627,6 +627,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                   <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Brain className="w-6 h-6 text-white" />
                   </div>
+                  <div>
                     <p className="text-sm text-purple-300 mb-4">
                       Let AI analyze market data to set optimal grid range using technical indicators, volatility, and mean reversion analysis.
                     </p>
@@ -659,6 +660,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                       <Brain className="w-4 h-4 mr-2" />
                       {isAIConfiguring ? 'Analyzing Market...' : 'AI Configure'}
                     </Button>
+                  </div>
                   </div>
                 </div>
               </Card>
