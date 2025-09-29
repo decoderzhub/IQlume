@@ -302,10 +302,11 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
                       const needsUpgrade = isImplemented && !hasAccess;
                       const isAvailable = isImplemented && hasAccess;
 
-                     // Hide coming soon strategies completely
-                     if (isComingSoon) {
-                       return null;
-                     }
+                      // Hide coming soon strategies completely
+                      if (isComingSoon) {
+                        return null;
+                      }
+                      
                       return (
                         <motion.div
                           key={strategy.id}

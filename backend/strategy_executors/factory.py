@@ -72,6 +72,7 @@ class StrategyExecutorFactory:
             'futures_grid', 
             'infinity_grid',
             'dca',
+            'smart_rebalance',
             'covered_calls',
             'wheel',
             'short_put'
