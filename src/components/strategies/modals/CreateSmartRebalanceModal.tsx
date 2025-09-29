@@ -686,7 +686,6 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                 </div>
               </div>
             </div>
-          </div>
 
           <div className="flex gap-4 mt-8">
             <Button variant="secondary" onClick={onClose} className="flex-1">
