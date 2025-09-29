@@ -94,6 +94,10 @@ export function SymbolSearchInput({
               !excludeSymbols.includes(symbol.symbol)
             );
             setSymbols(filteredSymbols);
+            const filteredSymbols = (data.symbols || []).filter((symbol: SymbolOption) => 
+              !excludeSymbols.includes(symbol.symbol)
+            );
+            setSymbols(filteredSymbols);
           }
         } catch (error) {
           console.error('Error loading popular symbols:', error);
@@ -117,11 +121,7 @@ export function SymbolSearchInput({
 
         if (response.ok) {
           const data = await response.json();
-          // Filter out excluded symbols
-          const filteredSymbols = (data.symbols || []).filter((symbol: SymbolOption) => 
-            !excludeSymbols.includes(symbol.symbol)
-          );
-          setSymbols(filteredSymbols);
+          setSymbols(data.symbols || []);
           setSelectedIndex(-1); // Reset selection
         }
       } catch (error) {
@@ -273,7 +273,7 @@ export function SymbolSearchInput({
                   className={`w-full px-3 py-2 text-left hover:bg-gray-700 transition-colors flex items-center justify-between ${
                     selectedIndex === index ? 'bg-gray-700' : ''
                   } ${
-                    excludeSymbols.includes(symbolOption.symbol) ? 'opacity-50 cursor-not-allowed bg-gray-800' : ''
+                    excludeSymbols.includes(symbolOption.symbol) ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                   disabled={excludeSymbols.includes(symbolOption.symbol)}
                 >
