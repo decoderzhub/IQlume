@@ -1,26 +1,13 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  X, 
-  TrendingUp, 
-  Grid3X3, 
-  Bot, 
-  Target, 
-  Plus, 
-  Trash2,
-  Brain,
-  Zap,
-  AlertTriangle,
-  DollarSign,
-  Percent,
-  Settings
-} from 'lucide-react';
+import { X, TrendingUp, Shield, DollarSign, Target, Settings, AlertTriangle, Info, Grid3X3, Bot, Plus, Trash2 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { NumericInput } from '../ui/NumericInput';
 import { SymbolSearchInput } from '../ui/SymbolSearchInput';
-import { TradingStrategy } from '../../types';
-import { INITIAL_LAUNCH_STRATEGY_TYPES, STRATEGY_TIERS, SubscriptionTier } from '../../lib/constants';
+import { OptionsBellCurve } from './OptionsBellCurve';
+import { TradingStrategy, BrokerageAccount } from '../../types';
+import { formatCurrency } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
 
@@ -29,90 +16,82 @@ interface CreateStrategyModalProps {
   onSave: (strategy: Omit<TradingStrategy, 'id'>) => Promise<TradingStrategy | null>;
 }
 
-interface AssetAllocation {
-  symbol: string;
-  allocation: number;
-}
-
 const strategyTypes = [
-  // Grid Bots
-  {
-    id: 'spot_grid',
-    name: 'Spot Grid Bot',
-    description: 'Automate buy-low/sell-high trades within a defined price range',
-    risk_level: 'low' as const,
-    min_capital: 1000,
-    category: 'grid',
-    tier: 'pro' as SubscriptionTier,
-  },
-  {
-    id: 'futures_grid',
-    name: 'Futures Grid Bot',
-    description: 'Grid trading on futures market with leverage support',
-    risk_level: 'medium' as const,
-    min_capital: 2000,
-    category: 'grid',
-    tier: 'elite' as SubscriptionTier,
-  },
-  {
-    id: 'infinity_grid',
-    name: 'Infinity Grid Bot',
-    description: 'Grid trading without upper price limit for trending markets',
-    risk_level: 'medium' as const,
-    min_capital: 1500,
-    category: 'grid',
-    tier: 'elite' as SubscriptionTier,
-  },
-  // Autonomous Bots
-  {
-    id: 'dca',
-    name: 'DCA Bot',
-    description: 'Dollar-cost averaging for systematic investment',
-    risk_level: 'low' as const,
-    min_capital: 500,
-    category: 'autonomous',
-    tier: 'starter' as SubscriptionTier,
-  },
-  {
-    id: 'smart_rebalance',
-    name: 'Smart Rebalance',
-    description: 'Maintain target allocations through automatic rebalancing',
-    risk_level: 'low' as const,
-    min_capital: 5000,
-    category: 'autonomous',
-    tier: 'starter' as SubscriptionTier,
-  },
-  // Options Strategies
   {
     id: 'covered_calls',
     name: 'Covered Calls',
     description: 'Generate income by selling call options on owned stocks',
-    risk_level: 'low' as const,
-    min_capital: 15000,
-    category: 'options',
-    tier: 'pro' as SubscriptionTier,
+    risk: 'low' as const,
+    minCapital: 15000,
+    tier: 'pro' as const,
+    category: 'options' as const,
   },
   {
     id: 'wheel',
     name: 'The Wheel',
     description: 'Systematic approach combining cash-secured puts and covered calls',
-    risk_level: 'low' as const,
-    min_capital: 20000,
-    category: 'options',
-    tier: 'pro' as SubscriptionTier,
+    risk: 'low' as const,
+    minCapital: 20000,
+    tier: 'pro' as const,
+    category: 'options' as const,
   },
   {
     id: 'short_put',
     name: 'Cash-Secured Put',
     description: 'Sell put options with cash backing for potential stock acquisition',
-    risk_level: 'medium' as const,
-    min_capital: 10000,
-    category: 'options',
-    tier: 'pro' as SubscriptionTier,
+    risk: 'medium' as const,
+    minCapital: 10000,
+    tier: 'pro' as const,
+    category: 'options' as const,
+  },
+  {
+    id: 'spot_grid',
+    name: 'Spot Grid Bot',
+    description: 'Automate buy-low/sell-high trades within a defined price range',
+    risk: 'low' as const,
+    minCapital: 1000,
+    tier: 'pro' as const,
+    category: 'grid' as const,
+  },
+  {
+    id: 'futures_grid',
+    name: 'Futures Grid Bot',
+    description: 'Grid trading on futures market with leverage support',
+    risk: 'medium' as const,
+    minCapital: 2000,
+    tier: 'elite' as const,
+    category: 'grid' as const,
+  },
+  {
+    id: 'infinity_grid',
+    name: 'Infinity Grid Bot',
+    description: 'Grid trading without upper price limit for trending markets',
+    risk: 'medium' as const,
+    minCapital: 1500,
+    tier: 'elite' as const,
+    category: 'grid' as const,
+  },
+  {
+    id: 'dca',
+    name: 'DCA Bot',
+    description: 'Dollar-cost averaging for systematic investment',
+    risk: 'low' as const,
+    minCapital: 500,
+    tier: 'starter' as const,
+    category: 'autonomous' as const,
+  },
+  {
+    id: 'smart_rebalance',
+    name: 'Smart Rebalance',
+    description: 'Maintain target allocations through automatic rebalancing',
+    risk: 'low' as const,
+    minCapital: 5000,
+    tier: 'starter' as const,
+    category: 'autonomous' as const,
   },
 ];
 
-const categories = {
+const strategyCategories = {
   grid: {
     name: 'Grid Bots',
     icon: Grid3X3,
@@ -127,7 +106,7 @@ const categories = {
     color: 'text-green-400',
     bgColor: 'bg-green-500/10',
     borderColor: 'border-green-500/20',
-    description: 'Set-and-forget strategies for systematic investing and rebalancing',
+    description: 'Set-and-forget strategies for systematic investing',
   },
   options: {
     name: 'Options Strategies',
@@ -135,126 +114,140 @@ const categories = {
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/20',
-    description: 'Income generation and risk management using options contracts',
+    description: 'Income generation using options contracts',
   },
 };
 
 export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProps) {
-  const [step, setStep] = useState<'type' | 'configure' | 'review'>('type');
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [strategyName, setStrategyName] = useState('');
-  const [symbol, setSymbol] = useState('');
-  const [minCapital, setMinCapital] = useState(0);
-  const [riskLevel, setRiskLevel] = useState<'low' | 'medium' | 'high'>('medium');
-  const [description, setDescription] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [aiConfiguring, setAiConfiguring] = useState(false);
-  
-  // Smart Rebalance specific state
-  const [assets, setAssets] = useState<AssetAllocation[]>([]);
-  const [rebalanceFrequency, setRebalanceFrequency] = useState('weekly');
-  const [thresholdDeviation, setThresholdDeviation] = useState(5);
-  
-  // Grid strategy specific state
-  const [priceRangeLower, setPriceRangeLower] = useState(0);
-  const [priceRangeUpper, setPriceRangeUpper] = useState(0);
-  const [numberOfGrids, setNumberOfGrids] = useState(20);
-  
-  // DCA specific state
-  const [investmentAmount, setInvestmentAmount] = useState(100);
-  const [dcaFrequency, setDcaFrequency] = useState('daily');
-  
-  // Options specific state
-  const [strikeDelta, setStrikeDelta] = useState(0.30);
-  const [dteTarget, setDteTarget] = useState(30);
-  const [profitTarget, setProfitTarget] = useState(50);
+  const { brokerageAccounts, getEffectiveSubscriptionTier, user } = useStore();
+  const [selectedType, setSelectedType] = useState<string>('');
+  const [step, setStep] = useState<'type' | 'config' | 'review'>('type');
+  const [isAIConfiguring, setIsAIConfiguring] = useState(false);
+  const [strategy, setStrategy] = useState<Partial<TradingStrategy>>({
+    name: '',
+    description: '',
+    risk_level: 'medium',
+    min_capital: 10000,
+    is_active: true,
+    configuration: {},
+    account_id: '',
+    quantity_per_grid: 0,
+  });
 
-  const { getEffectiveSubscriptionTier } = useStore();
+  const selectedStrategyType = strategyTypes.find(type => type.id === selectedType);
   const userTier = getEffectiveSubscriptionTier();
+  
   const tierOrder = { starter: 0, pro: 1, elite: 2 };
-
-  const selectedStrategy = strategyTypes.find(s => s.id === selectedType);
-
-  // Check if user has access to selected strategy
-  const hasAccess = selectedStrategy ? tierOrder[userTier] >= tierOrder[selectedStrategy.tier] : false;
+  const hasAccess = selectedStrategyType ? tierOrder[userTier] >= tierOrder[selectedStrategyType.tier] : true;
 
   const handleTypeSelect = (typeId: string) => {
-    const strategy = strategyTypes.find(s => s.id === typeId);
-    if (!strategy) return;
+    const strategyType = strategyTypes.find(type => type.id === typeId);
+    if (!strategyType) return;
 
     setSelectedType(typeId);
-    setStrategyName(strategy.name);
-    setMinCapital(strategy.min_capital);
-    setRiskLevel(strategy.risk_level);
-    setDescription(strategy.description);
-    
-    // Reset strategy-specific state
-    setAssets([]);
-    setPriceRangeLower(0);
-    setPriceRangeUpper(0);
-    setSymbol('');
-  };
-
-  const addAsset = () => {
-    const newAssets = [...assets, { symbol: '', allocation: 0 }];
-    
-    // Calculate even split for all assets
-    const evenSplit = Math.floor(100 / newAssets.length);
-    const remainder = 100 - (evenSplit * newAssets.length);
-    
-    // Distribute evenly with remainder going to first asset
-    const updatedAssets = newAssets.map((asset, index) => ({
-      ...asset,
-      allocation: index === 0 ? evenSplit + remainder : evenSplit
+    setStrategy(prev => ({
+      ...prev,
+      type: typeId as TradingStrategy['type'],
+      name: strategyType.name,
+      description: strategyType.description,
+      risk_level: strategyType.risk,
+      min_capital: strategyType.minCapital,
+      configuration: getDefaultConfiguration(typeId),
     }));
-    
-    setAssets(updatedAssets);
+    setStep('config');
   };
 
-  const removeAsset = (index: number) => {
-    if (assets.length <= 1) return; // Don't allow removing the last asset
-    
-    const newAssets = assets.filter((_, i) => i !== index);
-    
-    // Recalculate even split for remaining assets
-    const evenSplit = Math.floor(100 / newAssets.length);
-    const remainder = 100 - (evenSplit * newAssets.length);
-    
-    const updatedAssets = newAssets.map((asset, i) => ({
-      ...asset,
-      allocation: i === 0 ? evenSplit + remainder : evenSplit
-    }));
-    
-    setAssets(updatedAssets);
+  const getDefaultConfiguration = (type: string) => {
+    switch (type) {
+      case 'covered_calls':
+        return {
+          symbol: '',
+          strike_delta: 0.30,
+          dte_target: 30,
+          profit_target: 0.5,
+          position_size: 100,
+        };
+      case 'wheel':
+        return {
+          symbol: '',
+          put_strike_delta: -0.30,
+          call_strike_delta: 0.30,
+          dte_target: 30,
+          position_size: 100,
+        };
+      case 'short_put':
+        return {
+          symbol: '',
+          strike_delta: -0.30,
+          dte_target: 30,
+          profit_target: 0.5,
+          position_size: 100,
+        };
+      case 'spot_grid':
+        return {
+          symbol: '',
+          allocated_capital: 1000,
+          price_range_lower: 0,
+          price_range_upper: 0,
+          number_of_grids: 20,
+          grid_spacing_percent: 1.0,
+        };
+      case 'futures_grid':
+        return {
+          symbol: '',
+          allocated_capital: 2000,
+          price_range_lower: 0,
+          price_range_upper: 0,
+          number_of_grids: 25,
+          leverage: 3,
+        };
+      case 'infinity_grid':
+        return {
+          symbol: '',
+          allocated_capital: 1500,
+          price_range_lower: 0,
+          number_of_grids: 30,
+        };
+      case 'dca':
+        return {
+          symbol: '',
+          investment_amount_per_interval: 100,
+          frequency: 'daily',
+          investment_target_percent: 20,
+        };
+      case 'smart_rebalance':
+        return {
+          assets: [
+            { symbol: 'BTC', allocation: 40 },
+            { symbol: 'ETH', allocation: 30 },
+            { symbol: 'USDT', allocation: 30 },
+          ],
+          trigger_type: 'threshold',
+          threshold_deviation_percent: 5,
+          rebalance_frequency: 'weekly',
+        };
+      default:
+        return {};
+    }
   };
 
-  const updateAssetSymbol = (index: number, newSymbol: string) => {
-    const updatedAssets = [...assets];
-    updatedAssets[index].symbol = newSymbol;
-    setAssets(updatedAssets);
-  };
-
-  const updateAssetAllocation = (index: number, newAllocation: number) => {
-    const updatedAssets = [...assets];
-    updatedAssets[index].allocation = newAllocation;
-    setAssets(updatedAssets);
-  };
-
-  const totalAllocation = assets.reduce((sum, asset) => sum + asset.allocation, 0);
-
-  const handleAIConfigureGrid = async () => {
-    if (!symbol) {
+  const handleAIConfigure = async () => {
+    if (!strategy.configuration?.symbol || !user) {
       alert('Please select a symbol first');
       return;
     }
 
-    setAiConfiguring(true);
+    setIsAIConfiguring(true);
+    
     try {
+      console.log('Checking supabase object:', supabase);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('No valid session found. Please log in again.');
       }
 
+      console.log(`🤖 AI configuring grid range for ${strategy.configuration.symbol}...`);
+      
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/ai-configure-grid-range`, {
         method: 'POST',
         headers: {
@@ -262,215 +255,181 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          symbol: symbol,
-          allocated_capital: minCapital,
-          number_of_grids: numberOfGrids,
+          symbol: strategy.configuration.symbol,
+          allocated_capital: strategy.configuration?.allocated_capital || 1000,
+          number_of_grids: strategy.configuration?.number_of_grids || 20,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get AI configuration');
+        const errorText = await response.text();
+        throw new Error(`Failed to get AI configuration: ${response.status} ${errorText}`);
       }
 
-      const result = await response.json();
-      setPriceRangeLower(result.lower_limit);
-      setPriceRangeUpper(result.upper_limit);
+      const data = await response.json();
+      console.log('✅ AI configuration received:', data);
       
-      alert(`AI Configuration Complete!\n\nOptimal Range: $${result.lower_limit} - $${result.upper_limit}\n\n${result.reasoning}`);
-    } catch (error) {
-      console.error('Error getting AI configuration:', error);
-      alert('Failed to get AI configuration. Please set the range manually.');
-    } finally {
-      setAiConfiguring(false);
-    }
-  };
-
-  const handleNext = () => {
-    if (step === 'type' && selectedType) {
-      setStep('configure');
-    } else if (step === 'configure') {
-      setStep('review');
-    }
-  };
-
-  const handleBack = () => {
-    if (step === 'review') {
-      setStep('configure');
-    } else if (step === 'configure') {
-      setStep('type');
-    }
-  };
-
-  const handleCreate = async () => {
-    if (!selectedStrategy) return;
-
-    setIsCreating(true);
-    try {
-      let configuration: Record<string, any> = {};
-
-      // Build configuration based on strategy type
-      if (selectedType === 'smart_rebalance') {
-        configuration = {
-          assets: assets,
-          rebalance_frequency: rebalanceFrequency,
-          threshold_deviation_percent: thresholdDeviation,
-          trigger_type: 'threshold',
-        };
-      } else if (selectedType === 'spot_grid' || selectedType === 'futures_grid' || selectedType === 'infinity_grid') {
-        configuration = {
-          symbol: symbol,
-          allocated_capital: minCapital,
-          price_range_lower: priceRangeLower,
-          price_range_upper: priceRangeUpper,
-          number_of_grids: numberOfGrids,
-          grid_mode: 'arithmetic',
-        };
-      } else if (selectedType === 'dca') {
-        configuration = {
-          symbol: symbol,
-          investment_amount_per_interval: investmentAmount,
-          frequency: dcaFrequency,
-          allocated_capital: minCapital,
-        };
-      } else if (selectedType === 'covered_calls' || selectedType === 'wheel' || selectedType === 'short_put') {
-        configuration = {
-          symbol: symbol,
-          strike_delta: strikeDelta,
-          dte_target: dteTarget,
-          profit_target: profitTarget,
-          allocated_capital: minCapital,
-        };
+      setStrategy(prev => ({
+        ...prev,
+        configuration: {
+          ...prev.configuration,
+          price_range_lower: data.lower_limit,
+          price_range_upper: data.upper_limit,
+        }
+      }));
+      
+      if (data.reasoning) {
+        alert(`✅ AI Configuration Complete!\n\n${data.reasoning}`);
       }
-
-      const strategy: Omit<TradingStrategy, 'id'> = {
-        name: strategyName,
-        type: selectedType as TradingStrategy['type'],
-        description: description,
-        risk_level: riskLevel,
-        min_capital: minCapital,
-        is_active: false,
-        configuration: configuration,
-      };
-
-      await onSave(strategy);
+      
     } catch (error) {
-      console.error('Error creating strategy:', error);
-      alert('Failed to create strategy. Please try again.');
+      console.error('Error in AI configuration:', error);
+      alert(`Failed to configure grid range: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      setIsCreating(false);
+      setIsAIConfiguring(false);
     }
   };
 
-  const isValid = () => {
-    if (!selectedType || !strategyName) return false;
-    
-    if (selectedType === 'smart_rebalance') {
-      return assets.length > 0 && 
-             assets.every(asset => asset.symbol.trim() !== '') && 
-             Math.abs(totalAllocation - 100) < 0.01;
+  const handleCreateStrategy = () => {
+    if (!strategy.name || !strategy.type) return;
+
+    const confirmMessage = `Create and immediately execute "${strategy.name}"?\n\n` +
+      `This strategy will:\n` +
+      `• Be saved to your database\n` +
+      `• Execute immediately if market is open\n` +
+      `• Place its first trade automatically\n` +
+      `• Continue running autonomously\n\n` +
+      `Symbol: ${strategy.configuration?.symbol || 'N/A'}\n` +
+      `Capital: ${formatCurrency(strategy.configuration?.allocated_capital || 0)}\n` +
+      `Risk Level: ${strategy.risk_level}`;
+
+    if (!confirm(confirmMessage)) {
+      return;
     }
-    
-    if (['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType)) {
-      return symbol && priceRangeLower > 0 && priceRangeUpper > priceRangeLower;
+
+    if (selectedType === 'spot_grid') {
+      if (!strategy.account_id) {
+        alert('Please select a brokerage account for this strategy.');
+        return;
+      }
+      if (!strategy.configuration?.price_range_lower || !strategy.configuration?.price_range_upper) {
+        alert('Please set both lower and upper price limits for the grid.');
+        return;
+      }
+      if (strategy.configuration.price_range_lower >= strategy.configuration.price_range_upper) {
+        alert('Upper price limit must be greater than lower price limit.');
+        return;
+      }
     }
-    
-    if (selectedType === 'dca') {
-      return symbol && investmentAmount > 0;
-    }
-    
-    if (['covered_calls', 'wheel', 'short_put'].includes(selectedType)) {
-      return symbol && strikeDelta > 0 && dteTarget > 0;
-    }
-    
-    return true;
+
+    const newStrategy: Omit<TradingStrategy, 'id'> = {
+      name: strategy.name,
+      type: strategy.type as TradingStrategy['type'],
+      description: strategy.description || '',
+      risk_level: strategy.risk_level || 'medium',
+      min_capital: strategy.min_capital || 10000,
+      is_active: true,
+      configuration: strategy.configuration || {},
+      account_id: strategy.account_id,
+      quantity_per_grid: strategy.quantity_per_grid,
+      grid_mode: strategy.grid_mode || 'arithmetic',
+    };
+
+    onSave(newStrategy);
   };
 
-  const renderTypeSelection = () => {
-    const categorizedStrategies = Object.entries(categories).map(([categoryKey, categoryData]) => ({
-      ...categoryData,
-      strategies: strategyTypes.filter(strategy => strategy.category === categoryKey)
-    }));
+  React.useEffect(() => {
+    if (selectedType === 'spot_grid' && strategy.configuration) {
+      const { allocated_capital, number_of_grids, price_range_lower, price_range_upper } = strategy.configuration;
+      
+      if (allocated_capital && number_of_grids && price_range_lower && price_range_upper && 
+          price_range_lower > 0 && price_range_upper > price_range_lower) {
+        
+        const averagePrice = (price_range_lower + price_range_upper) / 2;
+        const quantityPerGrid = (allocated_capital / number_of_grids) / averagePrice;
+        
+        setStrategy(prev => ({
+          ...prev,
+          quantity_per_grid: Math.round(quantityPerGrid * 1000000) / 1000000,
+        }));
+      }
+    }
+  }, [
+    selectedType,
+    strategy.configuration?.allocated_capital,
+    strategy.configuration?.number_of_grids,
+    strategy.configuration?.price_range_lower,
+    strategy.configuration?.price_range_upper,
+  ]);
 
-    return (
-      <div className="space-y-8">
-        <div className="text-center">
-          <h3 className="text-xl font-semibold text-white mb-2">Choose Strategy Type</h3>
-          <p className="text-gray-400">Select the trading strategy that best fits your goals and risk tolerance</p>
-        </div>
+  const renderTypeSelection = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-4">Choose Strategy Type</h3>
+        <p className="text-gray-400 mb-6">Select the trading strategy that best fits your goals and risk tolerance</p>
+      </div>
 
-        {categorizedStrategies.map((category) => {
-          const Icon = category.icon;
+      <div className="space-y-6">
+        {Object.entries(strategyCategories).map(([categoryKey, categoryData]) => {
+          const Icon = categoryData.icon;
+          const categoryStrategies = strategyTypes.filter(type => type.category === categoryKey);
+          
+          if (categoryStrategies.length === 0) return null;
+          
           return (
-            <div key={category.name} className="space-y-4">
-              {/* Category Header */}
-              <Card className={`p-6 ${category.bgColor} ${category.borderColor} border`}>
+            <div key={categoryKey} className="space-y-4">
+              <Card className={`p-6 ${categoryData.bgColor} ${categoryData.borderColor} border`}>
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 ${category.bgColor} rounded-xl flex items-center justify-center border ${category.borderColor}`}>
-                    <Icon className={`w-6 h-6 ${category.color}`} />
+                  <div className={`w-12 h-12 ${categoryData.bgColor} rounded-xl flex items-center justify-center border ${categoryData.borderColor}`}>
+                    <Icon className={`w-6 h-6 ${categoryData.color}`} />
                   </div>
                   <div>
-                    <h4 className={`text-xl font-bold ${category.color}`}>{category.name}</h4>
-                    <p className="text-gray-300 text-sm">{category.description}</p>
+                    <h4 className={`text-xl font-bold ${categoryData.color}`}>{categoryData.name}</h4>
+                    <p className="text-gray-300 text-sm">{categoryData.description}</p>
                   </div>
                 </div>
               </Card>
-
-              {/* Strategy Cards */}
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {category.strategies.map((strategy) => {
-                  const hasStrategyAccess = tierOrder[userTier] >= tierOrder[strategy.tier];
-                  const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.id as any);
+                {categoryStrategies.map((type) => {
+                  const tierAccess = tierOrder[userTier] >= tierOrder[type.tier];
                   
                   return (
                     <motion.div
-                      key={strategy.id}
-                      whileHover={hasStrategyAccess && isImplemented ? { scale: 1.02 } : {}}
-                      whileTap={hasStrategyAccess && isImplemented ? { scale: 0.98 } : {}}
-                      onClick={hasStrategyAccess && isImplemented ? () => handleTypeSelect(strategy.id) : undefined}
+                      key={type.id}
+                      whileHover={tierAccess ? { scale: 1.02 } : {}}
+                      whileTap={tierAccess ? { scale: 0.98 } : {}}
+                      onClick={tierAccess ? () => handleTypeSelect(type.id) : undefined}
                       className={`p-6 rounded-lg border transition-all relative ${
-                        selectedType === strategy.id
-                          ? 'border-blue-500 bg-blue-500/10'
-                          : hasStrategyAccess && isImplemented
-                            ? 'border-gray-700 bg-gray-800/30 hover:border-gray-600 cursor-pointer'
-                            : 'border-gray-800 bg-gray-800/10 cursor-not-allowed opacity-60'
+                        tierAccess
+                          ? 'bg-gray-800/30 border-gray-700 cursor-pointer hover:border-blue-500'
+                          : 'bg-gray-800/10 border-gray-800 cursor-not-allowed opacity-60'
                       }`}
                     >
-                      {!isImplemented && (
-                        <div className="absolute top-2 right-2 px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded border border-yellow-500/30">
-                          Coming Soon
+                      {!tierAccess && (
+                        <div className="absolute top-2 right-2 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30">
+                          {type.tier === 'pro' ? 'Pro' : 'Elite'} Required
                         </div>
                       )}
                       
-                      {!hasStrategyAccess && isImplemented && (
-                        <div className="absolute top-2 right-2 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30 capitalize">
-                          {strategy.tier} Plan
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h4 className="font-semibold text-white mb-2">{type.name}</h4>
+                          <p className="text-sm text-gray-400 mb-3">{type.description}</p>
                         </div>
-                      )}
-
-                      <h4 className={`font-semibold mb-2 ${
-                        hasStrategyAccess && isImplemented ? 'text-white' : 'text-gray-500'
-                      }`}>
-                        {strategy.name}
-                      </h4>
-                      <p className={`text-sm mb-4 ${
-                        hasStrategyAccess && isImplemented ? 'text-gray-400' : 'text-gray-600'
-                      }`}>
-                        {strategy.description}
-                      </p>
+                      </div>
                       
                       <div className="flex items-center justify-between">
                         <span className={`px-2 py-1 rounded text-xs font-medium border ${
-                          strategy.risk_level === 'low' ? 'text-green-400 bg-green-400/10 border-green-400/20' :
-                          strategy.risk_level === 'medium' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' :
+                          type.risk === 'low' ? 'text-green-400 bg-green-400/10 border-green-400/20' :
+                          type.risk === 'medium' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' :
                           'text-red-400 bg-red-400/10 border-red-400/20'
                         }`}>
-                          {strategy.risk_level} risk
+                          {type.risk} risk
                         </span>
-                        <span className={`text-sm ${
-                          hasStrategyAccess && isImplemented ? 'text-gray-400' : 'text-gray-600'
-                        }`}>
-                          Min: ${strategy.min_capital.toLocaleString()}
-                        </span>
+                        <div className="text-sm text-gray-400">
+                          Min: {formatCurrency(type.minCapital)}
+                        </div>
                       </div>
                     </motion.div>
                   );
@@ -480,39 +439,89 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
           );
         })}
       </div>
-    );
-  };
+    </div>
+  );
 
   const renderConfiguration = () => {
-    if (!selectedStrategy) return null;
+    if (!selectedStrategyType) return null;
 
     return (
       <div className="space-y-6">
-        <div className="text-center">
-          <h3 className="text-xl font-semibold text-white mb-2">Configure {selectedStrategy.name}</h3>
-          <p className="text-gray-400">Set up the parameters for your trading strategy</p>
+        <div className="flex items-center gap-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <TrendingUp className="w-8 h-8 text-blue-400" />
+          <div>
+            <h3 className="font-semibold text-white">{selectedStrategyType.name}</h3>
+            <p className="text-sm text-gray-400">{selectedStrategyType.description}</p>
+          </div>
         </div>
 
-        {/* Basic Configuration */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Strategy Name</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Strategy Name
+            </label>
             <input
               type="text"
-              value={strategyName}
-              onChange={(e) => setStrategyName(e.target.value)}
+              value={strategy.name}
+              onChange={(e) => setStrategy(prev => ({ ...prev, name: e.target.value }))}
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Enter strategy name"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Minimum Capital</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Brokerage Account
+            </label>
+            <select
+              value={strategy.account_id || ''}
+              onChange={(e) => setStrategy(prev => ({ ...prev, account_id: e.target.value }))}
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select an account</option>
+              {brokerageAccounts
+                .filter(account => account.is_connected)
+                .map(account => (
+                <option key={account.id} value={account.id}>
+                  {account.account_name} ({account.brokerage.toUpperCase()}) - {formatCurrency(account.balance)}
+                </option>
+              ))}
+            </select>
+            {brokerageAccounts.filter(account => account.is_connected).length === 0 && (
+              <p className="text-xs text-yellow-400 mt-1">
+                No connected accounts. Please connect a brokerage account first.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Minimum Capital
+            </label>
             <NumericInput
-              value={minCapital}
-              onChange={setMinCapital}
-              min={selectedStrategy.min_capital}
+              value={strategy.min_capital || 0}
+              onChange={(value) => setStrategy(prev => ({ ...prev, min_capital: value }))}
+              min={1000}
               step={1000}
+              prefix="$"
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Allocated Capital
+            </label>
+            <NumericInput
+              value={strategy.configuration?.allocated_capital || 1000}
+              onChange={(value) => setStrategy(prev => ({
+                ...prev,
+                configuration: { ...prev.configuration, allocated_capital: value }
+              }))}
+              min={100}
+              step={100}
               prefix="$"
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
             />
@@ -520,282 +529,530 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Description
+          </label>
           <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            value={strategy.description}
+            onChange={(e) => setStrategy(prev => ({ ...prev, description: e.target.value }))}
             className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             rows={3}
-            placeholder="Describe your strategy goals and approach"
+            placeholder="Describe your strategy..."
           />
         </div>
 
-        {/* Strategy-Specific Configuration */}
-        {selectedType === 'smart_rebalance' && (
-          <div className="space-y-6">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <label className="block text-sm font-medium text-gray-300">Asset Allocation</label>
-                <Button size="sm" onClick={addAsset}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  {assets.length === 0 ? 'Add First Asset' : 'Add Asset'}
-                </Button>
-              </div>
-              
-              {assets.length === 0 ? (
-                <div className="text-center py-8 bg-gray-800/30 rounded-lg border border-gray-700">
-                  <Target className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-400 mb-4">No assets added yet</p>
-                  <Button size="sm" onClick={addAsset}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add First Asset
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {assets.map((asset, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg">
-                      <div className="flex-1">
-                        <SymbolSearchInput
-                          value={asset.symbol}
-                          onChange={(value) => updateAssetSymbol(index, value)}
-                          placeholder="Search for symbol"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <NumericInput
-                          value={asset.allocation}
-                          onChange={(value) => updateAssetAllocation(index, value)}
-                          min={0}
-                          max={100}
-                          step={0.1}
-                          allowDecimals={true}
-                          className="w-20"
-                        />
-                        <span className="text-gray-400">%</span>
-                      </div>
-                      {assets.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeAsset(index)}
-                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {/* Total Allocation Display */}
-                  <div className={`p-3 rounded-lg border text-center ${
-                    Math.abs(totalAllocation - 100) < 0.01 
-                      ? 'bg-green-500/10 border-green-500/20 text-green-400'
-                      : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
-                  }`}>
-                    <span className="font-medium">
-                      Total Allocation: {totalAllocation.toFixed(1)}%
-                    </span>
-                    {Math.abs(totalAllocation - 100) >= 0.01 && (
-                      <p className="text-xs mt-1">Allocation should total 100%</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Strategy-specific configuration */}
+        {selectedType === 'covered_calls' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">Covered Calls Configuration</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Rebalance Frequency</label>
-                <select
-                  value={rebalanceFrequency}
-                  onChange={(e) => setRebalanceFrequency(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                <SymbolSearchInput
+                  value={strategy.configuration?.symbol || 'AAPL'}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, symbol: value }
+                  }))}
+                  placeholder="Search for a stock symbol (e.g., AAPL, MSFT)"
+                  className="w-full"
+                />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Threshold Deviation (%)</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Strike Delta</label>
                 <NumericInput
-                  value={thresholdDeviation}
-                  onChange={setThresholdDeviation}
-                  min={1}
-                  max={50}
-                  step={0.5}
-                  suffix="%"
+                  value={strategy.configuration?.strike_delta || 0.30}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, strike_delta: value }
+                  }))}
+                  min={0.1}
+                  max={0.5}
+                  step={0.05}
+                  allowDecimals={true}
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
                 />
-                <p className="text-xs text-gray-400 mt-1">
-                  Rebalance when any asset deviates by this percentage from target
-                </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Grid Strategy Configuration */}
-        {['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType || '') && (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Trading Symbol</label>
-              <SymbolSearchInput
-                value={symbol}
-                onChange={setSymbol}
-                placeholder="Search for a symbol (e.g., BTC, AAPL)"
-              />
+        {selectedType === 'wheel' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">Wheel Strategy Configuration</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                <SymbolSearchInput
+                  value={strategy.configuration?.symbol || 'AAPL'}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, symbol: value }
+                  }))}
+                  placeholder="Search for a stock symbol (e.g., AAPL, MSFT)"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Position Size</label>
+                <NumericInput
+                  value={strategy.configuration?.position_size || 100}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, position_size: value }
+                  }))}
+                  min={100}
+                  step={100}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
             </div>
+          </div>
+        )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {selectedType === 'short_put' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">Cash-Secured Put Configuration</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Lower Price Range</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                <SymbolSearchInput
+                  value={strategy.configuration?.symbol || 'AAPL'}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, symbol: value }
+                  }))}
+                  placeholder="Search for a stock symbol (e.g., AAPL, MSFT)"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Strike Delta</label>
                 <NumericInput
-                  value={priceRangeLower}
-                  onChange={setPriceRangeLower}
-                  min={0}
-                  step={0.01}
-                  prefix="$"
+                  value={strategy.configuration?.strike_delta || -0.30}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, strike_delta: value }
+                  }))}
+                  min={-0.5}
+                  max={-0.1}
+                  step={0.05}
                   allowDecimals={true}
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
                 />
               </div>
+            </div>
+          </div>
+        )}
 
+        {selectedType === 'spot_grid' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">Grid Bot Configuration</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Upper Price Range</label>
-                <NumericInput
-                  value={priceRangeUpper}
-                  onChange={setPriceRangeUpper}
-                  min={priceRangeLower}
-                  step={0.01}
-                  prefix="$"
-                  allowDecimals={true}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                <SymbolSearchInput
+                  value={strategy.configuration?.symbol || ''}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, symbol: value }
+                  }))}
+                  placeholder="Search for a symbol (e.g., BTC, ETH, AAPL)"
+                  className="w-full"
                 />
               </div>
-
+              
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Number of Grids</label>
                 <NumericInput
-                  value={numberOfGrids}
-                  onChange={setNumberOfGrids}
+                  value={strategy.configuration?.number_of_grids || 20}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, number_of_grids: value }
+                  }))}
                   min={5}
                   max={100}
-                  step={1}
+                  step={5}
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
                 />
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Grid Mode</label>
+                <select
+                  value={strategy.grid_mode || 'arithmetic'}
+                  onChange={(e) => setStrategy(prev => ({ 
+                    ...prev, 
+                    grid_mode: e.target.value as 'arithmetic' | 'geometric' 
+                  }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="arithmetic">Arithmetic</option>
+                  <option value="geometric">Geometric</option>
+                </select>
+              </div>
             </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/20 rounded-lg">
+                <div>
+                  <h5 className="font-medium text-purple-400 mb-1">AI Grid Configuration</h5>
+                  <p className="text-sm text-purple-300">
+                    Let AI analyze market data to set optimal grid range using technical indicators, volatility, and mean reversion
+                  </p>
+                </div>
+                <Button
+                  onClick={handleAIConfigure}
+                  disabled={!strategy.configuration?.symbol || isAIConfiguring}
+                  isLoading={isAIConfiguring}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                >
+                  {isAIConfiguring ? 'AI Configuring...' : 'AI Configure'}
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Lower Price Limit</label>
+                  <div className="relative">
+                    <NumericInput
+                      value={strategy.configuration?.price_range_lower || 0}
+                      onChange={(value) => setStrategy(prev => ({
+                        ...prev,
+                        configuration: { ...prev.configuration, price_range_lower: value }
+                      }))}
+                      min={0.01}
+                      step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
+                      allowDecimals={true}
+                      prefix="$"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      disabled={isAIConfiguring}
+                    />
+                    {isAIConfiguring && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    AI-optimized lower bound, manually configurable
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Upper Price Limit</label>
+                  <div className="relative">
+                    <NumericInput
+                      value={strategy.configuration?.price_range_upper || 0}
+                      onChange={(value) => setStrategy(prev => ({
+                        ...prev,
+                        configuration: { ...prev.configuration, price_range_upper: value }
+                      }))}
+                      min={0.01}
+                      step={strategy.configuration?.symbol?.includes('BTC') ? 1000 : 1}
+                      allowDecimals={true}
+                      prefix="$"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                      disabled={isAIConfiguring}
+                    />
+                    {isAIConfiguring && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-500 rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    AI-optimized upper bound, manually configurable
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {strategy.quantity_per_grid && strategy.quantity_per_grid > 0 && (
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="w-4 h-4 text-blue-400" />
+                  <h5 className="font-medium text-blue-400">Auto-Calculated Grid Settings</h5>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-400">Quantity per Grid:</span>
+                    <span className="text-white ml-2 font-medium">
+                      {strategy.quantity_per_grid.toFixed(6)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Grid Spacing:</span>
+                    <span className="text-white ml-2 font-medium">
+                      ${((strategy.configuration?.price_range_upper - strategy.configuration?.price_range_lower) / (strategy.configuration?.number_of_grids - 1)).toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Capital per Grid:</span>
+                    <span className="text-white ml-2 font-medium">
+                      {formatCurrency((strategy.configuration?.allocated_capital || 0) / (strategy.configuration?.number_of_grids || 1))}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Price Range:</span>
+                    <span className="text-white ml-2 font-medium">
+                      {((strategy.configuration?.price_range_upper - strategy.configuration?.price_range_lower) / strategy.configuration?.price_range_lower * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {selectedType === 'spot_grid' && !strategy.configuration?.symbol && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                  <span className="text-yellow-400 font-medium">Symbol Required</span>
+                </div>
+                <p className="text-sm text-yellow-300 mt-1">
+                  Please select a symbol to enable AI configuration of optimal grid range.
+                </p>
+              </div>
+            )}
+            
+            {strategy.configuration?.price_range_lower && strategy.configuration?.price_range_upper && 
+             strategy.configuration.price_range_lower >= strategy.configuration.price_range_upper && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                  <span className="text-red-400 font-medium">Invalid Price Range</span>
+                </div>
+                <p className="text-sm text-red-300 mt-1">
+                  Upper price limit must be greater than lower price limit.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
-            {/* AI Configuration Button */}
-            <div className="text-center">
-              <Button
-                onClick={handleAIConfigureGrid}
-                disabled={!symbol || aiConfiguring}
-                isLoading={aiConfiguring}
-                variant="outline"
-                className="border-purple-500/20 text-purple-400 hover:bg-purple-500/10"
-              >
-                <Brain className="w-4 h-4 mr-2" />
-                {aiConfiguring ? 'AI Configuring...' : 'AI Configure Grid Range'}
-              </Button>
-              <p className="text-xs text-gray-400 mt-2">
-                Let AI analyze market data to set optimal grid range
-              </p>
+        {(selectedType === 'futures_grid' || selectedType === 'infinity_grid') && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">
+              {selectedType === 'futures_grid' ? 'Futures Grid Bot Configuration' : 'Infinity Grid Bot Configuration'}
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                <SymbolSearchInput
+                  value={strategy.configuration?.symbol || 'BTC/USD'}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, symbol: value }
+                  }))}
+                  placeholder="e.g., BTC/USD, ETH/USD"
+                  className="w-full"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Number of Grids</label>
+                <NumericInput
+                  value={strategy.configuration?.number_of_grids || (selectedType === 'futures_grid' ? 25 : 30)}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, number_of_grids: value }
+                  }))}
+                  min={5}
+                  max={100}
+                  step={5}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                />
+              </div>
+              
+              {selectedType === 'futures_grid' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Leverage</label>
+                  <NumericInput
+                    value={strategy.configuration?.leverage || 3}
+                    onChange={(value) => setStrategy(prev => ({
+                      ...prev,
+                      configuration: { ...prev.configuration, leverage: value }
+                    }))}
+                    min={1}
+                    max={10}
+                    step={1}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* DCA Configuration */}
         {selectedType === 'dca' && (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Trading Symbol</label>
-              <SymbolSearchInput
-                value={symbol}
-                onChange={setSymbol}
-                placeholder="Search for a symbol (e.g., BTC, ETH)"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">DCA Configuration</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Investment Amount per Interval</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                <SymbolSearchInput
+                  value={strategy.configuration?.symbol || 'BTC'}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, symbol: value }
+                  }))}
+                  placeholder="Search for a symbol (e.g., BTC, ETH, AAPL)"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Investment Amount</label>
                 <NumericInput
-                  value={investmentAmount}
-                  onChange={setInvestmentAmount}
+                  value={strategy.configuration?.investment_amount_per_interval || 100}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, investment_amount_per_interval: value }
+                  }))}
                   min={10}
                   step={10}
                   prefix="$"
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
                 />
               </div>
+            </div>
+          </div>
+        )}
 
+        {selectedType === 'smart_rebalance' && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-white">Smart Rebalance Configuration</h4>
+            
+            {/* Asset Allocation */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-300">Asset Allocation</label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const currentAssets = strategy.configuration?.assets || [];
+                    setStrategy(prev => ({
+                      ...prev,
+                      configuration: {
+                        ...prev.configuration,
+                        assets: [...currentAssets, { symbol: '', allocation: 0 }]
+                      }
+                    }));
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Asset
+                </Button>
+              </div>
+              
+              <div className="space-y-3">
+                {(strategy.configuration?.assets || []).map((asset: any, index: number) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                    <div className="flex-1">
+                      <SymbolSearchInput
+                        value={asset.symbol}
+                        onChange={(value) => {
+                          const updatedAssets = [...(strategy.configuration?.assets || [])];
+                          updatedAssets[index] = { ...updatedAssets[index], symbol: value };
+                          setStrategy(prev => ({
+                            ...prev,
+                            configuration: { ...prev.configuration, assets: updatedAssets }
+                          }));
+                        }}
+                        placeholder="Search symbol (e.g., BTC, AAPL)"
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    <div className="w-24">
+                      <NumericInput
+                        value={asset.allocation}
+                        onChange={(value) => {
+                          const updatedAssets = [...(strategy.configuration?.assets || [])];
+                          updatedAssets[index] = { ...updatedAssets[index], allocation: value };
+                          setStrategy(prev => ({
+                            ...prev,
+                            configuration: { ...prev.configuration, assets: updatedAssets }
+                          }));
+                        }}
+                        min={0}
+                        max={100}
+                        step={1}
+                        suffix="%"
+                        className="w-full px-2 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+                      />
+                    </div>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const updatedAssets = (strategy.configuration?.assets || []).filter((_: any, i: number) => i !== index);
+                        setStrategy(prev => ({
+                          ...prev,
+                          configuration: { ...prev.configuration, assets: updatedAssets }
+                        }));
+                      }}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2"
+                      disabled={(strategy.configuration?.assets || []).length <= 1}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Allocation Summary */}
+              {(strategy.configuration?.assets || []).length > 0 && (
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-blue-400">Total Allocation</span>
+                    <span className={`text-sm font-bold ${
+                      (strategy.configuration?.assets || []).reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0) === 100
+                        ? 'text-green-400'
+                        : 'text-yellow-400'
+                    }`}>
+                      {(strategy.configuration?.assets || []).reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0)}%
+                    </span>
+                  </div>
+                  {(strategy.configuration?.assets || []).reduce((sum: number, asset: any) => sum + (asset.allocation || 0), 0) !== 100 && (
+                    <p className="text-xs text-yellow-300">
+                      Allocation should total 100% for optimal rebalancing
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Frequency</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Rebalance Frequency</label>
                 <select
-                  value={dcaFrequency}
-                  onChange={(e) => setDcaFrequency(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                  value={strategy.configuration?.rebalance_frequency || 'weekly'}
+                  onChange={(e) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, rebalance_frequency: e.target.value }
+                  }))}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
                 </select>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Options Strategy Configuration */}
-        {['covered_calls', 'wheel', 'short_put'].includes(selectedType || '') && (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Trading Symbol</label>
-              <SymbolSearchInput
-                value={symbol}
-                onChange={setSymbol}
-                placeholder="Search for a symbol (e.g., AAPL, MSFT)"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Strike Delta</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Threshold Deviation</label>
                 <NumericInput
-                  value={strikeDelta}
-                  onChange={setStrikeDelta}
-                  min={0.05}
-                  max={0.95}
-                  step={0.05}
-                  allowDecimals={true}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                />
-                <p className="text-xs text-gray-400 mt-1">0.30 = 30% out-of-the-money</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Days to Expiration</label>
-                <NumericInput
-                  value={dteTarget}
-                  onChange={setDteTarget}
-                  min={7}
-                  max={90}
+                  value={strategy.configuration?.threshold_deviation_percent || 5}
+                  onChange={(value) => setStrategy(prev => ({
+                    ...prev,
+                    configuration: { ...prev.configuration, threshold_deviation_percent: value }
+                  }))}
+                  min={1}
+                  max={20}
                   step={1}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Profit Target (%)</label>
-                <NumericInput
-                  value={profitTarget}
-                  onChange={setProfitTarget}
-                  min={10}
-                  max={90}
-                  step={5}
                   suffix="%"
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
                 />
@@ -807,134 +1064,138 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     );
   };
 
-  const renderReview = () => {
-    if (!selectedStrategy) return null;
-
-    return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <h3 className="text-xl font-semibold text-white mb-2">Review Strategy</h3>
-          <p className="text-gray-400">Confirm your strategy configuration before creating</p>
-        </div>
-
-        <Card className="p-6 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-500/20">
-          <h4 className="font-semibold text-white mb-4">{strategyName}</h4>
-          <p className="text-gray-300 mb-4">{description}</p>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+  const renderReview = () => (
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/20 rounded-lg p-6">
+        <h3 className="text-xl font-semibold text-white mb-4">{strategy.name}</h3>
+        <p className="text-gray-300 mb-4">{strategy.description}</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex items-center gap-3">
+            <Shield className="w-5 h-5 text-purple-400" />
             <div>
-              <span className="text-gray-400">Type:</span>
-              <span className="text-white ml-2">{selectedStrategy.name}</span>
-            </div>
-            <div>
-              <span className="text-gray-400">Risk Level:</span>
-              <span className="text-white ml-2 capitalize">{riskLevel}</span>
-            </div>
-            <div>
-              <span className="text-gray-400">Min Capital:</span>
-              <span className="text-white ml-2">${minCapital.toLocaleString()}</span>
+              <p className="text-sm text-gray-400">Risk Level</p>
+              <p className="font-semibold text-white capitalize">{strategy.risk_level}</p>
             </div>
           </div>
-        </Card>
-
-        {/* Configuration Summary */}
-        <Card className="p-6">
-          <h4 className="font-semibold text-white mb-4">Configuration Summary</h4>
-          
-          {selectedType === 'smart_rebalance' && (
-            <div className="space-y-4">
-              <div>
-                <h5 className="text-sm font-medium text-blue-400 mb-2">Asset Allocation</h5>
-                <div className="space-y-2">
-                  {assets.map((asset, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-gray-800/30 rounded">
-                      <span className="text-white font-medium">{asset.symbol}</span>
-                      <span className="text-blue-400">{asset.allocation.toFixed(1)}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-400">Frequency:</span>
-                  <span className="text-white ml-2 capitalize">{rebalanceFrequency}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400">Threshold:</span>
-                  <span className="text-white ml-2">{thresholdDeviation}%</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {['spot_grid', 'futures_grid', 'infinity_grid'].includes(selectedType || '') && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-gray-400">Symbol:</span>
-                <span className="text-white ml-2">{symbol}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Price Range:</span>
-                <span className="text-white ml-2">${priceRangeLower} - ${priceRangeUpper}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Grid Levels:</span>
-                <span className="text-white ml-2">{numberOfGrids}</span>
-              </div>
-            </div>
-          )}
-
-          {selectedType === 'dca' && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-gray-400">Symbol:</span>
-                <span className="text-white ml-2">{symbol}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Amount:</span>
-                <span className="text-white ml-2">${investmentAmount}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Frequency:</span>
-                <span className="text-white ml-2 capitalize">{dcaFrequency}</span>
-              </div>
-            </div>
-          )}
-
-          {['covered_calls', 'wheel', 'short_put'].includes(selectedType || '') && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-gray-400">Symbol:</span>
-                <span className="text-white ml-2">{symbol}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Strike Delta:</span>
-                <span className="text-white ml-2">{strikeDelta}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">DTE Target:</span>
-                <span className="text-white ml-2">{dteTarget} days</span>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        {/* Risk Disclosure */}
-        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+          <div className="flex items-center gap-3">
+            <DollarSign className="w-5 h-5 text-green-400" />
             <div>
-              <h4 className="font-medium text-yellow-400 mb-2">Risk Disclosure</h4>
-              <p className="text-sm text-yellow-300">
-                All trading involves risk of loss. This strategy has been classified as{' '}
-                <span className="font-semibold capitalize">{riskLevel}</span> risk. 
-                Please ensure you understand the strategy before activating it.
-              </p>
+              <p className="text-sm text-gray-400">Min Capital</p>
+              <p className="font-semibold text-white">{formatCurrency(strategy.min_capital || 0)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Target className="w-5 h-5 text-blue-400" />
+            <div>
+              <p className="text-sm text-gray-400">Status</p>
+              <p className="font-semibold text-green-400">Will be Active</p>
+            </div>
+          </div>
+          {strategy.account_id && (
+            <div className="flex items-center gap-3">
+              <Settings className="w-5 h-5 text-purple-400" />
+              <div>
+                <p className="text-sm text-gray-400">Account</p>
+                <p className="font-semibold text-white">
+                  {brokerageAccounts.find(acc => acc.id === strategy.account_id)?.account_name || 'Selected'}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-gray-800/30 rounded-lg p-6">
+        <h4 className="font-semibold text-white mb-4">Configuration</h4>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          {Object.entries(strategy.configuration || {}).map(([key, value]) => (
+            <div key={key} className="flex justify-between">
+              <span className="text-gray-400 capitalize">{key.replace('_', ' ')}:</span>
+              <span className="text-white font-medium">
+                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+              </span>
+            </div>
+          ))}
+          {strategy.quantity_per_grid && strategy.quantity_per_grid > 0 && (
+            <div className="flex justify-between">
+              <span className="text-gray-400">Quantity per Grid:</span>
+              <span className="text-white font-medium">
+                {strategy.quantity_per_grid.toFixed(6)}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6">
+        <div className="flex items-start gap-3">
+          <Info className="w-6 h-6 text-green-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-medium text-green-400 mb-2">Auto-Trading Enabled</h4>
+            <p className="text-sm text-green-300">
+              This strategy will be created in an <strong>active state</strong> and will begin autonomous trading 
+              immediately based on market conditions and your configured parameters. You can pause it at any time 
+              from the Strategies page.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-6">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-medium text-yellow-400 mb-2">Important Disclaimer</h4>
+            <div className="space-y-2 text-sm text-yellow-300">
+              <p>• All trading involves risk of loss, including potential total loss of capital</p>
+              <p>• Past performance does not guarantee future results</p>
+              <p>• Automated strategies may not perform as expected due to market conditions</p>
+              <p>• You are responsible for monitoring and managing your strategies</p>
+              <p>• Consider starting with paper trading or small amounts</p>
             </div>
           </div>
         </div>
       </div>
-    );
+    </div>
+  );
+
+  const canProceed = () => {
+    switch (step) {
+      case 'type':
+        return selectedType && hasAccess;
+      case 'config':
+        if (!strategy.name || !strategy.type) return false;
+        
+        if (selectedType === 'spot_grid') {
+          if (!strategy.configuration?.symbol || strategy.configuration.symbol.trim() === '') {
+            return false;
+          }
+          return strategy.account_id && 
+                 strategy.configuration?.symbol &&
+                 strategy.configuration.symbol.trim() !== '' &&
+                 strategy.configuration?.price_range_lower && 
+                 strategy.configuration?.price_range_upper &&
+                 strategy.configuration.price_range_lower < strategy.configuration.price_range_upper;
+        }
+        
+        return true;
+      case 'review':
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const handleNext = () => {
+    if (step === 'type') setStep('config');
+    else if (step === 'config') setStep('review');
+    else if (step === 'review') handleCreateStrategy();
+  };
+
+  const handleBack = () => {
+    if (step === 'config') setStep('type');
+    else if (step === 'review') setStep('config');
   };
 
   return (
@@ -956,27 +1217,22 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </Button>
           </div>
 
-          {/* Progress Steps */}
           <div className="flex items-center justify-center mb-8">
             <div className="flex items-center gap-4">
-              {[
-                { step: 'type', label: 'Type', number: 1 },
-                { step: 'configure', label: 'Configure', number: 2 },
-                { step: 'review', label: 'Review', number: 3 },
-              ].map((stepInfo, index) => (
-                <div key={stepInfo.step} className="flex items-center">
+              {['type', 'config', 'review'].map((stepName, index) => (
+                <div key={stepName} className="flex items-center">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                    step === stepInfo.step 
+                    step === stepName 
                       ? 'bg-blue-600 text-white' 
-                      : ['type', 'configure', 'review'].indexOf(step) > index
+                      : index < ['type', 'config', 'review'].indexOf(step)
                         ? 'bg-green-600 text-white'
                         : 'bg-gray-700 text-gray-400'
                   }`}>
-                    {stepInfo.number}
+                    {index + 1}
                   </div>
                   {index < 2 && (
                     <div className={`w-12 h-0.5 mx-2 ${
-                      ['type', 'configure', 'review'].indexOf(step) > index
+                      index < ['type', 'config', 'review'].indexOf(step)
                         ? 'bg-green-600'
                         : 'bg-gray-700'
                     }`} />
@@ -986,15 +1242,13 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
             </div>
           </div>
 
-          {/* Step Content */}
           <div className="min-h-[400px]">
             {step === 'type' && renderTypeSelection()}
-            {step === 'configure' && renderConfiguration()}
+            {step === 'config' && renderConfiguration()}
             {step === 'review' && renderReview()}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-4 mt-8">
+          <div className="flex gap-4 mt-8 pt-6 border-t border-gray-800">
             {step !== 'type' && (
               <Button variant="secondary" onClick={handleBack}>
                 Back
@@ -1007,22 +1261,12 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
               Cancel
             </Button>
             
-            {step === 'review' ? (
-              <Button
-                onClick={handleCreate}
-                disabled={!isValid() || isCreating}
-                isLoading={isCreating}
-              >
-                {isCreating ? 'Creating Strategy...' : 'Create Strategy'}
-              </Button>
-            ) : (
-              <Button
-                onClick={handleNext}
-                disabled={step === 'type' ? !selectedType || !hasAccess : !isValid()}
-              >
-                Continue
-              </Button>
-            )}
+            <Button 
+              onClick={handleNext}
+              disabled={!canProceed()}
+            >
+              {step === 'review' ? 'Create Strategy' : 'Continue'}
+            </Button>
           </div>
         </Card>
       </motion.div>
