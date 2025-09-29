@@ -94,10 +94,6 @@ export function SymbolSearchInput({
               !excludeSymbols.includes(symbol.symbol)
             );
             setSymbols(filteredSymbols);
-            const filteredSymbols = (data.symbols || []).filter((symbol: SymbolOption) => 
-              !excludeSymbols.includes(symbol.symbol)
-            );
-            setSymbols(filteredSymbols);
           }
         } catch (error) {
           console.error('Error loading popular symbols:', error);
