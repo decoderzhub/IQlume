@@ -7,6 +7,7 @@ import { NumericInput } from '../../ui/NumericInput';
 import { SymbolSearchInput } from '../../ui/SymbolSearchInput';
 import { TradingStrategy } from '../../../types';
 import { formatCurrency } from '../../../lib/utils';
+import { useStore } from '../../../store/useStore';
 
 interface CreateCoveredCallsModalProps {
   onClose: () => void;
@@ -14,6 +15,7 @@ interface CreateCoveredCallsModalProps {
 }
 
 export function CreateCoveredCallsModal({ onClose, onSave }: CreateCoveredCallsModalProps) {
+  const { brokerageAccounts } = useStore();
   const [step, setStep] = useState<'configure' | 'review'>('configure');
   const [strategyName, setStrategyName] = useState('Covered Calls');
   const [brokerageAccount, setBrokerageAccount] = useState('');
@@ -168,9 +170,17 @@ export function CreateCoveredCallsModal({ onClose, onSave }: CreateCoveredCallsM
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Select an account</option>
-                  <option value="alpaca_main">Alpaca Trading Account</option>
-                  <option value="alpaca_paper">Alpaca Paper Trading</option>
+                  {brokerageAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.account_name} ({account.brokerage.toUpperCase()}) - {account.account_type}
+                    </option>
+                  ))}
                 </select>
+                {brokerageAccounts.length === 0 && (
+                  <p className="text-xs text-yellow-400 mt-1">
+                    No brokerage accounts connected. Go to Accounts to connect one.
+                  </p>
+                )}
               </div>
             </div>
 
