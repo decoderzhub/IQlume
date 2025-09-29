@@ -610,25 +610,92 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                             </div>
                           </div>
                         )}
-                        
-                        {/* Initial Buy Calculation for this Asset */}
-                        {asset.symbol && asset.allocation > 0 && (
-                          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                            <h5 className="text-sm font-medium text-blue-400 mb-2 flex items-center gap-2">
-                              <DollarSign className="w-3 h-3" />
-                              Initial Buy for {asset.symbol}
-                            </h5>
-                            <div className="text-sm text-gray-300">
-                              <span className="font-medium">{formatCurrency((allocatedCapital * asset.allocation) / 100)}</span>
-                              <span className="text-gray-400 ml-2">({asset.allocation.toFixed(1)}% of {formatCurrency(allocatedCapital)})</span>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
+
+            {/* Initial Buy Logic Display - Similar to Grid Bot */}
+            {assets.length > 0 && assets.some(asset => asset.symbol && asset.allocation > 0) && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                <h4 className="font-medium text-green-400 mb-3 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Initial Portfolio Buy Required
+                </h4>
+                
+                <div className="space-y-3 mb-4">
+                  {assets
+                    .filter(asset => asset.symbol && asset.allocation > 0)
+                    .map((asset, index) => {
+                      const investmentAmount = (allocatedCapital * asset.allocation) / 100;
+                      return (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                              <span className="text-blue-400 font-bold text-sm">
+                                {asset.symbol.charAt(0)}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-white">{asset.symbol}</p>
+                              <p className="text-xs text-gray-400">{asset.allocation.toFixed(1)}% allocation</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-green-400">
+                              {formatCurrency(investmentAmount)}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {asset.allocation.toFixed(1)}% of {formatCurrency(allocatedCapital)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+                
+                <div className="bg-gray-800/50 rounded-lg p-3">
+                  <h5 className="font-medium text-blue-300 mb-2">Portfolio Summary</h5>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <span className="text-gray-400">Total Investment:</span>
+                      <span className="text-white ml-2 font-bold">
+                        {formatCurrency(allocatedCapital * (100 - cashBalance) / 100)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Cash Reserve:</span>
+                      <span className="text-green-400 ml-2 font-bold">
+                        {formatCurrency(allocatedCapital * cashBalance / 100)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Assets Count:</span>
+                      <span className="text-blue-400 ml-2 font-bold">
+                        {assets.filter(asset => asset.symbol && asset.allocation > 0).length}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Avg per Asset:</span>
+                      <span className="text-purple-400 ml-2 font-bold">
+                        {assets.filter(asset => asset.symbol && asset.allocation > 0).length > 0
+                          ? formatCurrency((allocatedCapital * (100 - cashBalance) / 100) / assets.filter(asset => asset.symbol && asset.allocation > 0).length)
+                          : '$0'
+                        }
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 pt-3 border-t border-green-500/20">
+                    <p className="text-xs text-green-300">
+                      💡 Initial Buy Logic: The bot will purchase each asset according to its allocation percentage, 
+                      creating a balanced portfolio that will be maintained through automatic rebalancing.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
               {/* Allocation Summary */}
               <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
