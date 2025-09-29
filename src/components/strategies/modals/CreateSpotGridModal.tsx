@@ -28,6 +28,8 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
   const [upperPrice, setUpperPrice] = useState(0);
   const [isAIConfiguring, setIsAIConfiguring] = useState(false);
   const [aiConfigured, setAiConfigured] = useState(false);
+  const [enableInitialBuy, setEnableInitialBuy] = useState(true);
+  const [initialBuyAmount, setInitialBuyAmount] = useState(500);
 
   const handleAIConfigureGrid = async () => {
     if (!symbol) {
@@ -91,6 +93,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
       time_horizon: 'swing',
       automation_level: 'fully_auto',
       grid_mode: gridMode,
+      auto_start: true,
       configuration: {
         symbol,
         allocated_capital: allocatedCapital,
@@ -98,6 +101,8 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
         price_range_upper: upperPrice,
         number_of_grids: numberOfGrids,
         grid_mode: gridMode,
+        enable_initial_buy: enableInitialBuy,
+        initial_buy_amount: initialBuyAmount,
       },
     };
 
@@ -404,6 +409,51 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
               )}
             </div>
           </div>
+            {/* Initial Buy Configuration */}
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6">
+              <h4 className="font-semibold text-green-400 mb-4 flex items-center gap-2">
+                <DollarSign className="w-5 h-5" />
+                Initial Buy Configuration
+              </h4>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-white">Enable Initial Market Buy</p>
+                    <p className="text-sm text-gray-400">
+                      Automatically purchase the base asset when the bot starts
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={enableInitialBuy}
+                      onChange={(e) => setEnableInitialBuy(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
+                
+                {enableInitialBuy && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Initial Buy Amount</label>
+                    <NumericInput
+                      value={initialBuyAmount}
+                      onChange={setInitialBuyAmount}
+                      min={50}
+                      step={50}
+                      prefix="$"
+                      placeholder="500"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Amount to invest in the base asset when the bot starts
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
 
           <div className="flex gap-4 mt-8">
             <Button variant="secondary" onClick={onClose} className="flex-1">

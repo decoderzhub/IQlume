@@ -30,6 +30,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
   const [assets, setAssets] = useState<Asset[]>([]);
   const [rebalanceFrequency, setRebalanceFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [deviationThreshold, setDeviationThreshold] = useState(5);
+  const [enableInitialBuy, setEnableInitialBuy] = useState(true);
 
   const addAsset = () => {
     setAssets(prev => [...prev, { symbol: '', allocation: 0 }]);
@@ -60,6 +61,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
       asset_class: 'equity',
       time_horizon: 'long_term',
       automation_level: 'fully_auto',
+      auto_start: true,
       configuration: {
         allocated_capital: allocatedCapital,
         allocation_method: allocationMethod,
@@ -67,6 +69,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
         assets: assets.filter(asset => asset.symbol && asset.allocation > 0),
         rebalance_frequency: rebalanceFrequency,
         deviation_threshold_percent: deviationThreshold,
+        enable_initial_buy: enableInitialBuy,
       },
     };
 
