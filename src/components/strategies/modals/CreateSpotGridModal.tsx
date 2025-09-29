@@ -34,31 +34,78 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
   // Calculate initial buy amount based on current price position
   const calculateInitialBuy = () => {
     if (!lowerPrice || !upperPrice || lowerPrice <= 0 || upperPrice <= 0) {
-      return { amount: allocatedCapital * 0.1, percentage: 10, reason: 'Using 10% fallback (grid range not set)' };
+      return { 
+        amount: allocatedCapital * 0.1, 
+        percentage: 10, 
+        reason: 'Using 10% fallback (grid range not set)',
+        currentPrice: 0,
+        gridPosition: 'unknown'
+      };
     }
     
-    // Mock current price for calculation (in production, this would come from API)
-    const mockCurrentPrice = (lowerPrice + upperPrice) / 2; // Use middle of range for demo
+    // For demo purposes, use a realistic current price based on symbol
+    let mockCurrentPrice = (lowerPrice + upperPrice) / 2; // Default to middle
     
-    let pricePositionPercent = 0;
+    // Adjust mock price based on symbol for more realistic demo
+    if (symbol.toUpperCase().includes('MSFT')) {
+      mockCurrentPrice = lowerPrice + (upperPrice - lowerPrice) * 0.65; // 65% up the range
+    } else if (symbol.toUpperCase().includes('BTC')) {
+      mockCurrentPrice = lowerPrice + (upperPrice - lowerPrice) * 0.45; // 45% up the range
+    } else if (symbol.toUpperCase().includes('AAPL')) {
+      mockCurrentPrice = lowerPrice + (upperPrice - lowerPrice) * 0.55; // 55% up the range
+    }
+    
+    // Calculate where current price sits in the grid (0 = bottom, 1 = top)
+    const pricePositionInRange = (mockCurrentPrice - lowerPrice) / (upperPrice - lowerPrice);
+    
+    // Grid bot logic: Buy more when price is lower, buy less when price is higher
+    // This creates the base position needed to execute the grid strategy
+    let basePositionPercent = 0;
     let reason = '';
+    let gridPosition = '';
     
     if (mockCurrentPrice <= lowerPrice) {
-      pricePositionPercent = 1.0; // 100% buy
-      reason = 'Price below grid - maximum buy';
+      // Price below grid - need maximum position to sell as price rises
+      basePositionPercent = 0.8; // 80% of allocated capital
+      reason = 'Price below grid range - building large position for selling as price rises';
+      gridPosition = 'below grid (maximum buy zone)';
     } else if (mockCurrentPrice >= upperPrice) {
-      pricePositionPercent = 0.0; // 0% buy
-      reason = 'Price above grid - no initial buy';
+      // Price above grid - minimal position, mostly cash for buying as price falls
+      basePositionPercent = 0.1; // 10% of allocated capital
+      reason = 'Price above grid range - minimal position, ready to buy as price falls';
+      gridPosition = 'above grid (minimal buy zone)';
     } else {
-      pricePositionPercent = 1.0 - ((mockCurrentPrice - lowerPrice) / (upperPrice - lowerPrice));
-      const positionPercent = (1 - pricePositionPercent) * 100;
-      reason = `Price at ${positionPercent.toFixed(0)}% of grid range`;
+      // Price within grid - calculate optimal position based on grid theory
+      // Lower in range = more buying, higher in range = less buying
+      const gridLevelIndex = Math.floor(pricePositionInRange * numberOfGrids);
+      const totalGridLevels = numberOfGrids;
+      
+      // Calculate how many grid levels are below current price (these should be "filled")
+      const gridLevelsBelowPrice = gridLevelIndex;
+      const gridLevelsAbovePrice = totalGridLevels - gridLevelIndex;
+      
+      // Base position should represent the cumulative buying that would have happened
+      // if the bot had been running from the bottom of the grid to current price
+      basePositionPercent = Math.min(0.7, (gridLevelsBelowPrice / totalGridLevels) * 0.8);
+      
+      const percentInRange = pricePositionInRange * 100;
+      reason = `Price at grid level ${gridLevelIndex + 1}/${totalGridLevels} (${percentInRange.toFixed(1)}% up the range)`;
+      gridPosition = `grid level ${gridLevelIndex + 1} of ${totalGridLevels}`;
     }
     
-    const amount = allocatedCapital * pricePositionPercent;
-    const percentage = pricePositionPercent * 100;
+    // Calculate the actual buy amount
+    const amount = allocatedCapital * basePositionPercent;
+    const percentage = basePositionPercent * 100;
     
-    return { amount, percentage, reason, currentPrice: mockCurrentPrice };
+    return { 
+      amount, 
+      percentage, 
+      reason, 
+      currentPrice: mockCurrentPrice,
+      gridPosition,
+      gridLevelsBought: Math.floor(pricePositionInRange * numberOfGrids),
+      totalGridLevels: numberOfGrids
+    };
   };
 
   const initialBuyCalculation = calculateInitialBuy();
@@ -191,28 +238,30 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                     <span className="text-blue-400 ml-2 font-medium">{initialBuyCalculation.percentage.toFixed(1)}%</span>
                   </div>
                   <div>
+                    <span className="text-gray-400">Grid Position:</span>
+                    <span className="text-purple-400 ml-2 font-medium">{initialBuyCalculation.gridPosition}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Grid Levels to Fill:</span>
+                    <span className="text-yellow-400 ml-2 font-medium">
+                      {initialBuyCalculation.gridLevelsBought}/{initialBuyCalculation.totalGridLevels}
+                    </span>
+                  </div>
+                  <div>
                     <span className="text-gray-400">Grid Mode:</span>
                     <span className="text-white ml-2 capitalize">{gridMode}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400">Number of Grids:</span>
-                    <span className="text-white ml-2">{numberOfGrids}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400">Price Range:</span>
-                    <span className="text-white ml-2">
-                      {formatCurrency(lowerPrice)} - {formatCurrency(upperPrice)}
-                    </span>
                   </div>
                 </div>
                 
                 <div className="mt-4 pt-4 border-t border-gray-700">
-                  <h4 className="font-medium text-blue-400 mb-2">Initial Buy Logic</h4>
+                  <h4 className="font-medium text-blue-400 mb-2">Grid Bot Initial Position Logic</h4>
                   <p className="text-sm text-gray-300 mb-2">{initialBuyCalculation.reason}</p>
                   {initialBuyCalculation.currentPrice && (
-                    <p className="text-xs text-gray-400">
-                      Estimated current price: {formatCurrency(initialBuyCalculation.currentPrice)}
-                    </p>
+                    <div className="space-y-1 text-xs text-gray-400">
+                      <p>Estimated current price: {formatCurrency(initialBuyCalculation.currentPrice)}</p>
+                      <p>Grid range: {formatCurrency(lowerPrice)} - {formatCurrency(upperPrice)}</p>
+                      <p>This creates the base position needed to execute {numberOfGrids}-level grid trading</p>
+                    </div>
                   )}
                 </div>
               </div>
