@@ -33,18 +33,22 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
 
   // Calculate initial buy amount based on current price position
   const calculateInitialBuy = () => {
-    if (!lowerPrice || !upperPrice || lowerPrice <= 0 || upperPrice <= 0 || lowerPrice >= upperPrice) {
+    if (!lowerPrice || !upperPrice || lowerPrice <= 0 || upperPrice <= 0 || lowerPrice >= upperPrice || numberOfGrids <= 0 || allocatedCapital <= 0) {
       return { 
-        amount: allocatedCapital * 0.1, 
+        amount: allocatedCapital * 0.1,
         percentage: 10, 
         reason: 'Using 10% fallback (grid range not set)',
         currentPrice: 0,
-        gridPosition: 'unknown'
+        gridPosition: 'unknown',
+        gridLevelsBought: 0,
+        totalGridLevels: numberOfGrids,
+        capitalPerGrid: allocatedCapital / numberOfGrids,
+        gridSpacing: 0,
       };
     }
     
-    // Calculate realistic current price based on symbol and range
-    let mockCurrentPrice = lowerPrice + (upperPrice - lowerPrice) * 0.17; // Default to 17% up the range for MSFT
+    // Calculate realistic current price based on symbol and range (for demo purposes)
+    let mockCurrentPrice = lowerPrice + (upperPrice - lowerPrice) * 0.17; // Default to 17% up the range
     
     // Adjust mock price based on symbol for more realistic demo
     if (symbol.toUpperCase().includes('MSFT')) {
@@ -58,7 +62,8 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
       mockCurrentPrice = lowerPrice + (upperPrice - lowerPrice) * 0.20; // 20% up the range
     }
     
-    // CORE GRID BOT MECHANICS: Calculate exact grid levels and required position
+    // CORE GRID BOT MECHANICS: Calculate exact grid levels and required position using user's configuration
+    const capitalPerGrid = allocatedCapital / numberOfGrids;
     const gridSpacing = (upperPrice - lowerPrice) / (numberOfGrids - 1);
     
     // Find which grid level the current price is at
@@ -67,7 +72,6 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
     
     // GRID BOT STRATEGY: Need to buy enough to fill all grid levels below current price
     // Each grid level below current price should be "filled" with base position
-    const capitalPerGrid = allocatedCapital / numberOfGrids;
     const requiredBasePosition = gridLevelsBelowPrice * capitalPerGrid;
     
     // Calculate the actual buy amount needed (this is the core grid bot logic)
@@ -436,7 +440,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                   Grid Configuration Stats
                 </h4>
                 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
                   <div>
                     <span className="text-gray-400">Capital per Grid:</span>
                     <span className="text-white ml-2 font-medium">
@@ -456,8 +460,52 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                       }
                     </span>
                   </div>
+                </div>
+                
+                {/* Initial Buy Calculation - Dynamic based on user config */}
+                {lowerPrice && upperPrice && lowerPrice > 0 && upperPrice > 0 && (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                    <h5 className="font-medium text-green-400 mb-2 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" />
+                      Initial Buy Required
+                    </h5>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-400">Buy Amount:</span>
+                        <span className="text-green-400 ml-2 font-bold">
+                          {formatCurrency(initialBuyCalculation.amount)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Buy %:</span>
+                        <span className="text-blue-400 ml-2 font-bold">
+                          {initialBuyCalculation.percentage.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Grid Position:</span>
+                        <span className="text-purple-400 ml-2 font-bold">
+                          {initialBuyCalculation.gridLevelsBought}/{numberOfGrids}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Est. Price:</span>
+                        <span className="text-white ml-2 font-bold">
+                          {formatCurrency(initialBuyCalculation.currentPrice)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-green-500/20">
+                      <p className="text-xs text-green-300">
+                        {initialBuyCalculation.reason}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-400">Range Width:</span>
+                    <span className="text-gray-400">Price Range Width:</span>
                     <span className="text-yellow-400 ml-2 font-medium">
                       {lowerPrice && upperPrice && lowerPrice > 0 && upperPrice > 0 
                         ? `${(((upperPrice - lowerPrice) / lowerPrice) * 100).toFixed(1)}%`
@@ -465,23 +513,21 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                       }
                     </span>
                   </div>
+                  <div>
+                    <span className="text-gray-400">Profit per Grid Level:</span>
+                    <span className="text-green-400 ml-2 font-medium">
+                      {formatCurrency((allocatedCapital / numberOfGrids) * 0.005)} - {formatCurrency((allocatedCapital / numberOfGrids) * 0.02)}
+                    </span>
+                  </div>
                 </div>
                 
                 {lowerPrice && upperPrice && lowerPrice > 0 && upperPrice > 0 && (
-                  <div className="mt-4 pt-4 border-t border-blue-500/20">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-400">Estimated Trades per Cycle:</span>
-                        <span className="text-green-400 ml-2 font-medium">
-                          {Math.floor(numberOfGrids * 0.6)} - {numberOfGrids}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-400">Profit per Grid Level:</span>
-                        <span className="text-green-400 ml-2 font-medium">
-                          {formatCurrency((allocatedCapital / numberOfGrids) * 0.005)} - {formatCurrency((allocatedCapital / numberOfGrids) * 0.02)}
-                        </span>
-                      </div>
+                  <div className="mt-3 pt-3 border-t border-blue-500/20">
+                    <div className="text-sm text-gray-400">
+                      <span className="text-gray-400">Estimated Trades per Cycle:</span>
+                      <span className="text-green-400 ml-2 font-medium">
+                        {Math.floor(numberOfGrids * 0.6)} - {numberOfGrids}
+                      </span>
                     </div>
                   </div>
                 )}
