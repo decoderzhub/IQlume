@@ -303,7 +303,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                   >
                     <h4 className="font-medium text-white mb-2">Majority Cash + Even Split</h4>
                     <p className="text-sm text-gray-400">60% cash, 40% evenly split</p>
-                  </div>
+                  </motion.div>
                 </div>
               </div>
 
