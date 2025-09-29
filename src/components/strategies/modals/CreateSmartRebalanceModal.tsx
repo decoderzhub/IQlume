@@ -635,6 +635,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                   </p>
                 )}
               </div>
+            </div>
 
               {/* Rebalance Settings */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
