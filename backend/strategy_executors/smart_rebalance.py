@@ -34,7 +34,6 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
             assets = configuration.get("assets", [])
             rebalance_frequency = configuration.get("rebalance_frequency", "weekly")
             deviation_threshold_percent = configuration.get("deviation_threshold_percent", 5)
-            enable_initial_buy = configuration.get("enable_initial_buy", True)
             
             # Get telemetry data and check initial buy status
             telemetry_data = strategy_data.get("telemetry_data", {})
@@ -47,7 +46,7 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
             self.logger.info(f"🎯 Initial buy order submitted: {initial_buy_order_submitted}")
             
             # INITIAL PORTFOLIO BUY LOGIC - Execute once per strategy
-            if not initial_buy_order_submitted and enable_initial_buy and assets:
+            if not initial_buy_order_submitted and assets:
                 self.logger.info(f"🚀 [INITIAL BUY] Performing initial portfolio buy for {strategy_name}")
                 
                 # Calculate investment amount (excluding cash allocation)

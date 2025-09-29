@@ -30,7 +30,6 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
   const [assets, setAssets] = useState<Asset[]>([]);
   const [rebalanceFrequency, setRebalanceFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [deviationThreshold, setDeviationThreshold] = useState(5);
-  const [enableInitialBuy, setEnableInitialBuy] = useState(true);
 
   const addAsset = () => {
     setAssets(prev => [...prev, { symbol: '', allocation: 0 }]);
@@ -69,7 +68,6 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
         assets: assets.filter(asset => asset.symbol && asset.allocation > 0),
         rebalance_frequency: rebalanceFrequency,
         deviation_threshold_percent: deviationThreshold,
-        enable_initial_buy: enableInitialBuy,
       },
     };
 
@@ -405,29 +403,6 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                 )}
               </div>
 
-            {/* Initial Buy Configuration */}
-            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <DollarSign className="w-5 h-5 text-green-400" />
-                  <div>
-                    <p className="font-medium text-white">Enable Initial Portfolio Buy</p>
-                    <p className="text-sm text-gray-400">
-                      Automatically purchase all assets according to allocation when bot starts
-                    </p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={enableInitialBuy}
-                    onChange={(e) => setEnableInitialBuy(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                </label>
-              </div>
-            </div>
 
               {/* Rebalance Settings */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

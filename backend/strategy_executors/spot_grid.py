@@ -59,22 +59,14 @@ class SpotGridExecutor(BaseStrategyExecutor):
             self.logger.info(f"💰 Current price for {symbol}: ${current_price}")
             
             # INITIAL MARKET BUY LOGIC - Execute once per strategy
-            if not initial_buy_order_submitted and enable_initial_buy:
+            if not initial_buy_order_submitted:
                 self.logger.info(f"🚀 [INITIAL BUY] Performing initial market buy for {strategy_name}")
                 
-                # Calculate initial buy quantity
-                buy_quantity = 0
-                
-                if initial_buy_amount and initial_buy_amount > 0:
-                    # Use the configured initial buy amount
-                    buy_quantity = initial_buy_amount / current_price
-                    self.logger.info(f"💡 Using configured initial buy amount: ${initial_buy_amount} = {buy_quantity} {symbol}")
-                else:
-                    # Fallback calculation
-                    # Use 10% of allocated capital for initial buy
-                    initial_amount = allocated_capital * 0.1
-                    buy_quantity = max(0.001, initial_amount / current_price)
-                    self.logger.info(f"💡 Calculated fallback quantity: {buy_quantity}")
+                # Calculate initial buy quantity based on grid configuration
+                # Use 10% of allocated capital for initial buy, distributed across grid levels
+                initial_amount = allocated_capital * 0.1
+                buy_quantity = max(0.001, initial_amount / current_price)
+                self.logger.info(f"💡 Calculated initial buy: ${initial_amount} = {buy_quantity} {symbol}")
                 
                 if buy_quantity > 0:
                     try:
