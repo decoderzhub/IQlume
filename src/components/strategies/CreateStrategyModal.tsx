@@ -146,18 +146,26 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     const newAssets = [...formData.assets, { symbol: '', allocation: 0 }];
     
     // Calculate even split for all assets
-    const evenAllocation = Math.floor(100 / newAssets.length);
-    const remainder = 100 - (evenAllocation * newAssets.length);
-    
-    // Distribute allocations evenly, giving remainder to first asset
-    const updatedAssets = newAssets.map((asset, index) => ({
-      ...asset,
-      allocation: index === 0 ? evenAllocation + remainder : evenAllocation
-    }));
-    
-    setStrategy(prev => ({
-      ...prev,
-      type: typeId as TradingStrategy['type'],
+    if (allocationMethod === 'even') {
+      const newAssets = [...assets, { symbol: '', allocation: 0 }];
+      
+      // Calculate even split for non-cash assets
+      const nonCashAllocation = 100 - usdCashAllocation;
+      const evenAllocation = nonCashAllocation / newAssets.length;
+      
+      const updatedAssets = newAssets.map((asset, index) => ({
+        ...asset,
+        allocation: index === newAssets.length - 1 
+          ? nonCashAllocation - (evenAllocation * (newAssets.length - 1)) // Give remainder to last asset
+          : evenAllocation
+      }));
+      
+      setAssets(updatedAssets);
+    } else {
+      // For other methods, add with 0% and let the method calculate
+      setAssets([...assets, { symbol: '', allocation: 0 }]);
+      applyAllocationMethod(allocationMethod, [...assets, { symbol: '', allocation: 0 }]);
+    }
       name: strategyType.name,
       description: strategyType.description,
       risk_level: strategyType.risk,
