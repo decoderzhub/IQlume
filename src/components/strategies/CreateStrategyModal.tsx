@@ -169,54 +169,6 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
     setAssets(updatedAssets);
   };
 
-  const handleAIConfigureGrid = async () => {
-    if (!symbol || !user) return;
-    
-    setAiConfiguring(true);
-    try {
-      console.log(`🤖 AI configuring grid range for ${symbol}...`);
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('No valid session found. Please log in again.');
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/ai-configure-grid-range`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          symbol: symbol,
-          allocated_capital: minCapital,
-          number_of_grids: numberOfGrids,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to get AI configuration: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ AI configuration result:', result);
-      
-      // Update grid range with AI suggestions
-      setPriceRangeLower(result.lower_limit);
-      setPriceRangeUpper(result.upper_limit);
-      
-      // Show AI reasoning in an alert
-      alert(`🤖 AI Grid Configuration Complete!\n\n${result.reasoning}`);
-      
-    } catch (error) {
-      console.error('Error in AI grid configuration:', error);
-      alert(`Failed to configure grid with AI: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setAiConfiguring(false);
-    }
-  };
-
   const getSelectedSymbols = () => {
     return ['USD', ...assets.map(asset => asset.symbol).filter(symbol => symbol)];
   };
