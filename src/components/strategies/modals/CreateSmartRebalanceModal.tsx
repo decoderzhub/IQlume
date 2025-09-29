@@ -88,18 +88,126 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
     configureAssets();
   }, [allocationMethod, assets.length]); // Re-run when method changes or assets are added/removed
 
+  // Dynamic rebalancing when cash balance or asset allocations change
+  const rebalanceAllocations = (updatedAssets: Asset[], newCashBalance: number) => {
+    if (updatedAssets.length === 0) return updatedAssets;
+    
+    const availableForAssets = 100 - newCashBalance;
+    const currentAssetTotal = updatedAssets.reduce((sum, asset) => sum + asset.allocation, 0);
+    
+    // If assets total is 0, distribute evenly
+    if (currentAssetTotal === 0) {
+      const evenAllocation = availableForAssets / updatedAssets.length;
+      return updatedAssets.map(asset => ({
+        ...asset,
+        allocation: evenAllocation
+      }));
+    }
+    
+    // Scale existing allocations proportionally to fit available space
+    const scaleFactor = availableForAssets / currentAssetTotal;
+    return updatedAssets.map(asset => ({
+      ...asset,
+      allocation: asset.allocation * scaleFactor
+    }));
+  };
+
+  // Handle cash balance changes with automatic asset rebalancing
+  const handleCashBalanceChange = (newCashBalance: number) => {
+    setCashBalance(newCashBalance);
+    
+    if (assets.length > 0) {
+      const rebalancedAssets = rebalanceAllocations(assets, newCashBalance);
+      setAssets(rebalancedAssets);
+    }
+  };
+
+  // Handle individual asset allocation changes with automatic rebalancing
+  const handleAssetAllocationChange = (index: number, newAllocation: number) => {
+    // Update the specific asset
+    const updatedAssets = assets.map((asset, i) => 
+      i === index ? { ...asset, allocation: newAllocation } : asset
+    );
+    
+    // Calculate how much allocation is left for other assets
+    const thisAssetAllocation = newAllocation;
+    const otherAssetsCurrentTotal = updatedAssets
+      .filter((_, i) => i !== index)
+      .reduce((sum, asset) => sum + asset.allocation, 0);
+    
+    const availableForAssets = 100 - cashBalance;
+    const availableForOtherAssets = availableForAssets - thisAssetAllocation;
+    
+    // If there's space available and other assets exist, rebalance them proportionally
+    if (availableForOtherAssets > 0 && otherAssetsCurrentTotal > 0) {
+      const scaleFactor = availableForOtherAssets / otherAssetsCurrentTotal;
+      
+      const finalAssets = updatedAssets.map((asset, i) => {
+        if (i === index) {
+          return asset; // Keep the user's change
+        } else {
+          return {
+            ...asset,
+            allocation: asset.allocation * scaleFactor
+          };
+        }
+      });
+      
+      setAssets(finalAssets);
+    } else if (availableForOtherAssets <= 0) {
+      // If no space left, zero out other assets
+      const finalAssets = updatedAssets.map((asset, i) => {
+        if (i === index) {
+          return asset; // Keep the user's change
+        } else {
+          return {
+            ...asset,
+            allocation: 0
+          };
+        }
+      });
+      
+      setAssets(finalAssets);
+    } else {
+      // Just update the single asset
+      setAssets(updatedAssets);
+    }
+  };
+
   const addAsset = () => {
-    setAssets(prev => [...prev, { symbol: '', allocation: 0 }]);
+    const newAssets = [...assets, { symbol: '', allocation: 0 }];
+    
+    // Auto-allocate based on current method if this is the first asset
+    if (assets.length === 0) {
+      const availableForAssets = 100 - cashBalance;
+      const rebalancedAssets = rebalanceAllocations(newAssets, cashBalance);
+      setAssets(rebalancedAssets);
+    } else {
+      // Just add the asset with 0 allocation - user can adjust manually
+      setAssets(newAssets);
+    }
   };
 
   const removeAsset = (index: number) => {
-    setAssets(prev => prev.filter((_, i) => i !== index));
+    const newAssets = assets.filter((_, i) => i !== index);
+    
+    // Rebalance remaining assets to fill the space
+    if (newAssets.length > 0) {
+      const rebalancedAssets = rebalanceAllocations(newAssets, cashBalance);
+      setAssets(rebalancedAssets);
+    } else {
+      setAssets(newAssets);
+    }
   };
 
   const updateAsset = (index: number, field: keyof Asset, value: string | number) => {
-    setAssets(prev => prev.map((asset, i) => 
-      i === index ? { ...asset, [field]: value } : asset
-    ));
+    if (field === 'allocation') {
+      handleAssetAllocationChange(index, value as number);
+    } else {
+      setAssets(prev => prev.map((asset, i) => 
+        i === index ? { ...asset, [field]: value } : asset
+      ));
+    }
   };
 
   const totalAllocation = assets.reduce((sum, asset) => sum + asset.allocation, 0) + cashBalance;
@@ -430,7 +538,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                         <div className="flex items-center gap-2">
                           <NumericInput
                             value={asset.allocation}
-                            onChange={(value) => updateAsset(index, 'allocation', value)}
+                            onChange={handleCashBalanceChange}
                             min={0}
                             max={100}
                             step={0.1}
