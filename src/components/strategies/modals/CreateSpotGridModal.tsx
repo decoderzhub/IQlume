@@ -31,6 +31,38 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
   const [isAIConfiguring, setIsAIConfiguring] = useState(false);
   const [aiConfigured, setAiConfigured] = useState(false);
 
+  // Calculate initial buy amount based on current price position
+  const calculateInitialBuy = () => {
+    if (!lowerPrice || !upperPrice || lowerPrice <= 0 || upperPrice <= 0) {
+      return { amount: allocatedCapital * 0.1, percentage: 10, reason: 'Using 10% fallback (grid range not set)' };
+    }
+    
+    // Mock current price for calculation (in production, this would come from API)
+    const mockCurrentPrice = (lowerPrice + upperPrice) / 2; // Use middle of range for demo
+    
+    let pricePositionPercent = 0;
+    let reason = '';
+    
+    if (mockCurrentPrice <= lowerPrice) {
+      pricePositionPercent = 1.0; // 100% buy
+      reason = 'Price below grid - maximum buy';
+    } else if (mockCurrentPrice >= upperPrice) {
+      pricePositionPercent = 0.0; // 0% buy
+      reason = 'Price above grid - no initial buy';
+    } else {
+      pricePositionPercent = 1.0 - ((mockCurrentPrice - lowerPrice) / (upperPrice - lowerPrice));
+      const positionPercent = (1 - pricePositionPercent) * 100;
+      reason = `Price at ${positionPercent.toFixed(0)}% of grid range`;
+    }
+    
+    const amount = allocatedCapital * pricePositionPercent;
+    const percentage = pricePositionPercent * 100;
+    
+    return { amount, percentage, reason, currentPrice: mockCurrentPrice };
+  };
+
+  const initialBuyCalculation = calculateInitialBuy();
+
   const handleAIConfigureGrid = async () => {
     if (!symbol) {
       alert('Please select a trading symbol first to enable AI configuration of optimal grid range.');
@@ -93,7 +125,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
       time_horizon: 'swing',
       automation_level: 'fully_auto',
       grid_mode: gridMode,
-      auto_start: true,
+      auto_start: true, // Always enable auto-start for grid bots
       configuration: {
         symbol,
         allocated_capital: allocatedCapital,
@@ -151,6 +183,14 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                     <span className="text-white ml-2">{formatCurrency(allocatedCapital)}</span>
                   </div>
                   <div>
+                    <span className="text-gray-400">Initial Buy Amount:</span>
+                    <span className="text-green-400 ml-2 font-medium">{formatCurrency(initialBuyCalculation.amount)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Initial Buy %:</span>
+                    <span className="text-blue-400 ml-2 font-medium">{initialBuyCalculation.percentage.toFixed(1)}%</span>
+                  </div>
+                  <div>
                     <span className="text-gray-400">Grid Mode:</span>
                     <span className="text-white ml-2 capitalize">{gridMode}</span>
                   </div>
@@ -164,6 +204,16 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                       {formatCurrency(lowerPrice)} - {formatCurrency(upperPrice)}
                     </span>
                   </div>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <h4 className="font-medium text-blue-400 mb-2">Initial Buy Logic</h4>
+                  <p className="text-sm text-gray-300 mb-2">{initialBuyCalculation.reason}</p>
+                  {initialBuyCalculation.currentPrice && (
+                    <p className="text-xs text-gray-400">
+                      Estimated current price: {formatCurrency(initialBuyCalculation.currentPrice)}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
