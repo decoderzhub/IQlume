@@ -33,7 +33,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
 
   // Calculate initial buy amount based on current price position
   const calculateInitialBuy = () => {
-    if (!lowerPrice || !upperPrice || lowerPrice <= 0 || upperPrice <= 0) {
+    if (!lowerPrice || !upperPrice || lowerPrice <= 0 || upperPrice <= 0 || lowerPrice >= upperPrice) {
       return { 
         amount: allocatedCapital * 0.1, 
         percentage: 10, 
@@ -44,7 +44,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
     }
     
     // Calculate realistic current price based on symbol and range
-    let mockCurrentPrice = lowerPrice + (upperPrice - lowerPrice) * 0.35; // Default to 35% up the range
+    let mockCurrentPrice = lowerPrice + (upperPrice - lowerPrice) * 0.17; // Default to 17% up the range for MSFT
     
     // Adjust mock price based on symbol for more realistic demo
     if (symbol.toUpperCase().includes('MSFT')) {
@@ -64,7 +64,6 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
     // Find which grid level the current price is at
     const currentGridLevel = Math.floor((mockCurrentPrice - lowerPrice) / gridSpacing);
     const gridLevelsBelowPrice = Math.max(0, currentGridLevel);
-    const gridLevelsAbovePrice = numberOfGrids - gridLevelsBelowPrice - 1;
     
     // GRID BOT STRATEGY: Need to buy enough to fill all grid levels below current price
     // Each grid level below current price should be "filled" with base position
@@ -72,7 +71,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
     const requiredBasePosition = gridLevelsBelowPrice * capitalPerGrid;
     
     // Calculate the actual buy amount needed (this is the core grid bot logic)
-    const amount = requiredBasePosition; // No artificial cap - use exact grid calculation
+    const amount = requiredBasePosition;
     const percentage = (amount / allocatedCapital) * 100;
     
     let reason = '';
@@ -80,7 +79,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
     
     if (mockCurrentPrice <= lowerPrice) {
       // Price below grid - need maximum position
-      reason = `Price below grid range - need maximum position (${numberOfGrids} levels × ${formatCurrency(capitalPerGrid)} = ${formatCurrency(numberOfGrids * capitalPerGrid)})`;
+      reason = `Price below grid range - need maximum position (${numberOfGrids} levels × ${formatCurrency(capitalPerGrid)} = ${formatCurrency(amount)})`;
       gridPosition = 'below grid (maximum buy zone)';
     } else if (mockCurrentPrice >= upperPrice) {
       // Price above grid - minimal position
