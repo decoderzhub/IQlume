@@ -203,6 +203,13 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
     // Round to 2 decimal places for ease of use
     const roundedAllocation = Math.round(newAllocation * 100) / 100;
     
+    // Prevent total allocation from exceeding 100%
+    const otherAssetsTotal = assets
+      .filter((_, i) => i !== index)
+      .reduce((sum, asset) => sum + asset.allocation, 0);
+    const maxAllowedForThisAsset = 100 - cashBalance - otherAssetsTotal;
+    const constrainedAllocation = Math.min(roundedAllocation, Math.max(0, maxAllowedForThisAsset));
+    
     // If user is using slider, automatically switch to custom mode
     if (fromSlider && allocationMethod !== 'custom') {
       setAllocationMethod('custom');
@@ -211,17 +218,17 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
     if (allocationMethod === 'custom') {
       // In custom mode, sliders work independently - no auto-rebalancing
       const updatedAssets = assets.map((asset, i) => 
-        i === index ? { ...asset, allocation: roundedAllocation } : asset
+        i === index ? { ...asset, allocation: constrainedAllocation } : asset
       );
       setAssets(updatedAssets);
     } else {
       // In other modes, maintain auto-rebalancing behavior
       const updatedAssets = assets.map((asset, i) => 
-        i === index ? { ...asset, allocation: roundedAllocation } : asset
+        i === index ? { ...asset, allocation: constrainedAllocation } : asset
       );
       
       // Calculate how much allocation is left for other assets
-      const thisAssetAllocation = roundedAllocation;
+      const thisAssetAllocation = constrainedAllocation;
       const otherAssetsCurrentTotal = updatedAssets
         .filter((_, i) => i !== index)
         .reduce((sum, asset) => sum + asset.allocation, 0);

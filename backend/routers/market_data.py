@@ -814,6 +814,40 @@ async def search_symbols(
                 "score": 90  # High score for exact matches
             })
         
+        # Add common symbols that might not be in the main database
+        additional_symbols = [
+            {"symbol": "TSM", "name": "Taiwan Semiconductor Manufacturing", "type": "stock"},
+            {"symbol": "ASML", "name": "ASML Holding N.V.", "type": "stock"},
+            {"symbol": "BABA", "name": "Alibaba Group Holding", "type": "stock"},
+            {"symbol": "TCEHY", "name": "Tencent Holdings", "type": "stock"},
+            {"symbol": "SHOP", "name": "Shopify Inc.", "type": "stock"},
+            {"symbol": "SQ", "name": "Block Inc.", "type": "stock"},
+            {"symbol": "PYPL", "name": "PayPal Holdings", "type": "stock"},
+            {"symbol": "ROKU", "name": "Roku Inc.", "type": "stock"},
+            {"symbol": "ZM", "name": "Zoom Video Communications", "type": "stock"},
+            {"symbol": "DOCU", "name": "DocuSign Inc.", "type": "stock"},
+            {"symbol": "SNOW", "name": "Snowflake Inc.", "type": "stock"},
+            {"symbol": "PLTR", "name": "Palantir Technologies", "type": "stock"},
+            {"symbol": "RBLX", "name": "Roblox Corporation", "type": "stock"},
+            {"symbol": "U", "name": "Unity Software Inc.", "type": "stock"},
+            {"symbol": "DDOG", "name": "Datadog Inc.", "type": "stock"},
+            {"symbol": "OKTA", "name": "Okta Inc.", "type": "stock"},
+            {"symbol": "TWLO", "name": "Twilio Inc.", "type": "stock"},
+            {"symbol": "NET", "name": "Cloudflare Inc.", "type": "stock"},
+            {"symbol": "FSLY", "name": "Fastly Inc.", "type": "stock"},
+            {"symbol": "CRWD", "name": "CrowdStrike Holdings", "type": "stock"},
+        ]
+        
+        # Add additional symbols that match the query
+        for additional in additional_symbols:
+            if (query_lower in additional["symbol"].lower() or 
+                query_lower in additional["name"].lower()) and \
+               not any(s["symbol"] == additional["symbol"] for s in matching_symbols):
+                matching_symbols.append({
+                    **additional,
+                    "score": 85 if additional["symbol"].lower().startswith(query_lower) else 70
+                })
+        
         # Sort by relevance score (exact matches first)
         matching_symbols.sort(key=lambda x: x["score"], reverse=True)
         
