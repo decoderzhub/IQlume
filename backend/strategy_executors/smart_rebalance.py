@@ -30,17 +30,20 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
             # Extract configuration
             allocated_capital = configuration.get("allocated_capital", 5000)
             assets = configuration.get("assets", [])
-            cash_balance_percent = configuration.get("cash_balance_percent", 20)
+            cash_balance_percent = configuration.get("cash_balance_percent", 20) or configuration.get("cash_balance", 20)
             rebalance_frequency = configuration.get("rebalance_frequency", "weekly")
-            deviation_threshold_percent = configuration.get("deviation_threshold_percent", 5)
+            deviation_threshold_percent = configuration.get("deviation_threshold_percent", 5) or configuration.get("deviation_threshold", 5)
             
             # Debug logging for configuration
-            self.logger.info(f"📋 Configuration debug:")
+            self.logger.info(f"📋 FULL Configuration debug:")
+            self.logger.info(f"   Raw configuration: {configuration}")
             self.logger.info(f"   Allocated capital: ${allocated_capital}")
             self.logger.info(f"   Cash balance: {cash_balance_percent}%")
             self.logger.info(f"   Assets raw: {assets}")
             self.logger.info(f"   Assets type: {type(assets)}")
             self.logger.info(f"   Assets length: {len(assets) if isinstance(assets, list) else 'Not a list'}")
+            self.logger.info(f"   Rebalance frequency: {rebalance_frequency}")
+            self.logger.info(f"   Deviation threshold: {deviation_threshold_percent}%")
             
             # Validate assets configuration
             if not isinstance(assets, list):
@@ -63,6 +66,31 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                     "reason": "No assets configured for rebalancing. Please add assets to the strategy configuration."
                 }
             
+            # Validate each asset has required fields
+            valid_assets = []
+            for i, asset in enumerate(assets):
+                self.logger.info(f"🔍 Validating asset {i+1}: {asset}")
+                if isinstance(asset, dict) and asset.get("symbol") and asset.get("allocation"):
+                    if asset["allocation"] > 0:
+                        valid_assets.append(asset)
+                        self.logger.info(f"✅ Asset {i+1} valid: {asset['symbol']} = {asset['allocation']}%")
+                    else:
+                        self.logger.warning(f"⚠️ Asset {i+1} has 0% allocation, skipping: {asset}")
+                else:
+                    self.logger.warning(f"⚠️ Asset {i+1} invalid (missing symbol or allocation): {asset}")
+            
+            if len(valid_assets) == 0:
+                self.logger.error(f"❌ No valid assets found after validation")
+                return {
+                    "action": "error",
+                    "symbol": "portfolio",
+                    "quantity": 0,
+                    "price": 0,
+                    "reason": f"No valid assets found. Assets must have both 'symbol' and 'allocation' fields with allocation > 0."
+                }
+            
+            self.logger.info(f"✅ Found {len(valid_assets)} valid assets out of {len(assets)} total")
+            
             # Get telemetry data and check initial buy status
             telemetry_data = strategy_data.get("telemetry_data", {})
             if not isinstance(telemetry_data, dict):
@@ -70,23 +98,23 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
             
             initial_buy_order_submitted = telemetry_data.get("initial_buy_order_submitted", False)
             
-            self.logger.info(f"📊 Rebalance config: {len(assets)} assets | Cash: {cash_balance_percent}%")
+            self.logger.info(f"📊 Rebalance config: {len(valid_assets)} valid assets | Cash: {cash_balance_percent}%")
             self.logger.info(f"🎯 Initial buy order submitted: {initial_buy_order_submitted}")
             
-            # Log each asset for debugging
-            for i, asset in enumerate(assets):
-                self.logger.info(f"   Asset {i+1}: {asset}")
+            # Log each valid asset for debugging
+            for i, asset in enumerate(valid_assets):
+                self.logger.info(f"   Valid Asset {i+1}: {asset}")
             
             # INITIAL PORTFOLIO BUY LOGIC - Execute once per strategy
-            if not initial_buy_order_submitted and assets:
+            if not initial_buy_order_submitted and valid_assets:
                 self.logger.info(f"🚀 [INITIAL BUY] Performing initial portfolio buy for {strategy_name}")
                 
                 orders_placed = []
                 total_orders_value = 0
                 
-                self.logger.info(f"💰 Portfolio setup: {len(assets)} assets, {cash_balance_percent}% cash reserve")
+                self.logger.info(f"💰 Portfolio setup: {len(valid_assets)} assets, {cash_balance_percent}% cash reserve")
                 
-                for i, asset in enumerate(assets):
+                for i, asset in enumerate(valid_assets):
                     self.logger.info(f"🔍 [INITIAL BUY] Processing asset {i+1}: {asset}")
                     
                     if not asset.get("symbol") or not asset.get("allocation"):
@@ -108,7 +136,10 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                         continue
                     
                     # Get current price
+                    self.logger.info(f"💰 [INITIAL BUY] Fetching current price for {symbol}...")
                     current_price = self.get_current_price(symbol)
+                    self.logger.info(f"💰 [INITIAL BUY] Current price for {symbol}: ${current_price}")
+                    
                     if not current_price or current_price <= 0:
                         self.logger.error(f"❌ [INITIAL BUY] Unable to get price for {symbol}")
                         continue
@@ -121,6 +152,7 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                     if quantity > 0.001:  # Minimum quantity check
                         try:
                             # Check if market is open
+                            self.logger.info(f"🕐 [INITIAL BUY] Checking market status for {symbol}...")
                             is_market_open = self.is_market_open(symbol)
                             time_in_force = TimeInForce.DAY if is_market_open else TimeInForce.OPG
                             
@@ -134,6 +166,7 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                                 time_in_force=time_in_force
                             )
                             
+                            self.logger.info(f"📤 [INITIAL BUY] Submitting order to Alpaca: {order_request}")
                             # Submit order to Alpaca
                             order = self.trading_client.submit_order(order_request)
                             order_id = str(order.id)

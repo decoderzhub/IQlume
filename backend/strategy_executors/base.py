@@ -54,30 +54,39 @@ class BaseStrategyExecutor(ABC):
     def get_current_price(self, symbol: str) -> Optional[float]:
         """Get current market price for a symbol"""
         try:
+            self.logger.info(f"💰 Fetching price for symbol: {symbol}")
             # This is a simplified implementation
             # In production, you'd use the appropriate data client based on asset type
             if '/' in symbol or symbol.upper() in ['BTC', 'ETH', 'BTCUSD', 'ETHUSD']:
                 # Crypto symbol
+                self.logger.info(f"💰 Treating {symbol} as crypto")
                 from alpaca.data.requests import CryptoLatestQuoteRequest
                 normalized_symbol = self.normalize_crypto_symbol(symbol)
+                self.logger.info(f"💰 Normalized crypto symbol: {normalized_symbol}")
                 if normalized_symbol:
                     req = CryptoLatestQuoteRequest(symbol_or_symbols=[normalized_symbol])
                     resp = self.crypto_client.get_crypto_latest_quote(req)
                     quote = resp.get(normalized_symbol)
                     if quote:
-                        return float(quote.ask_price or quote.bid_price or 0)
+                        price = float(quote.ask_price or quote.bid_price or 0)
+                        self.logger.info(f"💰 Crypto price for {symbol}: ${price}")
+                        return price
             else:
                 # Stock symbol
+                self.logger.info(f"💰 Treating {symbol} as stock")
                 from alpaca.data.requests import StockLatestQuoteRequest
                 from alpaca.data.enums import DataFeed
                 req = StockLatestQuoteRequest(symbol_or_symbols=[symbol.upper()], feed=DataFeed.IEX)
                 resp = self.stock_client.get_stock_latest_quote(req)
                 quote = resp.get(symbol.upper())
                 if quote:
-                    return float(quote.ask_price or quote.bid_price or 0)
+                    price = float(quote.ask_price or quote.bid_price or 0)
+                    self.logger.info(f"💰 Stock price for {symbol}: ${price}")
+                    return price
         except Exception as e:
             self.logger.error(f"Error fetching price for {symbol}: {e}")
         
+        self.logger.warning(f"💰 No price found for {symbol}, returning None")
         return None
     
     def is_market_open(self, symbol: str) -> bool:
