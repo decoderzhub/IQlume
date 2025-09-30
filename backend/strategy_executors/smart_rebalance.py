@@ -29,11 +29,39 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
             
             # Extract configuration
             allocated_capital = configuration.get("allocated_capital", 5000)
-            allocation_method = configuration.get("allocation_method", "even_split")
-            cash_balance_percent = configuration.get("cash_balance_percent", 20)
             assets = configuration.get("assets", [])
+            cash_balance_percent = configuration.get("cash_balance_percent", 20)
             rebalance_frequency = configuration.get("rebalance_frequency", "weekly")
             deviation_threshold_percent = configuration.get("deviation_threshold_percent", 5)
+            
+            # Debug logging for configuration
+            self.logger.info(f"📋 Configuration debug:")
+            self.logger.info(f"   Allocated capital: ${allocated_capital}")
+            self.logger.info(f"   Cash balance: {cash_balance_percent}%")
+            self.logger.info(f"   Assets raw: {assets}")
+            self.logger.info(f"   Assets type: {type(assets)}")
+            self.logger.info(f"   Assets length: {len(assets) if isinstance(assets, list) else 'Not a list'}")
+            
+            # Validate assets configuration
+            if not isinstance(assets, list):
+                self.logger.error(f"❌ Assets configuration is not a list: {type(assets)}")
+                return {
+                    "action": "error",
+                    "symbol": "portfolio",
+                    "quantity": 0,
+                    "price": 0,
+                    "reason": f"Invalid assets configuration: expected list, got {type(assets)}"
+                }
+            
+            if len(assets) == 0:
+                self.logger.error(f"❌ No assets configured for rebalancing")
+                return {
+                    "action": "error",
+                    "symbol": "portfolio",
+                    "quantity": 0,
+                    "price": 0,
+                    "reason": "No assets configured for rebalancing. Please add assets to the strategy configuration."
+                }
             
             # Get telemetry data and check initial buy status
             telemetry_data = strategy_data.get("telemetry_data", {})
@@ -42,28 +70,33 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
             
             initial_buy_order_submitted = telemetry_data.get("initial_buy_order_submitted", False)
             
-            self.logger.info(f"📊 Rebalance config: {len(assets)} assets | Method: {allocation_method} | Cash: {cash_balance_percent}%")
+            self.logger.info(f"📊 Rebalance config: {len(assets)} assets | Cash: {cash_balance_percent}%")
             self.logger.info(f"🎯 Initial buy order submitted: {initial_buy_order_submitted}")
+            
+            # Log each asset for debugging
+            for i, asset in enumerate(assets):
+                self.logger.info(f"   Asset {i+1}: {asset}")
             
             # INITIAL PORTFOLIO BUY LOGIC - Execute once per strategy
             if not initial_buy_order_submitted and assets:
                 self.logger.info(f"🚀 [INITIAL BUY] Performing initial portfolio buy for {strategy_name}")
-                
-                # Get cash balance from configuration
-                cash_balance_percent = configuration.get("cash_balance_percent", 20)
                 
                 orders_placed = []
                 total_orders_value = 0
                 
                 self.logger.info(f"💰 Portfolio setup: {len(assets)} assets, {cash_balance_percent}% cash reserve")
                 
-                for asset in assets:
+                for i, asset in enumerate(assets):
+                    self.logger.info(f"🔍 [INITIAL BUY] Processing asset {i+1}: {asset}")
+                    
                     if not asset.get("symbol") or not asset.get("allocation"):
                         self.logger.warning(f"⚠️ [INITIAL BUY] Skipping asset with missing symbol or allocation: {asset}")
                         continue
                     
                     symbol = asset["symbol"]
                     allocation_percent = asset["allocation"]
+                    
+                    self.logger.info(f"📊 [INITIAL BUY] Asset details: symbol={symbol}, allocation={allocation_percent}%")
                     
                     # Calculate amount to invest in this asset (allocation_percent is % of total capital)
                     asset_investment = allocated_capital * (allocation_percent / 100)

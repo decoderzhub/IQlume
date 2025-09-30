@@ -203,6 +203,15 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
     // Round to 2 decimal places for ease of use
     const roundedAllocation = Math.round(newAllocation * 100) / 100;
     
+    // Calculate maximum allowed allocation for this asset
+    const otherAssetsTotal = assets
+      .filter((_, i) => i !== index)
+      .reduce((sum, asset) => sum + asset.allocation, 0);
+    const maxAllowedForThisAsset = 100 - cashBalance - otherAssetsTotal;
+    
+    // Constrain allocation to prevent exceeding 100% total
+    const constrainedAllocation = Math.min(roundedAllocation, Math.max(0, maxAllowedForThisAsset));
+    
     // Prevent total allocation from exceeding 100%
     const otherAssetsTotal = assets
       .filter((_, i) => i !== index)
