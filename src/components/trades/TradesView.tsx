@@ -275,42 +275,8 @@ export function TradesView() {
         </Card>
       )}
 
-      {/* Add "All Accounts" option */}
-      {brokerageAccounts.length > 0 && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">View Options</h3>
-          </div>
-          
-          <div className="flex gap-4">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setSelectedAccountId(null)}
-              className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                selectedAccountId === null
-                  ? 'border-purple-500 bg-purple-500/10'
-                  : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
-              }`}
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-2xl">📊</span>
-                <div className={`w-2 h-2 rounded-full bg-blue-500`} />
-              </div>
-              <h4 className="font-medium text-white text-sm mb-1">All Accounts</h4>
-              <p className="text-xs text-gray-400 mb-2">
-                View trades from all strategies
-              </p>
-              <p className="text-sm font-medium text-blue-400">
-                All Trades
-              </p>
-            </motion.div>
-          </div>
-        </Card>
-      )}
-
       {/* Selected Account Info */}
-      {selectedAccountId && selectedAccount && (
+      {selectedAccount && (
         <Card className="p-4 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-500/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
