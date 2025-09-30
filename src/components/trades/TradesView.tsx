@@ -504,52 +504,15 @@ export function TradesView() {
               </thead>
               <tbody>
                 {filteredTrades.map((trade, index) => (
-                  <motion.tr
+                  <TradeRow
                     key={trade.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
-                  >
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${trade.type === 'buy' ? 'bg-green-400/10' : 'bg-red-400/10'}`}>
-                          {trade.type === 'buy' ? (
-                            <ArrowDownRight className="w-4 h-4 text-green-400" />
-                          ) : (
-                            <ArrowUpRight className="w-4 h-4 text-red-400" />
-                          )}
-                        </div>
-                        <span className="font-medium text-white">{trade.symbol}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className={`font-medium uppercase ${getTypeColor(trade.type)}`}>
-                        {trade.type}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-right text-white">
-                      {trade.quantity}
-                    </td>
-                    <td className="py-4 px-4 text-right text-white">
-                      {formatCurrency(trade.price)}
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      {trade.profit_loss !== 0 && (
-                        <span className={`font-medium ${trade.profit_loss > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {trade.profit_loss > 0 ? '+' : ''}{formatCurrency(trade.profit_loss)}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(trade.status)}`}>
-                        {trade.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-right text-gray-400 text-sm">
-                      {formatDate(trade.timestamp)}
-                    </td>
-                  </motion.tr>
+                    trade={trade}
+                    index={index}
+                    getTypeColor={getTypeColor}
+                    getStatusColor={getStatusColor}
+                    formatCurrency={formatCurrency}
+                    formatDate={formatDate}
+                  />
                 ))}
               </tbody>
             </table>
