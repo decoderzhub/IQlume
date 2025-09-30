@@ -96,17 +96,41 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
             if not isinstance(telemetry_data, dict):
                 telemetry_data = {}
             
+            # Check if initial buy has been completed
             initial_buy_order_submitted = telemetry_data.get("initial_buy_order_submitted", False)
+            
+            # Also check if we have any existing positions for the assets in this strategy
+            has_existing_positions = False
+            try:
+                positions = self.trading_client.get_all_positions()
+                strategy_symbols = [asset.get("symbol", "").replace("/", "") for asset in valid_assets if asset.get("symbol")]
+                
+                for position in positions:
+                    if position.symbol in strategy_symbols and float(position.qty) > 0:
+                        has_existing_positions = True
+                        self.logger.info(f"📊 Found existing position: {position.symbol} = {position.qty} shares")
+                        break
+                        
+                if has_existing_positions:
+                    self.logger.info(f"📊 Existing positions found for strategy assets - marking initial buy as completed")
+                    initial_buy_order_submitted = True
+                    # Update telemetry to reflect this
+                    telemetry_data["initial_buy_order_submitted"] = True
+                    self.update_strategy_telemetry(strategy_id, telemetry_data)
+                    
+            except Exception as e:
+                self.logger.error(f"❌ Error checking existing positions: {e}")
             
             self.logger.info(f"📊 Rebalance config: {len(valid_assets)} valid assets | Cash: {cash_balance_percent}%")
             self.logger.info(f"🎯 Initial buy order submitted: {initial_buy_order_submitted}")
+            self.logger.info(f"🎯 Has existing positions: {has_existing_positions}")
             
             # Log each valid asset for debugging
             for i, asset in enumerate(valid_assets):
                 self.logger.info(f"   Valid Asset {i+1}: {asset}")
             
             # INITIAL PORTFOLIO BUY LOGIC - Execute once per strategy
-            if not initial_buy_order_submitted and valid_assets:
+            if not initial_buy_order_submitted and valid_assets and not has_existing_positions:
                 self.logger.info(f"🚀 [INITIAL BUY] Performing initial portfolio buy for {strategy_name}")
                 
                 orders_placed = []
