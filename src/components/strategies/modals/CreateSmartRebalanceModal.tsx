@@ -8,6 +8,7 @@ import { SymbolSearchInput } from '../../ui/SymbolSearchInput';
 import { TradingStrategy } from '../../../types';
 import { formatCurrency } from '../../../lib/utils';
 import { useStore } from '../../../store/useStore';
+import { supabase } from '../../../lib/supabase';
 
 interface Asset {
   symbol: string;
