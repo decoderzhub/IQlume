@@ -73,13 +73,13 @@ export function SymbolSearchInput({
   // Search symbols when query changes
   useEffect(() => {
     const searchSymbols = async () => {
-      if (!searchQuery.trim() || searchQuery.length < 1) {
+      if (!searchQuery.trim()) {
         // Load popular symbols when no query
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session?.access_token) return;
 
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/popular?limit=20`, {
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/popular?limit=50`, {
             headers: {
               'Authorization': `Bearer ${session.access_token}`,
             },
@@ -101,7 +101,7 @@ export function SymbolSearchInput({
         if (!session?.access_token) return;
 
         const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/search?query=${encodeURIComponent(searchQuery)}&limit=20`,
+          `${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/search?query=${encodeURIComponent(searchQuery)}&limit=100`,
           {
             headers: {
               'Authorization': `Bearer ${session.access_token}`,
@@ -121,7 +121,7 @@ export function SymbolSearchInput({
       }
     };
 
-    const debounceTimer = setTimeout(searchSymbols, 200);
+    const debounceTimer = setTimeout(searchSymbols, 150);
     return () => clearTimeout(debounceTimer);
   }, [searchQuery]);
 
