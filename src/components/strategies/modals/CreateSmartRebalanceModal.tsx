@@ -199,54 +199,70 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
   };
 
   // Handle individual asset allocation changes with automatic rebalancing
-  const handleAssetAllocationChange = (index: number, newAllocation: number) => {
-    // Update the specific asset
-    const updatedAssets = assets.map((asset, i) => 
-      i === index ? { ...asset, allocation: newAllocation } : asset
-    );
+  const handleAssetAllocationChange = (index: number, newAllocation: number, fromSlider: boolean = false) => {
+    // Round to 2 decimal places for ease of use
+    const roundedAllocation = Math.round(newAllocation * 100) / 100;
     
-    // Calculate how much allocation is left for other assets
-    const thisAssetAllocation = newAllocation;
-    const otherAssetsCurrentTotal = updatedAssets
-      .filter((_, i) => i !== index)
-      .reduce((sum, asset) => sum + asset.allocation, 0);
+    // If user is using slider, automatically switch to custom mode
+    if (fromSlider && allocationMethod !== 'custom') {
+      setAllocationMethod('custom');
+    }
     
-    const availableForAssets = 100 - cashBalance;
-    const availableForOtherAssets = availableForAssets - thisAssetAllocation;
-    
-    // If there's space available and other assets exist, rebalance them proportionally
-    if (availableForOtherAssets > 0 && otherAssetsCurrentTotal > 0) {
-      const scaleFactor = availableForOtherAssets / otherAssetsCurrentTotal;
-      
-      const finalAssets = updatedAssets.map((asset, i) => {
-        if (i === index) {
-          return asset; // Keep the user's change
-        } else {
-          return {
-            ...asset,
-            allocation: asset.allocation * scaleFactor
-          };
-        }
-      });
-      
-      setAssets(finalAssets);
-    } else if (availableForOtherAssets <= 0) {
-      // If no space left, zero out other assets
-      const finalAssets = updatedAssets.map((asset, i) => {
-        if (i === index) {
-          return asset; // Keep the user's change
-        } else {
-          return {
-            ...asset,
-            allocation: 0
-          };
-        }
-      });
-      
-      setAssets(finalAssets);
-    } else {
-      // Just update the single asset
+    if (allocationMethod === 'custom') {
+      // In custom mode, sliders work independently - no auto-rebalancing
+      const updatedAssets = assets.map((asset, i) => 
+        i === index ? { ...asset, allocation: roundedAllocation } : asset
+      );
       setAssets(updatedAssets);
+    } else {
+      // In other modes, maintain auto-rebalancing behavior
+      const updatedAssets = assets.map((asset, i) => 
+        i === index ? { ...asset, allocation: roundedAllocation } : asset
+      );
+      
+      // Calculate how much allocation is left for other assets
+      const thisAssetAllocation = roundedAllocation;
+      const otherAssetsCurrentTotal = updatedAssets
+        .filter((_, i) => i !== index)
+        .reduce((sum, asset) => sum + asset.allocation, 0);
+      
+      const availableForAssets = 100 - cashBalance;
+      const availableForOtherAssets = availableForAssets - thisAssetAllocation;
+      
+      // If there's space available and other assets exist, rebalance them proportionally
+      if (availableForOtherAssets > 0 && otherAssetsCurrentTotal > 0) {
+        const scaleFactor = availableForOtherAssets / otherAssetsCurrentTotal;
+        
+        const finalAssets = updatedAssets.map((asset, i) => {
+          if (i === index) {
+            return asset; // Keep the user's change
+          } else {
+            return {
+              ...asset,
+              allocation: Math.round(asset.allocation * scaleFactor * 100) / 100 // Round to 2 decimal places
+            };
+          }
+        });
+        
+        setAssets(finalAssets);
+      } else if (availableForOtherAssets <= 0) {
+        // If no space left, zero out other assets
+        const finalAssets = updatedAssets.map((asset, i) => {
+          if (i === index) {
+            return asset; // Keep the user's change
+          } else {
+            return {
+              ...asset,
+              allocation: 0
+            };
+          }
+        });
+        
+        setAssets(finalAssets);
+      } else {
+        // Just update the single asset
+        setAssets(updatedAssets);
+      }
     }
   };
 
@@ -278,7 +294,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
 
   const updateAsset = (index: number, field: keyof Asset, value: string | number) => {
     if (field === 'allocation') {
-      handleAssetAllocationChange(index, value as number);
+      handleAssetAllocationChange(index, value as number, false);
     } else {
       setAssets(prev => prev.map((asset, i) => 
         i === index ? { ...asset, [field]: value } : asset
@@ -286,8 +302,12 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
     }
   };
 
+  const handleSliderChange = (index: number, value: number) => {
+    handleAssetAllocationChange(index, value, true);
+  };
+
   const totalAllocation = assets.reduce((sum, asset) => sum + asset.allocation, 0) + cashBalance;
-  const isAllocationValid = Math.abs(totalAllocation - 100) < 0.01;
+  const isAllocationValid = Math.abs(totalAllocation - 100) < 0.1; // Allow for rounding differences
 
   const handleSave = async () => {
     const strategy: Omit<TradingStrategy, 'id'> = {
@@ -370,7 +390,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                     {assets.map((asset, index) => (
                       <div key={index} className="flex justify-between text-sm">
                         <span className="text-gray-400">{asset.symbol}:</span>
-                        <span className="text-white">{asset.allocation}%</span>
+                        <span className="text-white">{asset.allocation.toFixed(2)}%</span>
                       </div>
                     ))}
                   </div>
@@ -634,10 +654,9 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                               onChange={(value) => updateAsset(index, 'allocation', value)}
                               min={0}
                               max={100}
-                              step={0.1}
+                              step={0.01}
                               className="w-20 text-center"
                               allowDecimals={true}
-                              disabled={allocationMethod !== 'custom'}
                             />
                             <span className="text-white">%</span>
                           </div>
@@ -652,40 +671,43 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                         </div>
                         
                         {/* Interactive Slider */}
-                        {allocationMethod === 'custom' && (
-                          <div className="mb-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm text-gray-400">Allocation Slider</span>
-                              <span className="text-sm text-blue-400">{asset.allocation.toFixed(1)}%</span>
-                            </div>
-                            <div className="relative">
-                              <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                step="0.1"
-                                value={asset.allocation}
-                                onChange={(e) => updateAsset(index, 'allocation', parseFloat(e.target.value))}
-                                className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-with-markers"
-                                style={{
-                                  background: `linear-gradient(to right, 
-                                    #3b82f6 0%, 
-                                    #8b5cf6 ${asset.allocation}%, 
-                                    #374151 ${asset.allocation}%, 
-                                    #374151 100%)`
-                                }}
-                              />
-                              {/* Slider markers */}
-                              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                                <span>0%</span>
-                                <span>25%</span>
-                                <span>50%</span>
-                                <span>75%</span>
-                                <span>100%</span>
-                              </div>
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-gray-400">Allocation Slider</span>
+                            <span className="text-sm text-blue-400">{asset.allocation.toFixed(2)}%</span>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={asset.allocation}
+                              onChange={(e) => handleSliderChange(index, parseFloat(e.target.value))}
+                              className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-with-markers"
+                              style={{
+                                background: `linear-gradient(to right, 
+                                  #3b82f6 0%, 
+                                  #8b5cf6 ${asset.allocation}%, 
+                                  #374151 ${asset.allocation}%, 
+                                  #374151 100%)`
+                              }}
+                            />
+                            {/* Slider markers */}
+                            <div className="flex justify-between text-xs text-gray-500 mt-1">
+                              <span>0%</span>
+                              <span>25%</span>
+                              <span>50%</span>
+                              <span>75%</span>
+                              <span>100%</span>
                             </div>
                           </div>
-                        )}
+                          {allocationMethod !== 'custom' && (
+                            <p className="text-xs text-yellow-300 mt-1">
+                              💡 Using slider will switch to Custom mode for independent control
+                            </p>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -715,7 +737,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                             </div>
                             <div>
                               <p className="font-medium text-white">{asset.symbol}</p>
-                              <p className="text-xs text-gray-400">{asset.allocation.toFixed(1)}% allocation</p>
+                              <p className="text-xs text-gray-400">{asset.allocation.toFixed(2)}% allocation</p>
                             </div>
                           </div>
                           <div className="text-right">
@@ -723,7 +745,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                               {formatCurrency(investmentAmount)}
                             </p>
                             <p className="text-xs text-gray-400">
-                              {asset.allocation.toFixed(1)}% of {formatCurrency(allocatedCapital)}
+                              {asset.allocation.toFixed(2)}% of {formatCurrency(allocatedCapital)}
                             </p>
                           </div>
                         </div>
@@ -779,12 +801,16 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Total Allocation:</span>
                   <span className={`font-bold ${isAllocationValid ? 'text-green-400' : 'text-red-400'}`}>
-                    {totalAllocation.toFixed(1)}%
+                    {totalAllocation.toFixed(2)}%
                   </span>
                 </div>
-                {allocationMethod === 'custom' && (
+                {allocationMethod === 'custom' ? (
                   <p className="text-xs text-blue-300 mt-2">
-                    💡 Tip: Use sliders or input fields - others auto-balance to 100%
+                    💡 Custom Mode: Sliders work independently - manually balance to 100%
+                  </p>
+                ) : (
+                  <p className="text-xs text-blue-300 mt-2">
+                    💡 Auto-Balance Mode: Other assets adjust automatically - use slider to switch to Custom
                   </p>
                 )}
                 {!isAllocationValid && (
