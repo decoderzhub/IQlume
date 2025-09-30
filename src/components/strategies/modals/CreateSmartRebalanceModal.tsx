@@ -212,13 +212,6 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
     // Constrain allocation to prevent exceeding 100% total
     const constrainedAllocation = Math.min(roundedAllocation, Math.max(0, maxAllowedForThisAsset));
     
-    // Prevent total allocation from exceeding 100%
-    const otherAssetsTotal = assets
-      .filter((_, i) => i !== index)
-      .reduce((sum, asset) => sum + asset.allocation, 0);
-    const maxAllowedForThisAsset = 100 - cashBalance - otherAssetsTotal;
-    const constrainedAllocation = Math.min(roundedAllocation, Math.max(0, maxAllowedForThisAsset));
-    
     // If user is using slider, automatically switch to custom mode
     if (fromSlider && allocationMethod !== 'custom') {
       setAllocationMethod('custom');
