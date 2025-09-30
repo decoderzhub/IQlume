@@ -70,7 +70,7 @@ export function TradesView() {
     setError(null);
 
     try {
-      console.log(`📋 Loading trades for account ${accountId} with date range: ${dateRange}`);
+      console.log(`📋 Loading trades for ${accountId ? `account ${accountId}` : 'all accounts'} with date range: ${dateRange}`);
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
@@ -80,7 +80,10 @@ export function TradesView() {
       // Build query parameters for date range filtering
       const params = new URLSearchParams();
       params.append('limit', '100');
-      params.append('account_id', accountId);
+      
+      if (accountId) {
+        params.append('account_id', accountId);
+      }
       
       if (dateRange !== 'all') {
         const days = dateRange === '1d' ? 1 : dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
@@ -134,10 +137,14 @@ export function TradesView() {
     if (selectedAccountId && user) {
       loadTradesForAccount(selectedAccountId);
     }
+    // Also load trades when no account is selected to show all trades
+    else if (!selectedAccountId && user && brokerageAccounts.length > 0) {
+      loadTradesForAccount(null);
+    }
   }, [selectedAccountId, dateRange, user]);
 
   const filteredTrades = trades.filter(trade => {
-    const matchesSearch = trade.symbol.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!user) {
     const matchesType = filterType === 'all' || trade.type === filterType;
     const matchesStatus = filterStatus === 'all' || trade.status === filterStatus;
     
