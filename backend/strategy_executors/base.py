@@ -92,19 +92,19 @@ class BaseStrategyExecutor(ABC):
     def is_market_open(self, symbol: str) -> bool:
         """Check if the market is currently open for trading"""
         try:
-            clock = self.trading_client.get_clock()
-            
             # For crypto symbols, market is always open
             if self.normalize_crypto_symbol(symbol):
+                self.logger.info(f"🕐 {symbol} is crypto - market always open")
                 return True
+            
+            clock = self.trading_client.get_clock()
+            self.logger.info(f"🕐 Market clock for {symbol}: is_open={clock.is_open}, current_time={clock.timestamp}")
             
             # For stocks, check if market is open
             return clock.is_open
             
         except Exception as e:
             self.logger.error(f"Error checking market status for {symbol}: {e}")
-            # Default to closed if we can't determine status
-            return False
     
     def get_market_status_message(self, symbol: str) -> str:
         """Get a descriptive message about market status"""

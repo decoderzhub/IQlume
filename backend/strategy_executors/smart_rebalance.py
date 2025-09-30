@@ -154,9 +154,9 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                             # Check if market is open
                             self.logger.info(f"🕐 [INITIAL BUY] Checking market status for {symbol}...")
                             is_market_open = self.is_market_open(symbol)
-                            time_in_force = TimeInForce.DAY if is_market_open else TimeInForce.OPG
+                            time_in_force = TimeInForce.DAY  # Always use DAY for immediate execution
                             
-                            self.logger.info(f"📈 [INITIAL BUY] Placing {symbol} order: {quantity:.6f} shares @ ${current_price:.2f} (Market open: {is_market_open})")
+                            self.logger.info(f"📈 [INITIAL BUY] Placing {symbol} order: {quantity:.6f} shares @ ${current_price:.2f} (Market open: {is_market_open}, TIF: {time_in_force})")
                             
                             # Create market order request
                             order_request = MarketOrderRequest(
@@ -342,7 +342,7 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                             symbol=symbol.replace("/", ""),
                             qty=quantity,
                             side=OrderSide.BUY if action["action"] == "buy" else OrderSide.SELL,
-                            time_in_force=TimeInForce.DAY
+                            time_in_force=TimeInForce.DAY  # Always use DAY for immediate execution
                         )
                         
                         # Submit order to Alpaca
