@@ -48,7 +48,7 @@ export function TradeRow({
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Check if this is a multi-asset trade (Smart Rebalance)
-  const isMultiAsset = trade.symbol.includes(',') || trade.symbol.includes(' ');
+  const isMultiAsset = trade.symbol.includes(',') || (trade.symbol.includes(' ') && trade.symbol.split(' ').length > 2);
   const symbols = isMultiAsset ? trade.symbol.split(/[,\s]+/).filter(s => s.trim()) : [trade.symbol];
   
   // For multi-asset trades, parse the order_id to get individual order details
@@ -89,7 +89,7 @@ export function TradeRow({
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="p-1 rounded hover:bg-gray-700 transition-colors"
+                className="p-1 rounded hover:bg-gray-700 transition-colors flex-shrink-0"
               >
                 {isExpanded ? (
                   <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -97,17 +97,17 @@ export function TradeRow({
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 )}
               </button>
-              <div className={`p-2 rounded-lg ${trade.type === 'buy' ? 'bg-green-400/10' : 'bg-red-400/10'}`}>
+              <div className={`p-2 rounded-lg flex-shrink-0 ${trade.type === 'buy' ? 'bg-green-400/10' : 'bg-red-400/10'}`}>
                 <Package className="w-4 h-4 text-purple-400" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-white">Portfolio Rebalance</span>
                   <span className="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded border border-purple-500/30">
                     {symbols.length} assets
                   </span>
                 </div>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-gray-400 truncate">
                   {symbols.slice(0, 3).join(', ')}{symbols.length > 3 ? ` +${symbols.length - 3} more` : ''}
                 </p>
               </div>
