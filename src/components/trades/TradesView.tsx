@@ -23,6 +23,7 @@ import { Trade } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
+import { TradeRow } from './TradeRow';
 
 interface TradeStats {
   total_trades: number;
