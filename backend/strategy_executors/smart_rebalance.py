@@ -49,14 +49,13 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
             if not initial_buy_order_submitted and assets:
                 self.logger.info(f"🚀 [INITIAL BUY] Performing initial portfolio buy for {strategy_name}")
                 
-                # Calculate investment amount (excluding cash allocation)
-                cash_reserve_percent = configuration.get("cash_balance_percent", 20)
-                investment_amount = allocated_capital * (1 - cash_reserve_percent / 100)
+                # Get cash balance from configuration
+                cash_balance_percent = configuration.get("cash_balance_percent", 20)
                 
                 orders_placed = []
                 total_orders_value = 0
                 
-                self.logger.info(f"💰 Total investment amount: ${investment_amount:.2f} (excluding {cash_reserve_percent}% cash reserve)")
+                self.logger.info(f"💰 Portfolio setup: {len(assets)} assets, {cash_balance_percent}% cash reserve")
                 
                 for asset in assets:
                     if not asset.get("symbol") or not asset.get("allocation"):
@@ -66,11 +65,14 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                     symbol = asset["symbol"]
                     allocation_percent = asset["allocation"]
                     
-                    # Calculate amount to invest in this asset
-                    # Note: allocation_percent is already the percentage of total capital for this asset
+                    # Calculate amount to invest in this asset (allocation_percent is % of total capital)
                     asset_investment = allocated_capital * (allocation_percent / 100)
                     
                     self.logger.info(f"📊 [INITIAL BUY] {symbol}: {allocation_percent}% allocation = ${asset_investment:.2f}")
+                    
+                    if asset_investment < 1:  # Skip very small investments
+                        self.logger.warning(f"⚠️ [INITIAL BUY] Skipping {symbol} - investment amount too small: ${asset_investment:.2f}")
+                        continue
                     
                     # Get current price
                     current_price = self.get_current_price(symbol)
@@ -83,7 +85,7 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                     
                     self.logger.info(f"🔢 [INITIAL BUY] {symbol}: ${asset_investment:.2f} ÷ ${current_price:.2f} = {quantity:.6f} shares")
                     
-                    if quantity > 0:
+                    if quantity > 0.001:  # Minimum quantity check
                         try:
                             # Check if market is open
                             is_market_open = self.is_market_open(symbol)

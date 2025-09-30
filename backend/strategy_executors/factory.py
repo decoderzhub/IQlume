@@ -15,6 +15,7 @@ from .base import BaseStrategyExecutor
 from .spot_grid import SpotGridExecutor
 from .dca import DCAExecutor
 from .covered_calls import CoveredCallsExecutor
+from .smart_rebalance import SmartRebalanceExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ class StrategyExecutorFactory:
             'futures_grid': SpotGridExecutor,  # Use same logic for now
             'infinity_grid': SpotGridExecutor,  # Use same logic for now
             'dca': DCAExecutor,
+            'smart_rebalance': SmartRebalanceExecutor,
             'covered_calls': CoveredCallsExecutor,
             'wheel': CoveredCallsExecutor,  # Use similar logic for now
             'short_put': CoveredCallsExecutor,  # Use similar logic for now
