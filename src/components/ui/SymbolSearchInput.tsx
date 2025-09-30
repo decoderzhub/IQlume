@@ -73,55 +73,67 @@ export function SymbolSearchInput({
   // Search symbols when query changes
   useEffect(() => {
     const searchSymbols = async () => {
-      if (!searchQuery.trim()) {
-        // Load popular symbols when no query
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.access_token) return;
-
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/popular?limit=50`, {
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            setSymbols(data.symbols || []);
-          }
-        } catch (error) {
-          console.error('Error loading popular symbols:', error);
-        }
-        return;
-      }
-
       setLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) return;
 
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/search?query=${encodeURIComponent(searchQuery)}&limit=100`,
-          {
+        let response;
+        
+        if (!searchQuery.trim()) {
+          // Load popular symbols when no query
+          response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/popular?limit=20`, {
             headers: {
               'Authorization': `Bearer ${session.access_token}`,
             },
-          }
-        );
+          });
+        } else {
+          // Search for symbols when user types
+          response = await fetch(
+            `${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/search?query=${encodeURIComponent(searchQuery)}&limit=20`,
+            {
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+            }
+          );
+        }
 
         if (response.ok) {
           const data = await response.json();
           setSymbols(data.symbols || []);
           setSelectedIndex(-1); // Reset selection
+        } else {
+          console.error('Failed to fetch symbols:', response.status);
+          // Fallback to basic symbols if API fails
+          setSymbols([
+            { symbol: 'AAPL', name: 'Apple Inc.', type: 'stock' },
+            { symbol: 'MSFT', name: 'Microsoft Corporation', type: 'stock' },
+            { symbol: 'GOOGL', name: 'Alphabet Inc.', type: 'stock' },
+            { symbol: 'TSLA', name: 'Tesla Inc.', type: 'stock' },
+            { symbol: 'TSM', name: 'Taiwan Semiconductor', type: 'stock' },
+            { symbol: 'BTC/USD', name: 'Bitcoin', type: 'crypto' },
+            { symbol: 'ETH/USD', name: 'Ethereum', type: 'crypto' },
+          ]);
         }
       } catch (error) {
         console.error('Error searching symbols:', error);
+        // Fallback to basic symbols including TSM
+        setSymbols([
+          { symbol: 'AAPL', name: 'Apple Inc.', type: 'stock' },
+          { symbol: 'MSFT', name: 'Microsoft Corporation', type: 'stock' },
+          { symbol: 'GOOGL', name: 'Alphabet Inc.', type: 'stock' },
+          { symbol: 'TSLA', name: 'Tesla Inc.', type: 'stock' },
+          { symbol: 'TSM', name: 'Taiwan Semiconductor', type: 'stock' },
+          { symbol: 'BTC/USD', name: 'Bitcoin', type: 'crypto' },
+          { symbol: 'ETH/USD', name: 'Ethereum', type: 'crypto' },
+        ]);
       } finally {
         setLoading(false);
       }
     };
 
-    const debounceTimer = setTimeout(searchSymbols, 150);
+    const debounceTimer = setTimeout(searchSymbols, 200);
     return () => clearTimeout(debounceTimer);
   }, [searchQuery]);
 
