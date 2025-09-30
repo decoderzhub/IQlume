@@ -61,16 +61,11 @@ export function NumericInput({
       setDisplayValue('');
       onChange(0);
     } else {
-      // Round to appropriate decimal places for display
-      if (allowDecimals && step && step < 1) {
-        const decimalPlaces = step.toString().split('.')[1]?.length || 2;
-        const roundedValue = Math.round(value * Math.pow(10, decimalPlaces)) / Math.pow(10, decimalPlaces);
-        setDisplayValue(roundedValue.toString());
-        if (roundedValue !== value) {
-          onChange(roundedValue);
-        }
-      } else {
-        setDisplayValue(value.toString());
+      // Always round to 2 decimal places for percentages and currency
+      const roundedValue = Math.round(value * 100) / 100;
+      setDisplayValue(roundedValue.toString());
+      if (roundedValue !== value) {
+        onChange(roundedValue);
       }
     }
     

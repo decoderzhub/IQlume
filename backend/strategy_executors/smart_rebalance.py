@@ -50,20 +50,27 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                 self.logger.info(f"🚀 [INITIAL BUY] Performing initial portfolio buy for {strategy_name}")
                 
                 # Calculate investment amount (excluding cash allocation)
-                investment_amount = allocated_capital * (1 - cash_balance_percent / 100)
+                cash_reserve_percent = configuration.get("cash_balance_percent", 20)
+                investment_amount = allocated_capital * (1 - cash_reserve_percent / 100)
                 
                 orders_placed = []
                 total_orders_value = 0
                 
+                self.logger.info(f"💰 Total investment amount: ${investment_amount:.2f} (excluding {cash_reserve_percent}% cash reserve)")
+                
                 for asset in assets:
                     if not asset.get("symbol") or not asset.get("allocation"):
+                        self.logger.warning(f"⚠️ [INITIAL BUY] Skipping asset with missing symbol or allocation: {asset}")
                         continue
                     
                     symbol = asset["symbol"]
                     allocation_percent = asset["allocation"]
                     
                     # Calculate amount to invest in this asset
-                    asset_investment = investment_amount * (allocation_percent / 100)
+                    # Note: allocation_percent is already the percentage of total capital for this asset
+                    asset_investment = allocated_capital * (allocation_percent / 100)
+                    
+                    self.logger.info(f"📊 [INITIAL BUY] {symbol}: {allocation_percent}% allocation = ${asset_investment:.2f}")
                     
                     # Get current price
                     current_price = self.get_current_price(symbol)
@@ -74,13 +81,15 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                     # Calculate quantity
                     quantity = asset_investment / current_price
                     
+                    self.logger.info(f"🔢 [INITIAL BUY] {symbol}: ${asset_investment:.2f} ÷ ${current_price:.2f} = {quantity:.6f} shares")
+                    
                     if quantity > 0:
                         try:
                             # Check if market is open
                             is_market_open = self.is_market_open(symbol)
                             time_in_force = TimeInForce.DAY if is_market_open else TimeInForce.OPG
                             
-                            self.logger.info(f"📈 [INITIAL BUY] {symbol}: ${asset_investment:.2f} = {quantity:.6f} shares @ ${current_price:.2f}")
+                            self.logger.info(f"📈 [INITIAL BUY] Placing {symbol} order: {quantity:.6f} shares @ ${current_price:.2f} (Market open: {is_market_open})")
                             
                             # Create market order request
                             order_request = MarketOrderRequest(
@@ -142,11 +151,16 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                         except Exception as e:
                             self.logger.error(f"❌ [INITIAL BUY] Unexpected error placing {symbol} order: {e}")
                             continue
+                    else:
+                        self.logger.warning(f"⚠️ [INITIAL BUY] Skipping {symbol} - invalid quantity: {quantity}")
                 
                 if orders_placed:
+                    self.logger.info(f"✅ [INITIAL BUY] Successfully placed {len(orders_placed)} orders totaling ${total_orders_value:.2f}")
+                    
                     # Mark initial buy as completed
                     telemetry_data["initial_buy_order_submitted"] = True
                     telemetry_data["initial_orders"] = orders_placed
+                    telemetry_data["total_initial_investment"] = total_orders_value
                     telemetry_data["last_updated"] = datetime.now(timezone.utc).isoformat()
                     
                     # Update telemetry in database
@@ -156,19 +170,20 @@ class SmartRebalanceExecutor(BaseStrategyExecutor):
                     market_status = "Market is open" if self.is_market_open(assets[0]["symbol"]) else "Market is closed - orders will execute at market open"
                     return {
                         "action": "buy",
-                        "symbol": f"{len(orders_placed)} assets",
+                        "symbol": ", ".join([order["symbol"] for order in orders_placed]),
                         "quantity": len(orders_placed),
                         "price": total_orders_value,
-                        "order_ids": [order["order_id"] for order in orders_placed],
+                        "order_id": f"Portfolio: {', '.join([order['order_id'] for order in orders_placed])}",
                         "reason": f"Initial portfolio buy orders placed for {len(orders_placed)} assets. {market_status}. Total investment: ${total_orders_value:.2f}"
                     }
                 else:
+                    self.logger.error(f"❌ [INITIAL BUY] No orders were successfully placed")
                     return {
                         "action": "error",
                         "symbol": "portfolio",
                         "quantity": 0,
                         "price": 0,
-                        "reason": "Failed to place any initial buy orders"
+                        "reason": f"Failed to place any initial buy orders. Check asset configuration and market data availability."
                     }
             
             # REGULAR REBALANCING LOGIC - Only execute after initial buy is completed

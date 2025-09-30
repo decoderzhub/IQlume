@@ -799,8 +799,20 @@ async def search_symbols(
                     "symbol": symbol,
                     "name": name,
                     "type": symbol_type,
-                    "score": 100 if symbol.lower().startswith(query_lower) else 50
+                    "score": 100 if symbol.lower().startswith(query_lower) else 
+                            80 if symbol.lower() == query_lower else
+                            60 if query_lower in symbol.lower() else 50
                 })
+        
+        # Add exact symbol match if not found in database
+        if not any(s["symbol"].upper() == query.upper() for s in matching_symbols):
+            # Add the typed symbol as a potential match
+            matching_symbols.append({
+                "symbol": query.upper(),
+                "name": f"{query.upper()} (Symbol)",
+                "type": "stock",
+                "score": 90  # High score for exact matches
+            })
         
         # Sort by relevance score (exact matches first)
         matching_symbols.sort(key=lambda x: x["score"], reverse=True)
