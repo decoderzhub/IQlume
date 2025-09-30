@@ -44,24 +44,20 @@ export function TradesView() {
   const [dateRange, setDateRange] = useState<'all' | '1d' | '7d' | '30d' | '90d'>('30d');
   const { user, brokerageAccounts } = useStore();
 
-  const selectedAccount = brokerageAccounts.find(acc => acc.id === selectedAccountId);
+  const selectedAccount = selectedAccountId === 'all' ? null : brokerageAccounts.find(acc => acc.id === selectedAccountId);
 
   // Set default selected account to first connected account
   useEffect(() => {
     if (brokerageAccounts.length > 0 && selectedAccountId === null) {
-      const firstConnectedAccount = brokerageAccounts.find(acc => acc.is_connected);
-      if (firstConnectedAccount) {
-        setSelectedAccountId(firstConnectedAccount.id);
-      } else {
-        setSelectedAccountId(brokerageAccounts[0].id);
-      }
+      // Default to "All Accounts" to show all trades including Smart Rebalance
+      setSelectedAccountId('all');
     } else if (brokerageAccounts.length === 0) {
       setSelectedAccountId(null);
     }
   }, [brokerageAccounts, selectedAccountId]);
 
   const loadTradesForAccount = async (accountId: string | null) => {
-    if (!user || !accountId) {
+    if (!user) {
       setLoading(false);
       return;
     }
@@ -81,7 +77,7 @@ export function TradesView() {
       const params = new URLSearchParams();
       params.append('limit', '100');
       
-      if (accountId) {
+      if (accountId && accountId !== 'all') {
         params.append('account_id', accountId);
       }
       
@@ -136,10 +132,6 @@ export function TradesView() {
   useEffect(() => {
     if (selectedAccountId && user) {
       loadTradesForAccount(selectedAccountId);
-    }
-    // Also load trades when no account is selected to show all trades
-    else if (!selectedAccountId && user && brokerageAccounts.length > 0) {
-      loadTradesForAccount(null);
     }
   }, [selectedAccountId, dateRange, user]);
 
@@ -227,6 +219,33 @@ export function TradesView() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* All Accounts Option */}
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setSelectedAccountId('all')}
+            className={`p-4 rounded-lg border cursor-pointer transition-all ${
+              selectedAccountId === 'all'
+                ? 'border-purple-500 bg-purple-500/10'
+                : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-2xl">📊</span>
+              <div className="w-2 h-2 bg-blue-500 rounded-full" />
+            </div>
+            <h4 className="font-medium text-white text-sm mb-1">All Accounts</h4>
+            <p className="text-xs text-gray-400 mb-2">
+              All strategies • All accounts
+            </p>
+            <p className="text-sm font-medium text-purple-400">
+              {formatCurrency(brokerageAccounts.reduce((sum, acc) => sum + acc.balance, 0))}
+            </p>
+            <p className="text-xs text-gray-500">
+              Combined view
+            </p>
+          </motion.div>
+
           {brokerageAccounts.map((account) => (
             <motion.div
               key={account.id}
@@ -276,7 +295,7 @@ export function TradesView() {
       )}
 
       {/* Selected Account Info */}
-      {selectedAccount && (
+      {selectedAccount ? (
         <Card className="p-4 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-blue-500/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -309,7 +328,25 @@ export function TradesView() {
             </div>
           </div>
         </Card>
-      )}
+      ) : selectedAccountId === 'all' ? (
+        <Card className="p-4 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border-purple-500/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-3xl">📊</span>
+              <div>
+                <h3 className="font-semibold text-white">All Accounts</h3>
+                <p className="text-sm text-gray-400">
+                  Showing trades from all strategies and accounts
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full" />
+              <span className="text-sm text-gray-300">Combined View</span>
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       {/* Stats Cards */}
       {stats && (
@@ -430,7 +467,7 @@ export function TradesView() {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-white">
-            Trade History{selectedAccount ? ` - ${selectedAccount.account_name}` : ''}
+            Trade History{selectedAccount ? ` - ${selectedAccount.account_name}` : selectedAccountId === 'all' ? ' - All Accounts' : ''}
           </h3>
           <div className="text-sm text-gray-400">
             Showing {filteredTrades.length} of {trades.length} trades
