@@ -137,7 +137,7 @@ async def get_trades(
             # Build query filtered by strategy IDs
             query = supabase.table("trades").select("*").eq("user_id", current_user.id).in_("strategy_id", strategy_ids)
         else:
-            # Build Supabase query for all user trades
+            # Build Supabase query for all user trades (no account filter)
             query = supabase.table("trades").select("*").eq("user_id", current_user.id)
         
         # Apply date filters
