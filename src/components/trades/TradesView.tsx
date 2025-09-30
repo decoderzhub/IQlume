@@ -144,7 +144,8 @@ export function TradesView() {
   }, [selectedAccountId, dateRange, user]);
 
   const filteredTrades = trades.filter(trade => {
-    if (!user) {
+    if (!user) return false;
+    const matchesSearch = searchTerm === '' || trade.symbol.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || trade.type === filterType;
     const matchesStatus = filterStatus === 'all' || trade.status === filterStatus;
     
