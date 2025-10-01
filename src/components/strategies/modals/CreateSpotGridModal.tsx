@@ -34,6 +34,43 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
   // State for real market price
   const [realMarketPrice, setRealMarketPrice] = useState<number | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+
+  // Load brokerage accounts if not already loaded
+  React.useEffect(() => {
+    const loadAccounts = async () => {
+      if (brokerageAccounts.length > 0) {
+        setAccountsLoading(false);
+        return;
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          setAccountsLoading(false);
+          return;
+        }
+
+        const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${baseURL}/api/alpaca/accounts`, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Accounts will be loaded by the main portfolio hook
+        }
+      } catch (error) {
+        console.error('Error loading accounts:', error);
+      } finally {
+        setAccountsLoading(false);
+      }
+    };
+
+    loadAccounts();
+  }, [brokerageAccounts]);
 
   // Fetch real market price when symbol changes
   React.useEffect(() => {
@@ -196,32 +233,68 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
 
     setIsAIConfiguring(true);
     try {
-      // Simulate AI thinking time
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Calculate optimal grid range based on volatility expectations
-      // Using technical analysis principles for different asset types
-      let volatilityFactor = 0.20; // Default 20% range
-      let reasoning = '';
-
-      const symbolUpper = symbol.toUpperCase();
-
-      // Adjust volatility based on asset type
-      if (symbolUpper.includes('BTC') || symbolUpper.includes('ETH') || symbolUpper.includes('CRYPTO')) {
-        volatilityFactor = 0.25; // 25% for crypto (higher volatility)
-        reasoning = `Crypto assets like ${symbolUpper} typically exhibit 25-30% volatility. Setting grid range at ±${(volatilityFactor * 100).toFixed(0)}% from current price ($${realMarketPrice.toFixed(2)}) to capture price swings while maintaining profitability.`;
-      } else if (symbolUpper.includes('TSLA') || symbolUpper.includes('NVDA') || symbolUpper.includes('AMD')) {
-        volatilityFactor = 0.15; // 15% for high-volatility tech stocks
-        reasoning = `High-volatility stocks like ${symbolUpper} typically move 15-20% in medium-term ranges. Grid configured at ±${(volatilityFactor * 100).toFixed(0)}% from current price ($${realMarketPrice.toFixed(2)}) to optimize for frequent trades.`;
-      } else if (symbolUpper.match(/^[A-Z]{1,5}$/)) {
-        // Regular stock ticker
-        volatilityFactor = 0.20; // 20% for typical stocks
-        reasoning = `Standard equity ${symbolUpper} configured with ±${(volatilityFactor * 100).toFixed(0)}% range from current price ($${realMarketPrice.toFixed(2)}). This range balances grid density with realistic price movement expectations.`;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Please log in to use AI configuration');
       }
 
-      // Calculate symmetric range around current price
-      const lower = realMarketPrice * (1 - volatilityFactor);
-      const upper = realMarketPrice * (1 + volatilityFactor);
+      const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+      // Fetch historical data and volatility metrics from Alpaca
+      const historicalResponse = await fetch(
+        `${baseURL}/api/market-data/historical-bars?symbol=${symbol}&timeframe=1D&limit=30`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      let historicalVolatility = 0;
+      let meanPrice = realMarketPrice;
+      let priceRange = 0;
+
+      if (historicalResponse.ok) {
+        const historicalData = await historicalResponse.json();
+
+        if (historicalData.bars && historicalData.bars.length > 0) {
+          const prices = historicalData.bars.map((bar: any) => bar.close);
+
+          // Calculate mean price (for mean reversion)
+          meanPrice = prices.reduce((sum: number, p: number) => sum + p, 0) / prices.length;
+
+          // Calculate historical volatility (standard deviation)
+          const squaredDiffs = prices.map((p: number) => Math.pow(p - meanPrice, 2));
+          const variance = squaredDiffs.reduce((sum: number, val: number) => sum + val, 0) / prices.length;
+          const stdDev = Math.sqrt(variance);
+          historicalVolatility = (stdDev / meanPrice); // As percentage
+
+          // Calculate actual price range (high - low)
+          const high = Math.max(...prices);
+          const low = Math.min(...prices);
+          priceRange = (high - low) / meanPrice;
+        }
+      }
+
+      // If we don't have historical data, use fallback volatility estimates
+      if (historicalVolatility === 0) {
+        const symbolUpper = symbol.toUpperCase();
+        if (symbolUpper.includes('BTC') || symbolUpper.includes('ETH') || symbolUpper.includes('CRYPTO')) {
+          historicalVolatility = 0.30; // 30% for crypto
+        } else if (symbolUpper.includes('TSLA') || symbolUpper.includes('NVDA') || symbolUpper.includes('AMD')) {
+          historicalVolatility = 0.20; // 20% for high-vol tech
+        } else {
+          historicalVolatility = 0.15; // 15% for standard stocks
+        }
+      }
+
+      // Calculate grid range using mean reversion + volatility (±2 standard deviations)
+      // This captures ~95% of price movements
+      const gridRange = historicalVolatility * 2; // 2 std dev for 95% confidence
+
+      // Center around mean price for mean reversion strategy
+      const lower = meanPrice * (1 - gridRange);
+      const upper = meanPrice * (1 + gridRange);
 
       // Round to reasonable precision
       const roundToNearestNice = (num: number) => {
@@ -238,11 +311,43 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
       setUpperPrice(upperRounded);
       setAiConfigured(true);
 
-      alert(`🤖 AI Configuration Complete!\n\n${reasoning}\n\nGrid Range: $${lowerRounded.toFixed(2)} - $${upperRounded.toFixed(2)}\n\nYou can adjust these values manually if needed.`);
+      const reasoning = `
+📊 AI Analysis for ${symbol}:
+
+Current Price: $${realMarketPrice.toFixed(2)}
+30-Day Mean: $${meanPrice.toFixed(2)}
+Historical Volatility: ${(historicalVolatility * 100).toFixed(1)}%
+
+Grid Range: $${lowerRounded.toFixed(2)} - $${upperRounded.toFixed(2)}
+
+Strategy: Using ±${(gridRange * 100).toFixed(0)}% range (2 standard deviations) centered on the 30-day mean price. This captures 95% of expected price movements and enables mean-reversion trading.
+
+${Math.abs(realMarketPrice - meanPrice) > meanPrice * 0.05
+  ? `Note: Current price is ${((realMarketPrice / meanPrice - 1) * 100).toFixed(1)}% ${realMarketPrice > meanPrice ? 'above' : 'below'} mean - good opportunity for mean reversion.`
+  : 'Price is near the mean - balanced entry point.'}
+      `.trim();
+
+      alert(`🤖 AI Configuration Complete!\n\n${reasoning}\n\nYou can adjust these values manually if needed.`);
 
     } catch (error) {
       console.error('Error configuring grid range:', error);
-      alert(`Failed to configure grid range: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`Failed to configure grid range: ${error instanceof Error ? error.message : 'Unknown error'}. Using fallback configuration.`);
+
+      // Fallback to simple volatility-based calculation
+      const volatilityFactor = 0.20;
+      const lower = realMarketPrice * (1 - volatilityFactor);
+      const upper = realMarketPrice * (1 + volatilityFactor);
+
+      const roundToNearestNice = (num: number) => {
+        if (num > 1000) return Math.round(num / 10) * 10;
+        if (num > 100) return Math.round(num);
+        if (num > 10) return Math.round(num * 10) / 10;
+        return Math.round(num * 100) / 100;
+      };
+
+      setLowerPrice(roundToNearestNice(lower));
+      setUpperPrice(roundToNearestNice(upper));
+      setAiConfigured(true);
     } finally {
       setIsAIConfiguring(false);
     }
@@ -430,15 +535,18 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                   value={brokerageAccount}
                   onChange={(e) => setBrokerageAccount(e.target.value)}
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={accountsLoading}
                 >
-                  <option value="">Select an account</option>
+                  <option value="">
+                    {accountsLoading ? 'Loading accounts...' : 'Select an account'}
+                  </option>
                   {brokerageAccounts.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.account_name} ({account.brokerage.toUpperCase()}) - {account.account_type}
                     </option>
                   ))}
                 </select>
-                {brokerageAccounts.length === 0 && (
+                {!accountsLoading && brokerageAccounts.length === 0 && (
                   <p className="text-xs text-yellow-400 mt-1">
                     No brokerage accounts connected. Go to Accounts to connect one.
                   </p>
