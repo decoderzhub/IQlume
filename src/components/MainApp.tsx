@@ -12,12 +12,16 @@ import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
 import { TradesView } from './trades/TradesView';
 import { useRealTimeUpdates } from '../hooks/useRealTimeUpdates';
+import { usePortfolioData } from '../hooks/usePortfolioData';
 
 export function MainApp() {
   const { activeView, sidebarOpen } = useStore();
-  
+
   // Enable real-time updates for autonomous trading
   const { isConnected } = useRealTimeUpdates();
+
+  // Load portfolio data (including brokerage accounts) on app initialization
+  usePortfolioData();
 
   const renderView = () => {
     switch (activeView) {
