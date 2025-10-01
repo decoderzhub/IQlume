@@ -60,29 +60,18 @@ export function AccountsView() {
 
       try {
         setError(null);
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session?.access_token) {
-          throw new Error('No valid session found. Please log in again.');
+
+        // Fetch connected accounts from Supabase
+        const { data: accounts, error: fetchError } = await supabase
+          .from('brokerage_accounts')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (fetchError) {
+          throw new Error(`Failed to fetch brokerage accounts: ${fetchError.message}`);
         }
 
-        // Fetch connected Alpaca accounts
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/alpaca/accounts`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to fetch brokerage accounts: ${response.status} ${errorText}`);
-        }
-
-        const data = await response.json();
-        const accounts = data.accounts || [];
-        
-        // Transform backend data to frontend format
-        const transformedAccounts: BrokerageAccount[] = accounts.map((account: any) => ({
+        const transformedAccounts: BrokerageAccount[] = (accounts || []).map((account: any) => ({
           id: account.id,
           user_id: account.user_id,
           brokerage: account.brokerage,
@@ -97,12 +86,12 @@ export function AccountsView() {
         }));
 
         setBrokerageAccounts(transformedAccounts);
-        
+
         // Clear dummy data - these features are coming soon
         setBankAccounts([]);
         setCustodialWallets([]);
         updatePortfolioFromAccounts();
-        
+
       } catch (error) {
         console.error('Error fetching brokerage accounts:', error);
         setError(error instanceof Error ? error.message : 'Failed to load accounts');
@@ -172,31 +161,24 @@ export function AccountsView() {
     setDisconnectingAccountId(accountId);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('No valid session found. Please log in again.');
-      }
+      // Delete from Supabase
+      const { error: deleteError } = await supabase
+        .from('brokerage_accounts')
+        .delete()
+        .eq('id', accountId)
+        .eq('user_id', user?.id);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/alpaca/accounts/${accountId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to disconnect account: ${response.status} ${errorText}`);
+      if (deleteError) {
+        throw new Error(`Failed to disconnect account: ${deleteError.message}`);
       }
 
       // Remove from local state
       const updatedAccounts = brokerageAccounts.filter(acc => acc.id !== accountId);
       setBrokerageAccounts(updatedAccounts);
       updatePortfolioFromAccounts();
-      
+
       alert(`"${accountName}" has been disconnected successfully.`);
-      
+
     } catch (error) {
       console.error('Error disconnecting brokerage account:', error);
       alert(`Failed to disconnect account: ${error instanceof Error ? error.message : 'Unknown error'}`);
