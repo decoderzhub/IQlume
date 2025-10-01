@@ -54,6 +54,7 @@ export function TradesView() {
       setSelectedAccountId('all');
     } else if (brokerageAccounts.length === 0) {
       setSelectedAccountId(null);
+      setLoading(false);
     }
   }, [brokerageAccounts, selectedAccountId]);
 
@@ -370,7 +371,7 @@ export function TradesView() {
               <div>
                 <p className="text-sm font-medium text-gray-400">Win Rate</p>
                 <p className="text-2xl font-bold text-purple-400">
-                  {(stats.win_rate * 100).toFixed(1)}%
+                  {stats.win_rate.toFixed(1)}%
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-purple-400" />
