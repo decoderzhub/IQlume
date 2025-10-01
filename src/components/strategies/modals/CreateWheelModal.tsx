@@ -24,11 +24,44 @@ export function CreateWheelModal({ onClose, onSave }: CreateWheelModalProps) {
   const [description, setDescription] = useState('Systematic approach combining cash-secured puts and covered calls');
   const [symbol, setSymbol] = useState('');
   const [positionSize, setPositionSize] = useState(100);
-  const [putStrikeDelta, setPutStrikeDelta] = useState(-0.30);
-  const [callStrikeDelta, setCallStrikeDelta] = useState(0.30);
+  const [probabilityOfSuccess, setProbabilityOfSuccess] = useState(84); // Default 84%
   const [expirationDays, setExpirationDays] = useState(30);
   const [minimumPremium, setMinimumPremium] = useState(150);
   const [assignmentHandling, setAssignmentHandling] = useState<'automatic' | 'manual'>('automatic');
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+
+  // Calculate delta from probability: delta = 1 - (probability / 100)
+  const putStrikeDelta = -(1 - probabilityOfSuccess / 100);
+  const callStrikeDelta = 1 - probabilityOfSuccess / 100;
+
+  // Fetch current stock price when symbol changes
+  React.useEffect(() => {
+    const fetchPrice = async () => {
+      if (!symbol) {
+        setCurrentPrice(null);
+        return;
+      }
+      try {
+        // Mock price fetch - in production, fetch from market data API
+        const mockPrices: Record<string, number> = {
+          'AAPL': 250.50,
+          'MSFT': 420.75,
+          'TSLA': 242.30,
+          'NVDA': 195.80,
+          'GOOGL': 175.40,
+        };
+        setCurrentPrice(mockPrices[symbol] || 100);
+      } catch (error) {
+        console.error('Error fetching price:', error);
+      }
+    };
+    fetchPrice();
+  }, [symbol]);
+
+  // Estimate strike prices based on delta
+  // This is a rough estimate - actual strikes would come from options chain
+  const estimatedPutStrike = currentPrice ? Math.round(currentPrice * (1 + putStrikeDelta * 0.15)) : null;
+  const estimatedCallStrike = currentPrice ? Math.round(currentPrice * (1 + callStrikeDelta * 0.15)) : null;
 
   const handleSave = async () => {
     const strategy: Omit<TradingStrategy, 'id'> = {
@@ -103,9 +136,79 @@ export function CreateWheelModal({ onClose, onSave }: CreateWheelModalProps) {
                     <span className="text-white ml-2">{positionSize} shares</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Put Delta:</span>
-                    <span className="text-white ml-2">{putStrikeDelta}</span>
+                    <span className="text-gray-400">Capital:</span>
+                    <span className="text-white ml-2">{formatCurrency(allocatedCapital)}</span>
                   </div>
+                  <div>
+                    <span className="text-gray-400">Win Rate Target:</span>
+                    <span className="text-white ml-2">{probabilityOfSuccess}%</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Expiration:</span>
+                    <span className="text-white ml-2">{expirationDays} days</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/30 rounded-lg p-6">
+                <h3 className="font-semibold text-white mb-4">Options Strategy</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-900/50 rounded-lg p-4 border border-blue-500/30">
+                    <div className="text-blue-400 font-medium mb-2">Cash-Secured Put</div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Delta:</span>
+                        <span className="text-white font-mono">{putStrikeDelta.toFixed(2)}</span>
+                      </div>
+                      {estimatedPutStrike && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Strike:</span>
+                            <span className="text-white">${estimatedPutStrike}</span>
+                          </div>
+                          {currentPrice && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Distance:</span>
+                              <span className="text-blue-400">
+                                {((estimatedPutStrike / currentPrice - 1) * 100).toFixed(1)}% OTM
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-900/50 rounded-lg p-4 border border-green-500/30">
+                    <div className="text-green-400 font-medium mb-2">Covered Call</div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Delta:</span>
+                        <span className="text-white font-mono">{callStrikeDelta.toFixed(2)}</span>
+                      </div>
+                      {estimatedCallStrike && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Strike:</span>
+                            <span className="text-white">${estimatedCallStrike}</span>
+                          </div>
+                          {currentPrice && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Distance:</span>
+                              <span className="text-green-400">
+                                {((estimatedCallStrike / currentPrice - 1) * 100).toFixed(1)}% OTM
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-sm text-blue-300">
+                    With {probabilityOfSuccess}% probability of success, you have a {100 - probabilityOfSuccess}% chance of assignment per cycle.
+                  </p>
                 </div>
               </div>
             </div>
@@ -249,32 +352,42 @@ export function CreateWheelModal({ onClose, onSave }: CreateWheelModalProps) {
                   <p className="text-xs text-gray-400 mt-1">Must be multiples of 100</p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Put Strike Delta</label>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Probability of Success (%)
+                  </label>
                   <NumericInput
-                    value={putStrikeDelta}
-                    onChange={setPutStrikeDelta}
-                    min={-0.5}
-                    max={-0.1}
-                    step={0.05}
-                    allowDecimals={true}
-                    placeholder="-0.30"
+                    value={probabilityOfSuccess}
+                    onChange={setProbabilityOfSuccess}
+                    min={50}
+                    max={95}
+                    step={1}
+                    placeholder="84"
                   />
-                  <p className="text-xs text-gray-400 mt-1">Target delta for put options</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Call Strike Delta</label>
-                  <NumericInput
-                    value={callStrikeDelta}
-                    onChange={setCallStrikeDelta}
-                    min={0.1}
-                    max={0.5}
-                    step={0.05}
-                    allowDecimals={true}
-                    placeholder="0.30"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Target delta for call options</p>
+                  <div className="mt-2 grid grid-cols-2 gap-4 text-xs">
+                    <div className="bg-gray-900/50 rounded p-3 border border-gray-700">
+                      <div className="text-gray-400 mb-1">Put Delta (Sell Cash-Secured Put)</div>
+                      <div className="text-white font-mono text-lg">{putStrikeDelta.toFixed(2)}</div>
+                      {estimatedPutStrike && currentPrice && (
+                        <div className="text-blue-400 mt-1">
+                          ~${estimatedPutStrike} strike ({((estimatedPutStrike / currentPrice - 1) * 100).toFixed(1)}% OTM)
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-gray-900/50 rounded p-3 border border-gray-700">
+                      <div className="text-gray-400 mb-1">Call Delta (Sell Covered Call)</div>
+                      <div className="text-white font-mono text-lg">{callStrikeDelta.toFixed(2)}</div>
+                      {estimatedCallStrike && currentPrice && (
+                        <div className="text-green-400 mt-1">
+                          ~${estimatedCallStrike} strike ({((estimatedCallStrike / currentPrice - 1) * 100).toFixed(1)}% OTM)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    {probabilityOfSuccess}% chance the option expires worthless (you keep the premium).
+                    Lower delta = further OTM = higher win rate but lower premium.
+                  </p>
                 </div>
 
                 <div>
