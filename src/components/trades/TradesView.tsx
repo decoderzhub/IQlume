@@ -68,58 +68,49 @@ export function TradesView() {
 
     try {
       console.log(`📋 Loading trades for ${accountId ? `account ${accountId}` : 'all accounts'} with date range: ${dateRange}`);
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('No valid session found. Please log in again.');
-      }
 
-      // Build query parameters for date range filtering
-      const params = new URLSearchParams();
-      params.append('limit', '100');
-      
-      if (accountId && accountId !== 'all') {
-        params.append('account_id', accountId);
-      }
-      
+      // Build Supabase query
+      let query = supabase
+        .from('trades')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      // Filter by date range
       if (dateRange !== 'all') {
         const days = dateRange === '1d' ? 1 : dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
-        const endDate = new Date();
         const startDate = new Date();
-        startDate.setDate(endDate.getDate() - days);
-        
-        params.append('start_date', startDate.toISOString().split('T')[0]);
-        params.append('end_date', endDate.toISOString().split('T')[0]);
-        console.log(`📅 Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+        startDate.setDate(startDate.getDate() - days);
+        query = query.gte('created_at', startDate.toISOString());
+        console.log(`📅 Date range: ${startDate.toISOString().split('T')[0]} to now`);
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/trades?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
+      const { data: tradesData, error: fetchError } = await query;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API Error Response:', errorText);
-        throw new Error(`Failed to fetch trades: ${response.status} ${errorText}`);
+      if (fetchError) {
+        console.error('❌ Supabase Error:', fetchError);
+        throw new Error(`Failed to fetch trades: ${fetchError.message}`);
       }
 
-      const data = await response.json();
-      console.log('✅ Trades data received:', data);
-      
-      // Set trades and stats from API response
-      setTrades(data.trades || []);
-      setStats(data.stats || {
-        total_trades: 0,
-        executed_trades: 0,
-        pending_trades: 0,
-        failed_trades: 0,
-        total_profit_loss: 0,
-        win_rate: 0,
+      console.log('✅ Trades data received:', tradesData);
+
+      // Calculate stats from trades
+      const allTrades = tradesData || [];
+      const executedTrades = allTrades.filter(t => t.status === 'executed');
+      const totalProfitLoss = executedTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0), 0);
+      const winningTrades = executedTrades.filter(t => (Number(t.profit_loss) || 0) > 0);
+      const winRate = executedTrades.length > 0 ? (winningTrades.length / executedTrades.length) * 100 : 0;
+
+      // Set trades and calculated stats
+      setTrades(allTrades);
+      setStats({
+        total_trades: allTrades.length,
+        total_profit_loss: totalProfitLoss,
+        win_rate: winRate,
         avg_trade_duration: 0,
       });
-      
+
     } catch (error) {
       console.error('Error fetching trades:', error);
       setError(error instanceof Error ? error.message : 'Failed to load trades');
