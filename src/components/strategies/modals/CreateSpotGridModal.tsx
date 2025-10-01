@@ -240,94 +240,34 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
 
       const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-      // Fetch historical data and volatility metrics from Alpaca
-      const historicalResponse = await fetch(
-        `${baseURL}/api/market-data/historical-bars?symbol=${symbol}&timeframe=1D&limit=30`,
+      // Call the backend AI configuration endpoint
+      const response = await fetch(
+        `${baseURL}/api/market-data/ai-configure-grid-range`,
         {
+          method: 'POST',
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            symbol: symbol,
+            allocated_capital: allocatedCapital,
+            number_of_grids: numberOfGrids,
+          }),
         }
       );
 
-      let historicalVolatility = 0;
-      let meanPrice = realMarketPrice;
-      let priceRange = 0;
-
-      if (historicalResponse.ok) {
-        const historicalData = await historicalResponse.json();
-
-        if (historicalData.bars && historicalData.bars.length > 0) {
-          const prices = historicalData.bars.map((bar: any) => bar.close);
-
-          // Calculate mean price (for mean reversion)
-          meanPrice = prices.reduce((sum: number, p: number) => sum + p, 0) / prices.length;
-
-          // Calculate historical volatility (standard deviation)
-          const squaredDiffs = prices.map((p: number) => Math.pow(p - meanPrice, 2));
-          const variance = squaredDiffs.reduce((sum: number, val: number) => sum + val, 0) / prices.length;
-          const stdDev = Math.sqrt(variance);
-          historicalVolatility = (stdDev / meanPrice); // As percentage
-
-          // Calculate actual price range (high - low)
-          const high = Math.max(...prices);
-          const low = Math.min(...prices);
-          priceRange = (high - low) / meanPrice;
-        }
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
       }
 
-      // If we don't have historical data, use fallback volatility estimates
-      if (historicalVolatility === 0) {
-        const symbolUpper = symbol.toUpperCase();
-        if (symbolUpper.includes('BTC') || symbolUpper.includes('ETH') || symbolUpper.includes('CRYPTO')) {
-          historicalVolatility = 0.30; // 30% for crypto
-        } else if (symbolUpper.includes('TSLA') || symbolUpper.includes('NVDA') || symbolUpper.includes('AMD')) {
-          historicalVolatility = 0.20; // 20% for high-vol tech
-        } else {
-          historicalVolatility = 0.15; // 15% for standard stocks
-        }
-      }
+      const result = await response.json();
 
-      // Calculate grid range using mean reversion + volatility (±2 standard deviations)
-      // This captures ~95% of price movements
-      const gridRange = historicalVolatility * 2; // 2 std dev for 95% confidence
-
-      // Center around mean price for mean reversion strategy
-      const lower = meanPrice * (1 - gridRange);
-      const upper = meanPrice * (1 + gridRange);
-
-      // Round to reasonable precision
-      const roundToNearestNice = (num: number) => {
-        if (num > 1000) return Math.round(num / 10) * 10;
-        if (num > 100) return Math.round(num);
-        if (num > 10) return Math.round(num * 10) / 10;
-        return Math.round(num * 100) / 100;
-      };
-
-      const lowerRounded = roundToNearestNice(lower);
-      const upperRounded = roundToNearestNice(upper);
-
-      setLowerPrice(lowerRounded);
-      setUpperPrice(upperRounded);
+      setLowerPrice(result.lower_limit);
+      setUpperPrice(result.upper_limit);
       setAiConfigured(true);
 
-      const reasoning = `
-📊 AI Analysis for ${symbol}:
-
-Current Price: $${realMarketPrice.toFixed(2)}
-30-Day Mean: $${meanPrice.toFixed(2)}
-Historical Volatility: ${(historicalVolatility * 100).toFixed(1)}%
-
-Grid Range: $${lowerRounded.toFixed(2)} - $${upperRounded.toFixed(2)}
-
-Strategy: Using ±${(gridRange * 100).toFixed(0)}% range (2 standard deviations) centered on the 30-day mean price. This captures 95% of expected price movements and enables mean-reversion trading.
-
-${Math.abs(realMarketPrice - meanPrice) > meanPrice * 0.05
-  ? `Note: Current price is ${((realMarketPrice / meanPrice - 1) * 100).toFixed(1)}% ${realMarketPrice > meanPrice ? 'above' : 'below'} mean - good opportunity for mean reversion.`
-  : 'Price is near the mean - balanced entry point.'}
-      `.trim();
-
-      alert(`🤖 AI Configuration Complete!\n\n${reasoning}\n\nYou can adjust these values manually if needed.`);
+      alert(`🤖 AI Configuration Complete!\n\n${result.reasoning}\n\nYou can adjust these values manually if needed.`);
 
     } catch (error) {
       console.error('Error configuring grid range:', error);
