@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any, List
 import logging
 from datetime import datetime, timezone
-from dependencies import get_supabase_client, verify_token
+from dependencies import get_supabase_client, get_current_user
 from supabase import Client
 
 router = APIRouter()
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @router.get("/positions")
 async def get_bot_positions(
-    user=Depends(verify_token),
+    user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client)
 ) -> List[Dict[str, Any]]:
     """Get all open bot positions for the current user"""
@@ -38,7 +38,7 @@ async def get_bot_positions(
 @router.get("/positions/{strategy_id}")
 async def get_strategy_positions(
     strategy_id: str,
-    user=Depends(verify_token),
+    user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client)
 ) -> List[Dict[str, Any]]:
     """Get positions for a specific strategy"""
@@ -60,7 +60,7 @@ async def get_strategy_positions(
 
 @router.get("/metrics")
 async def get_bot_metrics(
-    user=Depends(verify_token),
+    user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client)
 ) -> Dict[str, Any]:
     """Get aggregate bot performance metrics"""
@@ -123,7 +123,7 @@ async def get_bot_metrics(
 
 @router.get("/orders")
 async def get_bot_orders(
-    user=Depends(verify_token),
+    user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
     limit: int = 50
 ) -> List[Dict[str, Any]]:
@@ -146,7 +146,7 @@ async def get_bot_orders(
 @router.get("/performance/{strategy_id}")
 async def get_strategy_performance(
     strategy_id: str,
-    user=Depends(verify_token),
+    user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
     days: int = 30
 ) -> List[Dict[str, Any]]:
@@ -169,7 +169,7 @@ async def get_strategy_performance(
 
 @router.get("/risk-events")
 async def get_risk_events(
-    user=Depends(verify_token),
+    user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
     limit: int = 20
 ) -> List[Dict[str, Any]]:
@@ -192,7 +192,7 @@ async def get_risk_events(
 @router.post("/positions/{position_id}/close")
 async def close_position(
     position_id: str,
-    user=Depends(verify_token),
+    user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client)
 ) -> Dict[str, Any]:
     """Manually close a bot position"""
@@ -244,7 +244,7 @@ async def close_position(
 @router.get("/execution-state/{strategy_id}")
 async def get_execution_state(
     strategy_id: str,
-    user=Depends(verify_token),
+    user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client)
 ) -> Dict[str, Any]:
     """Get current execution state for a strategy"""
@@ -268,7 +268,7 @@ async def get_execution_state(
 
 @router.get("/summary")
 async def get_bot_summary(
-    user=Depends(verify_token),
+    user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client)
 ) -> Dict[str, Any]:
     """Get comprehensive bot trading summary"""
