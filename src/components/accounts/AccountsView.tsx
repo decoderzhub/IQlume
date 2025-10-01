@@ -67,7 +67,7 @@ export function AccountsView() {
         }
 
         // Fetch connected Alpaca accounts
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/alpaca/accounts`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/alpaca/accounts`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
@@ -178,7 +178,7 @@ export function AccountsView() {
         throw new Error('No valid session found. Please log in again.');
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/alpaca/accounts/${accountId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/alpaca/accounts/${accountId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

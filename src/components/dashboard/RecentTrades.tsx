@@ -22,7 +22,7 @@ export function RecentTrades() {
         
         if (!session?.access_token) return;
 
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/trades?limit=5`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/trades?limit=5`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },

@@ -33,7 +33,7 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
           throw new Error('No valid session found. Please log in again.');
         }
 
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/alpaca/oauth/authorize?account_name=${encodeURIComponent(accountName)}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/alpaca/oauth/authorize?account_name=${encodeURIComponent(accountName)}`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
