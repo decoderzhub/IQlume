@@ -96,17 +96,22 @@ export function TradesView() {
 
       console.log('✅ Trades data received:', tradesData);
 
+      // Map database fields to expected Trade interface (created_at -> timestamp)
+      const mappedTrades = (tradesData || []).map(trade => ({
+        ...trade,
+        timestamp: trade.created_at || trade.timestamp,
+      }));
+
       // Calculate stats from trades
-      const allTrades = tradesData || [];
-      const executedTrades = allTrades.filter(t => t.status === 'executed');
+      const executedTrades = mappedTrades.filter(t => t.status === 'executed');
       const totalProfitLoss = executedTrades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0), 0);
       const winningTrades = executedTrades.filter(t => (Number(t.profit_loss) || 0) > 0);
       const winRate = executedTrades.length > 0 ? (winningTrades.length / executedTrades.length) * 100 : 0;
 
       // Set trades and calculated stats
-      setTrades(allTrades);
+      setTrades(mappedTrades);
       setStats({
-        total_trades: allTrades.length,
+        total_trades: mappedTrades.length,
         total_profit_loss: totalProfitLoss,
         win_rate: winRate,
         avg_trade_duration: 0,
