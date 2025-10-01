@@ -82,7 +82,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         
         if (!session?.access_token) return;
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/live-prices?symbols=${tradingSymbol}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/live-prices?symbols=${tradingSymbol}`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
@@ -181,7 +181,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         throw new Error('No valid session found. Please log in again.');
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/${strategy.id}/execute`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${strategy.id}/execute`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

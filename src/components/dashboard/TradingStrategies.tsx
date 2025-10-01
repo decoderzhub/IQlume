@@ -22,7 +22,7 @@ export function TradingStrategies() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) return;
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/`, {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },

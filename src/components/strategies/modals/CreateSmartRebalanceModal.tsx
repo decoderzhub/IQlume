@@ -108,7 +108,7 @@ export function CreateSmartRebalanceModal({ onClose, onSave }: CreateSmartRebala
       const symbols = validAssets.map(asset => asset.symbol).join(',');
       
       // Fetch market data which includes market cap information
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/live-prices?symbols=${symbols}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/live-prices?symbols=${symbols}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },

@@ -13,16 +13,9 @@ from supabase import Client
 
 from .base import BaseStrategyExecutor
 from .spot_grid import SpotGridExecutor
-from .reverse_grid import ReverseGridExecutor
 from .dca import DCAExecutor
 from .covered_calls import CoveredCallsExecutor
 from .smart_rebalance import SmartRebalanceExecutor
-from .momentum import MomentumBreakoutExecutor
-from .mean_reversion import MeanReversionExecutor
-from .pairs_trading import PairsTradingExecutor
-from .scalping import ScalpingExecutor
-from .straddle import StraddleExecutor
-from .iron_condor import IronCondorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -53,21 +46,13 @@ class StrategyExecutorFactory:
         
         executors = {
             'spot_grid': SpotGridExecutor,
-            'reverse_grid': ReverseGridExecutor,
-            'futures_grid': SpotGridExecutor,
-            'infinity_grid': SpotGridExecutor,
+            'futures_grid': SpotGridExecutor,  # Use same logic for now
+            'infinity_grid': SpotGridExecutor,  # Use same logic for now
             'dca': DCAExecutor,
             'smart_rebalance': SmartRebalanceExecutor,
             'covered_calls': CoveredCallsExecutor,
-            'wheel': CoveredCallsExecutor,
-            'short_put': CoveredCallsExecutor,
-            'momentum_breakout': MomentumBreakoutExecutor,
-            'mean_reversion': MeanReversionExecutor,
-            'pairs_trading': PairsTradingExecutor,
-            'scalping': ScalpingExecutor,
-            'long_straddle': StraddleExecutor,
-            'short_straddle': StraddleExecutor,
-            'iron_condor': IronCondorExecutor,
+            'wheel': CoveredCallsExecutor,  # Use similar logic for now
+            'short_put': CoveredCallsExecutor,  # Use similar logic for now
         }
         
         executor_class = executors.get(strategy_type)
@@ -86,21 +71,13 @@ class StrategyExecutorFactory:
         """Get list of supported strategy types"""
         return [
             'spot_grid',
-            'reverse_grid',
-            'futures_grid',
+            'futures_grid', 
             'infinity_grid',
             'dca',
             'smart_rebalance',
             'covered_calls',
             'wheel',
-            'short_put',
-            'momentum_breakout',
-            'mean_reversion',
-            'pairs_trading',
-            'scalping',
-            'long_straddle',
-            'short_straddle',
-            'iron_condor'
+            'short_put'
         ]
     
     @staticmethod

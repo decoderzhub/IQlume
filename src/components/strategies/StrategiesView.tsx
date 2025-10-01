@@ -81,7 +81,7 @@ export function StrategiesView() {
           throw new Error('No valid session found. Please log in again.');
         }
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/`, {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
@@ -174,7 +174,7 @@ export function StrategiesView() {
         }
 
         console.log(`📡 Sending ${newActiveStatus ? 'START' : 'PAUSE'} request to backend...`);
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/${strategyId}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${strategyId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -291,7 +291,7 @@ export function StrategiesView() {
 
       console.log('Sending strategy payload to API:', strategyPayload);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -336,7 +336,7 @@ export function StrategiesView() {
         throw new Error('No valid session found. Please log in again.');
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/${strategyId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${strategyId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -584,7 +584,7 @@ export function StrategiesView() {
                   throw new Error('No valid session found. Please log in again.');
                 }
 
-                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/${updatedStrategy.id}`, {
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${updatedStrategy.id}`, {
                   method: 'PUT',
                   headers: {
                     'Content-Type': 'application/json',
@@ -634,7 +634,7 @@ export function StrategiesView() {
                   throw new Error('No valid session found. Please log in again.');
                 }
 
-                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/${updatedStrategy.id}`, {
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/strategies/${updatedStrategy.id}`, {
                   method: 'PUT',
                   headers: {
                     'Content-Type': 'application/json',

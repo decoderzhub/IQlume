@@ -16,7 +16,7 @@ export const createPlaidLinkToken = async (userId: string): Promise<string> => {
     throw new Error('No valid session found. Please log in again.');
   }
 
-  const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/plaid/create-link-token`, {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/plaid/create-link-token`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -41,7 +41,7 @@ export const exchangePlaidPublicToken = async (publicToken: string, metadata: an
     throw new Error('No valid session found. Please log in again.');
   }
 
-  const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/plaid/exchange-public-token`, {
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/plaid/exchange-public-token`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

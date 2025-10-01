@@ -51,7 +51,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
           return;
         }
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/live-prices?symbols=${symbol}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/live-prices?symbols=${symbol}`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
@@ -196,7 +196,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
         throw new Error('No valid session found. Please log in again.');
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/ai-configure-grid-range`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/ai-configure-grid-range`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
