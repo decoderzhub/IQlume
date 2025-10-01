@@ -17,24 +17,29 @@ export function RecentTrades() {
       if (!user) return;
       
       try {
-        console.log('📋 Fetching recent trades from Alpaca...');
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session?.access_token) return;
+        console.log('📋 Fetching recent trades from Supabase...');
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/trades?limit=5`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
+        const { data, error } = await supabase
+          .from('trades')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Recent trades data:', data);
-          setTrades(data.trades || []);
-        } else {
-          console.error('❌ Failed to fetch recent trades:', response.status);
+        if (error) {
+          console.error('❌ Failed to fetch recent trades:', error);
+          setTrades([]);
+          return;
         }
+
+        // Map database fields to expected Trade interface (created_at -> timestamp)
+        const mappedTrades = (data || []).map(trade => ({
+          ...trade,
+          timestamp: trade.created_at || trade.timestamp,
+        }));
+
+        console.log('✅ Recent trades data:', mappedTrades);
+        setTrades(mappedTrades);
       } catch (error) {
         console.error('Error fetching recent trades:', error);
         // Fallback to empty array on error

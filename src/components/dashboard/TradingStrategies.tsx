@@ -18,49 +18,24 @@ export function TradingStrategies() {
       if (!user) return;
       
       try {
-        console.log('📊 Fetching active strategies for dashboard...');
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) return;
+        console.log('📊 Fetching active strategies for dashboard from Supabase...');
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
-        if (!response.ok) {
-          console.error('❌ Error loading strategies for dashboard:', response.status);
+        const { data, error } = await supabase
+          .from('trading_strategies')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        if (error) {
+          console.error('❌ Error loading strategies for dashboard:', error);
           setStrategies([]);
           return;
         }
 
-        const data = await response.json();
-        console.log('✅ Strategies loaded for dashboard:', data.strategies?.length || 0);
-        if (Array.isArray(data)) {
-          const activeStrategies = data
-            .filter((strategy: any) => strategy.is_active)
-            .slice(0, 3);
-            
-          console.log(`📈 Found ${activeStrategies.length} active strategies for dashboard`);
-            
-          const transformedStrategies: TradingStrategy[] = activeStrategies.map((strategy: any) => ({
-            id: strategy.id,
-            name: strategy.name,
-            type: strategy.type,
-            description: strategy.description,
-            risk_level: strategy.risk_level,
-            min_capital: strategy.min_capital,
-            is_active: strategy.is_active,
-            configuration: strategy.configuration,
-            performance: strategy.performance,
-            created_at: strategy.created_at,
-            updated_at: strategy.updated_at,
-          }));
-          
-          setStrategies(transformedStrategies);
-        } else {
-          console.warn('⚠️ API response is not a strategies array');
-          setStrategies([]);
-        }
+        console.log('✅ Strategies loaded for dashboard:', data?.length || 0);
+        setStrategies(data || []);
       } catch (error) {
         console.error('Unexpected error loading strategies:', error);
         setStrategies([]);
