@@ -41,7 +41,7 @@ export function SymbolSearchInput({
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) return;
 
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/popular?limit=20`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/symbols/popular?limit=20`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
@@ -82,7 +82,7 @@ export function SymbolSearchInput({
         
         if (!searchQuery.trim()) {
           // Load popular symbols when no query
-          response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/popular?limit=20`, {
+          response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/symbols/popular?limit=20`, {
             headers: {
               'Authorization': `Bearer ${session.access_token}`,
             },
@@ -90,7 +90,7 @@ export function SymbolSearchInput({
         } else {
           // Search for symbols when user types
           response = await fetch(
-            `${import.meta.env.VITE_API_BASE_URL}/api/market-data/symbols/search?query=${encodeURIComponent(searchQuery)}&limit=20`,
+            `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/symbols/search?query=${encodeURIComponent(searchQuery)}&limit=20`,
             {
               headers: {
                 'Authorization': `Bearer ${session.access_token}`,

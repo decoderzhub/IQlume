@@ -93,7 +93,7 @@ export function TradesView() {
         console.log(`📅 Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/trades?${params.toString()}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/trades?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
