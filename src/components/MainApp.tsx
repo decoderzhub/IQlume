@@ -12,16 +12,61 @@ import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
 import { TradesView } from './trades/TradesView';
 import { useRealTimeUpdates } from '../hooks/useRealTimeUpdates';
-import { usePortfolioData } from '../hooks/usePortfolioData';
+import { supabase } from '../lib/supabase';
+import { BrokerageAccount } from '../types';
 
 export function MainApp() {
-  const { activeView, sidebarOpen } = useStore();
+  const {
+    activeView,
+    sidebarOpen,
+    user,
+    brokerageAccounts,
+    setBrokerageAccounts,
+    updatePortfolioFromAccounts
+  } = useStore();
 
   // Enable real-time updates for autonomous trading
   const { isConnected } = useRealTimeUpdates();
 
-  // Load portfolio data (including brokerage accounts) on app initialization
-  usePortfolioData();
+  // Load brokerage accounts from database on app initialization
+  useEffect(() => {
+    const loadAccounts = async () => {
+      if (!user || brokerageAccounts.length > 0) return;
+
+      try {
+        const { data: accounts, error } = await supabase
+          .from('brokerage_accounts')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Error loading accounts:', error);
+          return;
+        }
+
+        const transformedAccounts: BrokerageAccount[] = (accounts || []).map((account: any) => ({
+          id: account.id,
+          user_id: account.user_id,
+          brokerage: account.brokerage,
+          account_name: account.account_name,
+          account_type: account.account_type,
+          balance: account.balance,
+          is_connected: account.is_connected,
+          last_sync: account.last_sync,
+          oauth_token: account.oauth_token,
+          account_number: account.account_number,
+          routing_number: account.routing_number,
+        }));
+
+        setBrokerageAccounts(transformedAccounts);
+        updatePortfolioFromAccounts();
+      } catch (error) {
+        console.error('Error loading brokerage accounts:', error);
+      }
+    };
+
+    loadAccounts();
+  }, [user, brokerageAccounts.length, setBrokerageAccounts, updatePortfolioFromAccounts]);
 
   const renderView = () => {
     switch (activeView) {
