@@ -30,6 +30,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
   const [upperPrice, setUpperPrice] = useState(0);
   const [isAIConfiguring, setIsAIConfiguring] = useState(false);
   const [aiConfigured, setAiConfigured] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // State for real market price
   const [realMarketPrice, setRealMarketPrice] = useState<number | null>(null);
@@ -222,16 +223,17 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
 
   const handleAIConfigureGrid = async () => {
     if (!symbol) {
-      alert('Please select a trading symbol first to enable AI configuration of optimal grid range.');
+      setAiError('Please select a trading symbol first to enable AI configuration of optimal grid range.');
       return;
     }
 
     if (!realMarketPrice) {
-      alert('Waiting for market price to load. Please try again in a moment.');
+      setAiError('Waiting for market price to load. Please try again in a moment.');
       return;
     }
 
     setIsAIConfiguring(true);
+    setAiError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -266,12 +268,10 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
       setLowerPrice(result.lower_limit);
       setUpperPrice(result.upper_limit);
       setAiConfigured(true);
-
-      alert(`🤖 AI Configuration Complete!\n\n${result.reasoning}\n\nYou can adjust these values manually if needed.`);
+      setAiError(null);
 
     } catch (error) {
       console.error('Error configuring grid range:', error);
-      alert(`Failed to configure grid range: ${error instanceof Error ? error.message : 'Unknown error'}. Using fallback configuration.`);
 
       // Fallback to simple volatility-based calculation
       const volatilityFactor = 0.20;
@@ -285,9 +285,14 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
         return Math.round(num * 100) / 100;
       };
 
-      setLowerPrice(roundToNearestNice(lower));
-      setUpperPrice(roundToNearestNice(upper));
+      const lowerRounded = roundToNearestNice(lower);
+      const upperRounded = roundToNearestNice(upper);
+
+      setLowerPrice(lowerRounded);
+      setUpperPrice(upperRounded);
       setAiConfigured(true);
+
+      setAiError(`AI configuration unavailable. Using fallback ±20% range: $${lowerRounded.toFixed(2)} - $${upperRounded.toFixed(2)}`);
     } finally {
       setIsAIConfiguring(false);
     }
@@ -726,6 +731,21 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                       <Brain className="w-4 h-4 mr-2" />
                       {isAIConfiguring ? 'Analyzing Market...' : 'AI Configure'}
                     </Button>
+
+                    {/* AI Error/Success Message */}
+                    {aiError && (
+                      <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-yellow-200">{aiError}</p>
+                      </div>
+                    )}
+
+                    {aiConfigured && !aiError && (
+                      <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg flex items-start gap-2">
+                        <Brain className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-green-200">AI configuration complete! Grid range optimized for mean reversion trading.</p>
+                      </div>
+                    )}
                   </div>
                   </div>
               </Card>
