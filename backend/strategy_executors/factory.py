@@ -13,6 +13,7 @@ from supabase import Client
 
 from .base import BaseStrategyExecutor
 from .spot_grid import SpotGridExecutor
+from .reverse_grid import ReverseGridExecutor
 from .dca import DCAExecutor
 from .covered_calls import CoveredCallsExecutor
 from .smart_rebalance import SmartRebalanceExecutor
@@ -46,13 +47,14 @@ class StrategyExecutorFactory:
         
         executors = {
             'spot_grid': SpotGridExecutor,
-            'futures_grid': SpotGridExecutor,  # Use same logic for now
-            'infinity_grid': SpotGridExecutor,  # Use same logic for now
+            'reverse_grid': ReverseGridExecutor,
+            'futures_grid': SpotGridExecutor,
+            'infinity_grid': SpotGridExecutor,
             'dca': DCAExecutor,
             'smart_rebalance': SmartRebalanceExecutor,
             'covered_calls': CoveredCallsExecutor,
-            'wheel': CoveredCallsExecutor,  # Use similar logic for now
-            'short_put': CoveredCallsExecutor,  # Use similar logic for now
+            'wheel': CoveredCallsExecutor,
+            'short_put': CoveredCallsExecutor,
         }
         
         executor_class = executors.get(strategy_type)
@@ -71,7 +73,8 @@ class StrategyExecutorFactory:
         """Get list of supported strategy types"""
         return [
             'spot_grid',
-            'futures_grid', 
+            'reverse_grid',
+            'futures_grid',
             'infinity_grid',
             'dca',
             'smart_rebalance',
