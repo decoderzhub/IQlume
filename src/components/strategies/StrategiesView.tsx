@@ -76,31 +76,24 @@ export function StrategiesView() {
       }
 
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          throw new Error('No valid session found. Please log in again.');
+        console.log('📊 Loading strategies from Supabase for user:', user.id);
+
+        const { data, error } = await supabase
+          .from('trading_strategies')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('❌ Supabase Error:', error);
+          throw new Error(`Failed to fetch strategies: ${error.message}`);
         }
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to fetch strategies: ${response.status} ${errorText}`);
-        }
-
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setStrategies(data);
-        } else {
-          console.error('API response is not a strategies array:', data);
-          setStrategies([]);
-        }
+        console.log('✅ Strategies loaded:', data);
+        setStrategies(data || []);
       } catch (error) {
         console.error('Unexpected error loading strategies:', error);
+        setStrategies([]);
       } finally {
         setLoading(false);
       }
