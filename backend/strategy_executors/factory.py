@@ -17,6 +17,12 @@ from .reverse_grid import ReverseGridExecutor
 from .dca import DCAExecutor
 from .covered_calls import CoveredCallsExecutor
 from .smart_rebalance import SmartRebalanceExecutor
+from .momentum import MomentumBreakoutExecutor
+from .mean_reversion import MeanReversionExecutor
+from .pairs_trading import PairsTradingExecutor
+from .scalping import ScalpingExecutor
+from .straddle import StraddleExecutor
+from .iron_condor import IronCondorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +61,13 @@ class StrategyExecutorFactory:
             'covered_calls': CoveredCallsExecutor,
             'wheel': CoveredCallsExecutor,
             'short_put': CoveredCallsExecutor,
+            'momentum_breakout': MomentumBreakoutExecutor,
+            'mean_reversion': MeanReversionExecutor,
+            'pairs_trading': PairsTradingExecutor,
+            'scalping': ScalpingExecutor,
+            'long_straddle': StraddleExecutor,
+            'short_straddle': StraddleExecutor,
+            'iron_condor': IronCondorExecutor,
         }
         
         executor_class = executors.get(strategy_type)
@@ -80,7 +93,14 @@ class StrategyExecutorFactory:
             'smart_rebalance',
             'covered_calls',
             'wheel',
-            'short_put'
+            'short_put',
+            'momentum_breakout',
+            'mean_reversion',
+            'pairs_trading',
+            'scalping',
+            'long_straddle',
+            'short_straddle',
+            'iron_condor'
         ]
     
     @staticmethod
