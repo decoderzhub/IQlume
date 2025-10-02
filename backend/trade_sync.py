@@ -104,7 +104,55 @@ class TradeSyncService:
                 alpaca_order_id = trade.get("alpaca_order_id")
                 if not alpaca_order_id:
                     continue
-                
+
+                # Check if this is a Portfolio trade (multiple orders)
+                if alpaca_order_id.startswith("Portfolio:"):
+                    # Extract individual order IDs
+                    order_ids_str = alpaca_order_id.replace("Portfolio: ", "").strip()
+                    order_ids = [oid.strip() for oid in order_ids_str.split(",")]
+
+                    # Check status of all individual orders
+                    all_filled = True
+                    any_failed = False
+
+                    for order_id in order_ids:
+                        alpaca_order = alpaca_orders_map.get(order_id)
+                        if not alpaca_order:
+                            logger.warning(f"⚠️ Alpaca order {order_id} not found in portfolio trade {trade['id']}")
+                            all_filled = False
+                            continue
+
+                        if alpaca_order.status != OrderStatus.FILLED:
+                            all_filled = False
+
+                        if alpaca_order.status in {OrderStatus.CANCELED, OrderStatus.EXPIRED, OrderStatus.REJECTED}:
+                            any_failed = True
+
+                    # Determine portfolio trade status
+                    new_status = "pending"
+                    if all_filled and len(order_ids) > 0:
+                        new_status = "executed"
+                    elif any_failed:
+                        new_status = "failed"
+
+                    # Update portfolio trade
+                    update_data = {
+                        "status": new_status,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }
+
+                    # Update trade in Supabase
+                    update_resp = self.supabase.table("trades").update(update_data).eq("id", trade["id"]).execute()
+
+                    if update_resp.data:
+                        updates_made += 1
+                        logger.info(f"✅ Updated portfolio trade {trade['id']}: {len(order_ids)} orders -> {new_status}")
+                    else:
+                        logger.error(f"❌ Failed to update portfolio trade {trade['id']}")
+
+                    continue
+
+                # Handle single-order trades
                 alpaca_order = alpaca_orders_map.get(alpaca_order_id)
                 if not alpaca_order:
                     logger.warning(f"⚠️ Alpaca order {alpaca_order_id} not found for trade {trade['id']}")
