@@ -16,6 +16,7 @@ import { CreateWheelModal } from './modals/CreateWheelModal';
 import { CreateShortPutModal } from './modals/CreateShortPutModal';
 import { CreateFuturesGridModal } from './modals/CreateFuturesGridModal';
 import { CreateInfinityGridModal } from './modals/CreateInfinityGridModal';
+import { CreateReverseGridModal } from './modals/CreateReverseGridModal';
 import { CreateStraddleModal } from './modals/CreateStraddleModal';
 import { CreateIronCondorModal } from './modals/CreateIronCondorModal';
 
@@ -76,6 +77,17 @@ const strategyCategories = {
         color: 'text-purple-400',
         bgColor: 'bg-purple-500/10',
         borderColor: 'border-purple-500/20',
+      },
+      {
+        id: 'reverse_grid' as const,
+        name: 'Reverse Grid Bot',
+        description: 'Optimized for down markets - profits from price declines',
+        risk_level: 'medium' as const,
+        min_capital: 1000,
+        icon: Grid3X3,
+        color: 'text-red-400',
+        bgColor: 'bg-red-500/10',
+        borderColor: 'border-red-500/20',
       },
     ]
   },
@@ -201,6 +213,8 @@ export function CreateStrategyModal({ onClose, onSave }: CreateStrategyModalProp
         return <CreateFuturesGridModal {...modalProps} />;
       case 'infinity_grid':
         return <CreateInfinityGridModal {...modalProps} />;
+      case 'reverse_grid':
+        return <CreateReverseGridModal {...modalProps} />;
       case 'straddle':
         return <CreateStraddleModal {...modalProps} />;
       case 'iron_condor':
