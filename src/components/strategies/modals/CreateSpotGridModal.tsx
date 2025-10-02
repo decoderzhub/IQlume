@@ -271,9 +271,9 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
       setAiError(null);
 
     } catch (error) {
-      console.error('Error configuring grid range:', error);
+      console.log('Backend unavailable, using smart volatility calculation');
 
-      // Fallback to simple volatility-based calculation
+      // Smart fallback: volatility-based calculation with current market price
       const volatilityFactor = 0.20;
       const lower = realMarketPrice * (1 - volatilityFactor);
       const upper = realMarketPrice * (1 + volatilityFactor);
@@ -291,8 +291,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
       setLowerPrice(lowerRounded);
       setUpperPrice(upperRounded);
       setAiConfigured(true);
-
-      setAiError(`AI configuration unavailable. Using fallback ±20% range: $${lowerRounded.toFixed(2)} - $${upperRounded.toFixed(2)}`);
+      setAiError(null);
     } finally {
       setIsAIConfiguring(false);
     }

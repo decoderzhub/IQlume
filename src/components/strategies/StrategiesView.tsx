@@ -320,21 +320,16 @@ export function StrategiesView() {
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('No valid session found. Please log in again.');
-      }
+      // Delete strategy directly from Supabase
+      const { error: deleteError } = await supabase
+        .from('trading_strategies')
+        .delete()
+        .eq('id', strategyId)
+        .eq('user_id', user.id);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/${strategyId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to delete strategy: ${response.status} ${errorText}`);
+      if (deleteError) {
+        console.error('Supabase Delete Error:', deleteError);
+        throw new Error(`Failed to delete strategy: ${deleteError.message}`);
       }
 
       setStrategies(prev => prev.filter(strategy => strategy.id !== strategyId));
