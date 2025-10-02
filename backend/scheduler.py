@@ -186,9 +186,10 @@ class TradingScheduler:
                 result = await executor.execute(strategy)
             
             logger.info(f"📊 [SCHEDULER] Strategy execution result: {result}")
-            
+
             # Record trade in Supabase if action was taken
-            if result and result.get("action") in ["buy", "sell"]:
+            # Skip for strategies that manage their own trade recording (smart_rebalance)
+            if result and result.get("action") in ["buy", "sell"] and strategy_type != "smart_rebalance":
                 try:
                     trade_data = {
                         "user_id": user_id,
@@ -207,19 +208,19 @@ class TradingScheduler:
                         "fees": 0,  # Will be updated by trade sync service
                         "alpaca_order_id": result.get("order_id"),  # If available from execution
                     }
-                    
+
                     # Insert trade record into Supabase
                     trade_resp = self.supabase.table("trades").insert(trade_data).execute()
-                    
+
                     if trade_resp.data:
                         trade_id = trade_resp.data[0]["id"]
                         logger.info(f"✅ [SCHEDULER] Trade recorded in database: {trade_id}")
-                        
+
                         # Update result with trade ID for logging
                         result["trade_id"] = trade_id
                     else:
                         logger.error(f"❌ [SCHEDULER] Failed to record trade in database")
-                        
+
                 except Exception as trade_error:
                     logger.error(f"❌ [SCHEDULER] Error recording trade: {trade_error}")
             
