@@ -100,7 +100,8 @@ async def create_strategy(
                 logger.info(f"📊 Initial execution result: {result}")
                 
                 # Record trade in database if action was taken
-                if result and result.get("action") in ["buy", "sell"]:
+                # Skip for strategies that manage their own trade recording
+                if result and result.get("action") in ["buy", "sell"] and created_strategy.type not in ["smart_rebalance", "spot_grid", "reverse_grid"]:
                     try:
                         trade_data = {
                             "user_id": current_user.id,
@@ -320,7 +321,8 @@ async def execute_strategy(
             result = await executor.execute(strategy_data)
         
         # Record trade in database if action was taken
-        if result and result.get("action") in ["buy", "sell"]:
+        # Skip for strategies that manage their own trade recording
+        if result and result.get("action") in ["buy", "sell"] and strategy_data["type"] not in ["smart_rebalance", "spot_grid", "reverse_grid"]:
             try:
                 trade_data = {
                     "user_id": current_user.id,
@@ -339,7 +341,7 @@ async def execute_strategy(
                     "fees": 0,  # Will be updated by trade sync service
                     "alpaca_order_id": result.get("order_id"),  # If available from execution
                 }
-                
+
                 # Insert trade record into Supabase
                 trade_resp = supabase.table("trades").insert(trade_data).execute()
                 

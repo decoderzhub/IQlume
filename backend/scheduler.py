@@ -188,8 +188,8 @@ class TradingScheduler:
             logger.info(f"📊 [SCHEDULER] Strategy execution result: {result}")
 
             # Record trade in Supabase if action was taken
-            # Skip for strategies that manage their own trade recording (smart_rebalance)
-            if result and result.get("action") in ["buy", "sell"] and strategy_type != "smart_rebalance":
+            # Skip for strategies that manage their own trade recording
+            if result and result.get("action") in ["buy", "sell"] and strategy_type not in ["smart_rebalance", "spot_grid", "reverse_grid"]:
                 try:
                     trade_data = {
                         "user_id": user_id,
