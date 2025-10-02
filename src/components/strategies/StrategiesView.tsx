@@ -282,27 +282,23 @@ export function StrategiesView() {
         performance: strategyData.performance || null,
       };
 
-      console.log('Sending strategy payload to API:', strategyPayload);
+      console.log('Saving strategy to Supabase:', strategyPayload);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(strategyPayload),
-      });
+      // Save strategy directly to Supabase
+      const { data: newStrategy, error: insertError } = await supabase
+        .from('trading_strategies')
+        .insert({
+          ...strategyPayload,
+          user_id: user.id,
+        })
+        .select()
+        .single();
 
-      console.log('API Response Status:', response.status);
-      console.log('API Response Headers:', Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Error Response:', errorText);
-        throw new Error(`Failed to create strategy: ${response.status} ${errorText}`);
+      if (insertError) {
+        console.error('Supabase Insert Error:', insertError);
+        throw new Error(`Failed to create strategy: ${insertError.message}`);
       }
 
-      const newStrategy = await response.json();
       console.log('Strategy created successfully:', newStrategy);
       
       setStrategies(prev => [...prev, newStrategy]);
