@@ -130,12 +130,17 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     "reason": f"Sell order already placed at level {next_sell_level}"
                 }
 
+            # Determine appropriate time_in_force
+            is_fractional = sell_qty < 1.0
+            is_crypto = self.normalize_crypto_symbol(symbol) is not None
+            time_in_force_enum = TimeInForce.DAY if is_fractional and not is_crypto else TimeInForce.GTC
+
             # Place limit sell order
             order_request = LimitOrderRequest(
                 symbol=symbol.replace("/", ""),
                 qty=sell_qty,
                 side=OrderSide.SELL,
-                time_in_force=TimeInForce.GTC,
+                time_in_force=time_in_force_enum,
                 limit_price=round(sell_price, 2)
             )
 
@@ -143,6 +148,11 @@ class SpotGridExecutor(BaseStrategyExecutor):
             order_id = str(order.id)
 
             self.logger.info(f"✅ [GRID] Placed sell order at level {next_sell_level} @ ${sell_price:.2f}, Order ID: {order_id}")
+
+            # Determine if fractional and time_in_force
+            is_fractional = sell_qty < 1.0
+            is_crypto = self.normalize_crypto_symbol(symbol) is not None
+            time_in_force = "day" if is_fractional and not is_crypto else "gtc"
 
             # Record grid order in database
             self.record_grid_order(
@@ -153,7 +163,9 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 "sell",
                 sell_qty,
                 sell_price,
-                next_sell_level
+                next_sell_level,
+                time_in_force,
+                is_fractional
             )
 
             return {
@@ -217,12 +229,17 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     "reason": f"Buy order already placed at level {next_buy_level}"
                 }
 
+            # Determine appropriate time_in_force
+            is_fractional = buy_qty < 1.0
+            is_crypto = self.normalize_crypto_symbol(symbol) is not None
+            time_in_force_enum = TimeInForce.DAY if is_fractional and not is_crypto else TimeInForce.GTC
+
             # Place limit buy order
             order_request = LimitOrderRequest(
                 symbol=symbol.replace("/", ""),
                 qty=buy_qty,
                 side=OrderSide.BUY,
-                time_in_force=TimeInForce.GTC,
+                time_in_force=time_in_force_enum,
                 limit_price=round(buy_price, 2)
             )
 
@@ -230,6 +247,11 @@ class SpotGridExecutor(BaseStrategyExecutor):
             order_id = str(order.id)
 
             self.logger.info(f"✅ [GRID] Placed buy order at level {next_buy_level} @ ${buy_price:.2f}, Order ID: {order_id}")
+
+            # Determine if fractional and time_in_force
+            is_fractional = buy_qty < 1.0
+            is_crypto = self.normalize_crypto_symbol(symbol) is not None
+            time_in_force = "day" if is_fractional and not is_crypto else "gtc"
 
             # Record grid order in database
             self.record_grid_order(
@@ -240,7 +262,9 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 "buy",
                 buy_qty,
                 buy_price,
-                next_buy_level
+                next_buy_level,
+                time_in_force,
+                is_fractional
             )
 
             return {
@@ -285,7 +309,9 @@ class SpotGridExecutor(BaseStrategyExecutor):
         side: str,
         quantity: float,
         price: float,
-        grid_level: int
+        grid_level: int,
+        time_in_force: str = "gtc",
+        is_fractional: bool = False
     ):
         """Record a grid order in the database with retry logic"""
         max_retries = 3
@@ -305,13 +331,15 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     "grid_level": int(grid_level),
                     "grid_price": float(price),
                     "status": "pending",
-                    "time_in_force": "gtc",
+                    "time_in_force": time_in_force.lower(),
                 }
 
                 result = self.supabase.table("grid_orders").insert(order_data).execute()
 
                 if result.data:
-                    self.logger.info(f"✅ Grid order recorded: {order_id} (Level {grid_level}, {side.upper()} @ ${price:.2f})")
+                    tif_indicator = " [DAY]" if time_in_force.lower() == "day" else ""
+                    frac_indicator = " [FRACTIONAL]" if is_fractional else ""
+                    self.logger.info(f"✅ Grid order recorded: {order_id} (Level {grid_level}, {side.upper()} @ ${price:.2f}){tif_indicator}{frac_indicator}")
                     return True
                 else:
                     self.logger.warning(f"⚠️ Failed to record grid order {order_id}, no data returned")
@@ -683,13 +711,31 @@ class SpotGridExecutor(BaseStrategyExecutor):
             self.logger.error(f"❌ Error fetching existing grid orders: {e}")
             existing_grid_orders = set()
 
-        # Calculate quantity per grid level based on allocated capital
-        quantity_per_grid = allocated_capital / len(grid_levels) / current_price
-        quantity_per_grid = max(0.001, quantity_per_grid)  # Minimum quantity
+        # Calculate optimal quantity per grid level
+        # Use current price as reference for initial calculation
+        quantity_per_grid = self.calculate_optimal_quantity(
+            allocated_capital,
+            len(grid_levels),
+            current_price,
+            symbol,
+            prefer_whole_shares=True
+        )
+
+        # Determine if this is a fractional quantity
+        is_fractional = quantity_per_grid < 1.0
+
+        # Check if symbol supports fractional trading (crypto typically does, stocks may not)
+        is_crypto = self.normalize_crypto_symbol(symbol) is not None
 
         self.logger.info(f"📊 [GRID SETUP] Placing orders across ALL {len(grid_levels)} grid levels")
         self.logger.info(f"💰 Capital per grid: ${allocated_capital / len(grid_levels):.2f}")
         self.logger.info(f"📦 Quantity per grid: {quantity_per_grid:.6f} {symbol}")
+        self.logger.info(f"🔢 Fractional orders: {is_fractional}, Is crypto: {is_crypto}")
+
+        if is_fractional and not is_crypto:
+            self.logger.warning(f"⚠️ [GRID SETUP] Using fractional quantities ({quantity_per_grid:.6f}) for non-crypto symbol {symbol}")
+            self.logger.warning(f"⚠️ [GRID SETUP] Orders will be placed as DAY orders (expire at market close)")
+            self.logger.warning(f"💡 [GRID SETUP] Consider increasing allocated capital to use whole shares and GTC orders")
 
         # Place buy orders at ALL levels below current price
         buy_levels = [level for level in grid_levels if level < current_price * 0.998]  # 0.2% below current
@@ -704,16 +750,24 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 continue
 
             try:
+                # Determine appropriate time_in_force based on quantity
+                # Alpaca requires fractional orders to be DAY orders, not GTC
+                if is_fractional and not is_crypto:
+                    time_in_force = TimeInForce.DAY
+                    self.logger.info(f"⚠️ [GRID] Using DAY order for fractional quantity at level {grid_level_index}")
+                else:
+                    time_in_force = TimeInForce.GTC
+
                 order_request = LimitOrderRequest(
                     symbol=symbol.replace("/", ""),
                     qty=quantity_per_grid,
                     side=OrderSide.BUY,
-                    time_in_force=TimeInForce.GTC,  # Good til cancelled
+                    time_in_force=time_in_force,
                     limit_price=round(level, 2)
                 )
 
                 order = self.trading_client.submit_order(order_request)
-                self.logger.info(f"✅ [GRID] Buy order placed at level {grid_level_index}: ${level:.2f}, Order ID: {order.id}")
+                self.logger.info(f"✅ [GRID] Buy order placed at level {grid_level_index}: ${level:.2f}, TIF: {time_in_force}, Order ID: {order.id}")
                 orders_placed += 1
 
                 # Record grid order in database
@@ -725,11 +779,37 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     "buy",
                     quantity_per_grid,
                     level,
-                    grid_level_index
+                    grid_level_index,
+                    time_in_force.value if hasattr(time_in_force, 'value') else str(time_in_force),
+                    is_fractional
                 )
 
             except AlpacaAPIError as e:
-                self.logger.error(f"❌ [GRID] Failed to place buy order at level {grid_level_index} (${level:.2f}): {e}")
+                error_msg = str(e).lower()
+                # If we get fractional order error, retry with DAY order
+                if "fractional" in error_msg and "day" in error_msg and time_in_force == TimeInForce.GTC:
+                    self.logger.warning(f"⚠️ [GRID] Retrying buy order at level {grid_level_index} with DAY time_in_force")
+                    try:
+                        order_request.time_in_force = TimeInForce.DAY
+                        order = self.trading_client.submit_order(order_request)
+                        self.logger.info(f"✅ [GRID] Buy order placed (retry) at level {grid_level_index}: ${level:.2f}, Order ID: {order.id}")
+                        orders_placed += 1
+                        self.record_grid_order(
+                            strategy_data.get("user_id"),
+                            strategy_id,
+                            str(order.id),
+                            symbol,
+                            "buy",
+                            quantity_per_grid,
+                            level,
+                            grid_level_index,
+                            "DAY",
+                            True
+                        )
+                    except Exception as retry_error:
+                        self.logger.error(f"❌ [GRID] Retry failed for buy order at level {grid_level_index}: {retry_error}")
+                else:
+                    self.logger.error(f"❌ [GRID] Failed to place buy order at level {grid_level_index} (${level:.2f}): {e}")
             except Exception as e:
                 self.logger.error(f"❌ [GRID] Unexpected error placing buy order at level {grid_level_index}: {e}")
 
@@ -749,16 +829,24 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 continue
 
             try:
+                # Determine appropriate time_in_force based on quantity
+                # Alpaca requires fractional orders to be DAY orders, not GTC
+                if is_fractional and not is_crypto:
+                    time_in_force = TimeInForce.DAY
+                    self.logger.info(f"⚠️ [GRID] Using DAY order for fractional quantity at level {grid_level_index}")
+                else:
+                    time_in_force = TimeInForce.GTC
+
                 order_request = LimitOrderRequest(
                     symbol=symbol.replace("/", ""),
                     qty=quantity_per_grid,
                     side=OrderSide.SELL,
-                    time_in_force=TimeInForce.GTC,
+                    time_in_force=time_in_force,
                     limit_price=round(level, 2)
                 )
 
                 order = self.trading_client.submit_order(order_request)
-                self.logger.info(f"✅ [GRID] Sell order placed at level {grid_level_index}: ${level:.2f}, Order ID: {order.id}")
+                self.logger.info(f"✅ [GRID] Sell order placed at level {grid_level_index}: ${level:.2f}, TIF: {time_in_force}, Order ID: {order.id}")
                 orders_placed += 1
 
                 # Record grid order in database
@@ -770,11 +858,37 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     "sell",
                     quantity_per_grid,
                     level,
-                    grid_level_index
+                    grid_level_index,
+                    time_in_force.value if hasattr(time_in_force, 'value') else str(time_in_force),
+                    is_fractional
                 )
 
             except AlpacaAPIError as e:
-                self.logger.error(f"❌ [GRID] Failed to place sell order at level {grid_level_index} (${level:.2f}): {e}")
+                error_msg = str(e).lower()
+                # If we get fractional order error, retry with DAY order
+                if "fractional" in error_msg and "day" in error_msg and time_in_force == TimeInForce.GTC:
+                    self.logger.warning(f"⚠️ [GRID] Retrying sell order at level {grid_level_index} with DAY time_in_force")
+                    try:
+                        order_request.time_in_force = TimeInForce.DAY
+                        order = self.trading_client.submit_order(order_request)
+                        self.logger.info(f"✅ [GRID] Sell order placed (retry) at level {grid_level_index}: ${level:.2f}, Order ID: {order.id}")
+                        orders_placed += 1
+                        self.record_grid_order(
+                            strategy_data.get("user_id"),
+                            strategy_id,
+                            str(order.id),
+                            symbol,
+                            "sell",
+                            quantity_per_grid,
+                            level,
+                            grid_level_index,
+                            "DAY",
+                            True
+                        )
+                    except Exception as retry_error:
+                        self.logger.error(f"❌ [GRID] Retry failed for sell order at level {grid_level_index}: {retry_error}")
+                else:
+                    self.logger.error(f"❌ [GRID] Failed to place sell order at level {grid_level_index} (${level:.2f}): {e}")
             except Exception as e:
                 self.logger.error(f"❌ [GRID] Unexpected error placing sell order at level {grid_level_index}: {e}")
 
@@ -803,6 +917,46 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 self.logger.error(f"❌ Error broadcasting grid setup: {broadcast_error}")
 
         return orders_placed
+
+    def calculate_optimal_quantity(
+        self,
+        allocated_capital: float,
+        num_grids: int,
+        price: float,
+        symbol: str,
+        prefer_whole_shares: bool = True
+    ) -> float:
+        """
+        Calculate optimal quantity per grid level
+
+        Args:
+            allocated_capital: Total capital allocated to strategy
+            num_grids: Number of grid levels
+            price: Price at grid level
+            symbol: Trading symbol
+            prefer_whole_shares: Whether to round to whole shares for non-crypto
+
+        Returns:
+            Quantity to trade at this grid level
+        """
+        # Calculate base quantity
+        capital_per_grid = allocated_capital / num_grids
+        quantity = capital_per_grid / price
+
+        # Check if this is crypto (supports fractional trading)
+        is_crypto = self.normalize_crypto_symbol(symbol) is not None
+
+        if prefer_whole_shares and not is_crypto:
+            # For stocks, try to round to whole shares if close
+            if quantity >= 0.5:
+                # Round to nearest whole number
+                rounded_qty = round(quantity)
+                if rounded_qty >= 1:
+                    self.logger.info(f"💡 Rounded quantity from {quantity:.6f} to {rounded_qty} whole shares")
+                    return float(rounded_qty)
+
+        # For crypto or when we must use fractional, ensure minimum
+        return max(0.001, quantity)
 
     def calculate_grid_levels(
         self,
