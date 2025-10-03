@@ -22,6 +22,7 @@ import { NumericInput } from '../ui/NumericInput';
 import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent } from '../../lib/utils';
 import { TelemetryDashboard } from './TelemetryDashboard';
+import { GridOrdersDisplay } from './GridOrdersDisplay';
 
 interface StrategyDetailsModalProps {
   strategy: TradingStrategy;
@@ -154,6 +155,19 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
           </div>
         </Card>
       </div>
+
+      {/* Grid Orders Display for Spot Grid Strategies */}
+      {strategy.type === 'spot_grid' && strategy.is_active && strategy.configuration && (
+        <GridOrdersDisplay
+          strategyId={strategy.id}
+          symbol={strategy.base_symbol || strategy.configuration.symbol || 'BTC'}
+          lowerPrice={strategy.configuration.price_range_lower || 0}
+          upperPrice={strategy.configuration.price_range_upper || 0}
+          numberOfGrids={strategy.configuration.number_of_grids || 20}
+          currentPrice={strategy.telemetry_data?.current_price}
+          allocatedCapital={strategy.configuration.allocated_capital || strategy.min_capital}
+        />
+      )}
     </div>
   );
 
