@@ -15,7 +15,9 @@ from fastapi.responses import JSONResponse
 from routers import chat, trades, strategies, market_data, plaid_routes, brokerage_auth, sse_routes, bots
 from scheduler import trading_scheduler
 from trade_sync import trade_sync_service
+from order_fill_monitor import order_fill_monitor
 from sse_manager import publish
+from dependencies import get_supabase_client
 
 # Configure logging
 logging.basicConfig(
@@ -29,19 +31,28 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
     logger.info("🚀 Starting brokernomex backend...")
-    
+
+    # Initialize order fill monitor with Supabase client
+    supabase = get_supabase_client()
+    order_fill_monitor.supabase = supabase
+
+    # Start order fill monitor for event-based grid execution
+    asyncio.create_task(order_fill_monitor.start())
+    logger.info("🔍 Order fill monitor started (event-based grid trading)")
+
     # Start autonomous trading scheduler
     asyncio.create_task(trading_scheduler.start())
     logger.info("🚀 Autonomous trading scheduler started")
-    
+
     # Start trade sync service
     asyncio.create_task(trade_sync_service.start())
     logger.info("🔄 Trade sync service started")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("🛑 Shutting down brokernomex backend...")
+    await order_fill_monitor.stop()
     await trading_scheduler.stop()
     await trade_sync_service.stop()
 

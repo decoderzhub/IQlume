@@ -113,16 +113,16 @@ class TradingScheduler:
             "scalping": 30,           # 30 seconds
             "arbitrage": 60,          # 1 minute
 
-            # Grid strategies - use limit orders, only need periodic checks
-            "spot_grid": 1800,        # 30 minutes (checks for filled orders and rebalances grid)
-            "futures_grid": 1800,     # 30 minutes
-            "infinity_grid": 1800,    # 30 minutes
-            "reverse_grid": 1800,     # 30 minutes
+            # Grid strategies - event-driven via order fill monitor, periodic checks only for health monitoring
+            "spot_grid": 3600,        # 1 hour (only for grid health checks and rebalancing)
+            "futures_grid": 3600,     # 1 hour
+            "infinity_grid": 3600,    # 1 hour
+            "reverse_grid": 3600,     # 1 hour
 
             # Medium frequency strategies
             "momentum_breakout": 300, # 5 minutes
             "news_based_trading": 300, # 5 minutes
-            
+
             # Lower frequency strategies
             "covered_calls": 3600,    # 1 hour
             "wheel": 3600,            # 1 hour
@@ -131,12 +131,12 @@ class TradingScheduler:
             "mean_reversion": 1800,   # 30 minutes
             "pairs_trading": 1800,    # 30 minutes
             "swing_trading": 1800,    # 30 minutes
-            
+
             # Very low frequency strategies
             "dca": 86400,             # 24 hours (daily)
             "smart_rebalance": 604800, # 7 days (weekly)
         }
-        
+
         return intervals.get(strategy_type, 1800)  # Default: 30 minutes
     
     async def execute_strategy_job(self, strategy: Dict[str, Any]):
