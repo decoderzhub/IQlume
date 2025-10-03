@@ -126,6 +126,12 @@ export function useStrategyPerformance(userId?: string) {
 
           const executedTrades = trades || [];
 
+          // Find the first buy trade (earliest by created_at)
+          const buyTrades = executedTrades
+            .filter((t) => t.type === 'buy')
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          const firstBuyTrade = buyTrades[0];
+
           const totalProfit = strategy.total_profit_loss || 0;
           const totalTrades = executedTrades.length;
 
@@ -172,12 +178,16 @@ export function useStrategyPerformance(userId?: string) {
                             config.grid_levels ||
                             0;
 
-          const startPrice = config.entry_price ||
+          // Use the first buy trade's filled price as the start price
+          // This represents the actual price at which the initial buy took place
+          const startPrice = firstBuyTrade?.filled_avg_price ||
+                            firstBuyTrade?.price ||
+                            config.entry_price ||
                             config.start_price ||
                             priceRangeLower;
 
           const lastTrade = executedTrades[0];
-          const currentPrice = lastTrade?.price || startPrice;
+          const currentPrice = lastTrade?.filled_avg_price || lastTrade?.price || startPrice;
 
           const historicalData = generateHistoricalData(
             currentValue,
