@@ -113,11 +113,13 @@ class TradingScheduler:
             "scalping": 30,           # 30 seconds
             "arbitrage": 60,          # 1 minute
 
-            # Grid strategies - event-driven via order fill monitor, periodic checks only for health monitoring
-            "spot_grid": 3600,        # 1 hour (only for grid health checks and rebalancing)
-            "futures_grid": 3600,     # 1 hour
-            "infinity_grid": 3600,    # 1 hour
-            "reverse_grid": 3600,     # 1 hour
+            # Grid strategies - event-driven via order fill monitor
+            # These run ONCE at startup to place initial orders, then rely on order fill monitor
+            # Set to a very long interval since they only need initial setup
+            "spot_grid": 86400,       # 24 hours (only runs once for setup, then order fill monitor takes over)
+            "futures_grid": 86400,    # 24 hours
+            "infinity_grid": 86400,   # 24 hours
+            "reverse_grid": 86400,    # 24 hours
 
             # Medium frequency strategies
             "momentum_breakout": 300, # 5 minutes

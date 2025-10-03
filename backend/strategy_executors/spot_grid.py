@@ -287,27 +287,44 @@ class SpotGridExecutor(BaseStrategyExecutor):
         price: float,
         grid_level: int
     ):
-        """Record a grid order in the database"""
-        try:
-            order_data = {
-                "user_id": user_id,
-                "strategy_id": strategy_id,
-                "alpaca_order_id": order_id,
-                "symbol": symbol,
-                "side": side,
-                "order_type": "limit",
-                "quantity": quantity,
-                "limit_price": price,
-                "grid_level": grid_level,
-                "grid_price": price,
-                "status": "pending",
-                "time_in_force": "gtc",
-            }
+        """Record a grid order in the database with retry logic"""
+        max_retries = 3
+        retry_count = 0
 
-            self.supabase.table("grid_orders").insert(order_data).execute()
-            self.logger.info(f"✅ Recorded grid order in database: {order_id}")
-        except Exception as e:
-            self.logger.error(f"❌ Error recording grid order: {e}")
+        while retry_count < max_retries:
+            try:
+                order_data = {
+                    "user_id": user_id,
+                    "strategy_id": strategy_id,
+                    "alpaca_order_id": order_id,
+                    "symbol": symbol,
+                    "side": side,
+                    "order_type": "limit",
+                    "quantity": float(quantity),
+                    "limit_price": float(price),
+                    "grid_level": int(grid_level),
+                    "grid_price": float(price),
+                    "status": "pending",
+                    "time_in_force": "gtc",
+                }
+
+                result = self.supabase.table("grid_orders").insert(order_data).execute()
+
+                if result.data:
+                    self.logger.info(f"✅ Grid order recorded: {order_id} (Level {grid_level}, {side.upper()} @ ${price:.2f})")
+                    return True
+                else:
+                    self.logger.warning(f"⚠️ Failed to record grid order {order_id}, no data returned")
+                    retry_count += 1
+
+            except Exception as e:
+                self.logger.error(f"❌ Error recording grid order {order_id} (attempt {retry_count + 1}/{max_retries}): {e}")
+                retry_count += 1
+                if retry_count >= max_retries:
+                    self.logger.error(f"❌ Failed to record grid order {order_id} after {max_retries} attempts")
+                    return False
+
+        return False
 
     async def execute(self, strategy_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute spot grid strategy logic"""
@@ -648,105 +665,142 @@ class SpotGridExecutor(BaseStrategyExecutor):
         strategy_id: str,
         strategy_data: Dict[str, Any]
     ) -> int:
-        """Place limit orders at grid levels"""
+        """Place limit orders at ALL grid levels for complete grid setup"""
         orders_placed = 0
 
-        # Get existing order prices to avoid duplicates
-        existing_buy_prices = set()
-        existing_sell_prices = set()
+        # Get existing grid orders from database to avoid duplicates
+        try:
+            existing_orders_resp = self.supabase.table("grid_orders").select("grid_level, side, status").eq(
+                "strategy_id", strategy_id
+            ).in_("status", ["pending", "partially_filled"]).execute()
 
-        for order in open_orders:
-            if order.side == OrderSide.BUY:
-                existing_buy_prices.add(float(order.limit_price) if hasattr(order, 'limit_price') and order.limit_price else 0)
-            elif order.side == OrderSide.SELL:
-                existing_sell_prices.add(float(order.limit_price) if hasattr(order, 'limit_price') and order.limit_price else 0)
+            existing_grid_orders = set()
+            for order in existing_orders_resp.data:
+                existing_grid_orders.add((order["grid_level"], order["side"]))
 
-        # Calculate quantity per grid level
+            self.logger.info(f"📋 Found {len(existing_grid_orders)} existing grid orders in database")
+        except Exception as e:
+            self.logger.error(f"❌ Error fetching existing grid orders: {e}")
+            existing_grid_orders = set()
+
+        # Calculate quantity per grid level based on allocated capital
         quantity_per_grid = allocated_capital / len(grid_levels) / current_price
         quantity_per_grid = max(0.001, quantity_per_grid)  # Minimum quantity
 
-        # Place buy orders at levels below current price
-        buy_levels = [level for level in grid_levels if level < current_price * 0.998]  # 0.2% below
+        self.logger.info(f"📊 [GRID SETUP] Placing orders across ALL {len(grid_levels)} grid levels")
+        self.logger.info(f"💰 Capital per grid: ${allocated_capital / len(grid_levels):.2f}")
+        self.logger.info(f"📦 Quantity per grid: {quantity_per_grid:.6f} {symbol}")
+
+        # Place buy orders at ALL levels below current price
+        buy_levels = [level for level in grid_levels if level < current_price * 0.998]  # 0.2% below current
+        self.logger.info(f"📉 Placing buy orders at {len(buy_levels)} levels below ${current_price:.2f}")
 
         for idx, level in enumerate(buy_levels):
-            # Check if we already have an order near this level (within 0.1%)
-            has_order = any(abs(existing_price - level) / level < 0.001 for existing_price in existing_buy_prices)
+            grid_level_index = grid_levels.index(level)
 
-            if not has_order:
-                try:
-                    order_request = LimitOrderRequest(
-                        symbol=symbol.replace("/", ""),
-                        qty=quantity_per_grid,
-                        side=OrderSide.BUY,
-                        time_in_force=TimeInForce.GTC,  # Good til cancelled
-                        limit_price=round(level, 2)
-                    )
+            # Skip if order already exists at this grid level
+            if (grid_level_index, "buy") in existing_grid_orders:
+                self.logger.info(f"⏭️ [GRID] Buy order already exists at level {grid_level_index}")
+                continue
 
-                    order = self.trading_client.submit_order(order_request)
-                    self.logger.info(f"✅ [GRID] Placed buy limit order at ${level:.2f}, Order ID: {order.id}")
-                    orders_placed += 1
+            try:
+                order_request = LimitOrderRequest(
+                    symbol=symbol.replace("/", ""),
+                    qty=quantity_per_grid,
+                    side=OrderSide.BUY,
+                    time_in_force=TimeInForce.GTC,  # Good til cancelled
+                    limit_price=round(level, 2)
+                )
 
-                    # Record grid order in database
-                    grid_level_index = grid_levels.index(level)
-                    self.record_grid_order(
-                        strategy_data.get("user_id"),
-                        strategy_id,
-                        str(order.id),
-                        symbol,
-                        "buy",
-                        quantity_per_grid,
-                        level,
-                        grid_level_index
-                    )
+                order = self.trading_client.submit_order(order_request)
+                self.logger.info(f"✅ [GRID] Buy order placed at level {grid_level_index}: ${level:.2f}, Order ID: {order.id}")
+                orders_placed += 1
 
-                except AlpacaAPIError as e:
-                    self.logger.error(f"❌ [GRID] Failed to place buy order at ${level:.2f}: {e}")
-                except Exception as e:
-                    self.logger.error(f"❌ [GRID] Unexpected error placing buy order: {e}")
+                # Record grid order in database
+                self.record_grid_order(
+                    strategy_data.get("user_id"),
+                    strategy_id,
+                    str(order.id),
+                    symbol,
+                    "buy",
+                    quantity_per_grid,
+                    level,
+                    grid_level_index
+                )
 
-        # Place sell orders at levels above current price (only if we have position)
-        if current_qty > 0:
-            sell_levels = [level for level in grid_levels if level > current_price * 1.002]  # 0.2% above
+            except AlpacaAPIError as e:
+                self.logger.error(f"❌ [GRID] Failed to place buy order at level {grid_level_index} (${level:.2f}): {e}")
+            except Exception as e:
+                self.logger.error(f"❌ [GRID] Unexpected error placing buy order at level {grid_level_index}: {e}")
 
-            # Calculate sell quantity per level (divide position across sell levels)
-            sell_quantity_per_level = current_qty / len(sell_levels) if sell_levels else 0
-            sell_quantity_per_level = max(0.001, sell_quantity_per_level)
+        # Place sell orders at ALL levels above current price
+        # IMPORTANT: Place sell orders even without position - they will be filled as buys execute
+        sell_levels = [level for level in grid_levels if level > current_price * 1.002]  # 0.2% above current
+        self.logger.info(f"📈 Placing sell orders at {len(sell_levels)} levels above ${current_price:.2f}")
 
-            for level in sell_levels:
-                # Check if we already have an order near this level
-                has_order = any(abs(existing_price - level) / level < 0.001 for existing_price in existing_sell_prices)
+        # For sell orders, use the same quantity calculation
+        # The grid bot will accumulate position through buys and sell it through these orders
+        for level in sell_levels:
+            grid_level_index = grid_levels.index(level)
 
-                if not has_order and sell_quantity_per_level > 0:
-                    try:
-                        order_request = LimitOrderRequest(
-                            symbol=symbol.replace("/", ""),
-                            qty=min(sell_quantity_per_level, current_qty),
-                            side=OrderSide.SELL,
-                            time_in_force=TimeInForce.GTC,
-                            limit_price=round(level, 2)
-                        )
+            # Skip if order already exists at this grid level
+            if (grid_level_index, "sell") in existing_grid_orders:
+                self.logger.info(f"⏭️ [GRID] Sell order already exists at level {grid_level_index}")
+                continue
 
-                        order = self.trading_client.submit_order(order_request)
-                        self.logger.info(f"✅ [GRID] Placed sell limit order at ${level:.2f}, Order ID: {order.id}")
-                        orders_placed += 1
+            try:
+                order_request = LimitOrderRequest(
+                    symbol=symbol.replace("/", ""),
+                    qty=quantity_per_grid,
+                    side=OrderSide.SELL,
+                    time_in_force=TimeInForce.GTC,
+                    limit_price=round(level, 2)
+                )
 
-                        # Record grid order in database
-                        grid_level_index = grid_levels.index(level)
-                        self.record_grid_order(
-                            strategy_data.get("user_id"),
-                            strategy_id,
-                            str(order.id),
-                            symbol,
-                            "sell",
-                            min(sell_quantity_per_level, current_qty),
-                            level,
-                            grid_level_index
-                        )
+                order = self.trading_client.submit_order(order_request)
+                self.logger.info(f"✅ [GRID] Sell order placed at level {grid_level_index}: ${level:.2f}, Order ID: {order.id}")
+                orders_placed += 1
 
-                    except AlpacaAPIError as e:
-                        self.logger.error(f"❌ [GRID] Failed to place sell order at ${level:.2f}: {e}")
-                    except Exception as e:
-                        self.logger.error(f"❌ [GRID] Unexpected error placing sell order: {e}")
+                # Record grid order in database
+                self.record_grid_order(
+                    strategy_data.get("user_id"),
+                    strategy_id,
+                    str(order.id),
+                    symbol,
+                    "sell",
+                    quantity_per_grid,
+                    level,
+                    grid_level_index
+                )
+
+            except AlpacaAPIError as e:
+                self.logger.error(f"❌ [GRID] Failed to place sell order at level {grid_level_index} (${level:.2f}): {e}")
+            except Exception as e:
+                self.logger.error(f"❌ [GRID] Unexpected error placing sell order at level {grid_level_index}: {e}")
+
+        self.logger.info(f"🎯 [GRID SETUP COMPLETE] Placed {orders_placed} new limit orders across the grid")
+
+        # Broadcast grid setup complete via SSE
+        if orders_placed > 0:
+            try:
+                from sse_manager import publish
+                setup_complete = {
+                    "type": "grid_setup_complete",
+                    "strategy_id": strategy_id,
+                    "orders_placed": orders_placed,
+                    "total_grid_levels": len(grid_levels),
+                    "symbol": symbol,
+                    "current_price": current_price,
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                # Note: We need user_id to broadcast, it should be in strategy_data
+                user_id = strategy_data.get("user_id")
+                if user_id:
+                    import asyncio
+                    asyncio.create_task(publish(user_id, setup_complete))
+                    self.logger.info(f"📡 Broadcasting grid setup complete to user {user_id}")
+            except Exception as broadcast_error:
+                self.logger.error(f"❌ Error broadcasting grid setup: {broadcast_error}")
 
         return orders_placed
 

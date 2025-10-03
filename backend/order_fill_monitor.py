@@ -163,6 +163,27 @@ class OrderFillMonitor:
 
             logger.info(f"✅ Updated grid order {grid_order_id} status to {new_status}")
 
+            # Broadcast status update via SSE
+            try:
+                from sse_manager import publish
+                status_update = {
+                    "type": "grid_order_status_update",
+                    "strategy_id": strategy_id,
+                    "grid_order_id": grid_order_id,
+                    "alpaca_order_id": grid_order["alpaca_order_id"],
+                    "status": new_status,
+                    "side": grid_order["side"],
+                    "grid_level": grid_order["grid_level"],
+                    "limit_price": grid_order["limit_price"],
+                    "filled_qty": float(alpaca_order.filled_qty or 0),
+                    "filled_avg_price": float(alpaca_order.filled_avg_price or 0),
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                await publish(user_id, status_update)
+                logger.info(f"📡 Broadcasted grid order status update to user {user_id}")
+            except Exception as broadcast_error:
+                logger.error(f"❌ Error broadcasting status update: {broadcast_error}")
+
             # If order is filled, trigger strategy execution
             if new_status == "filled":
                 await self.trigger_strategy_execution(

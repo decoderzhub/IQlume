@@ -68,78 +68,85 @@ async def create_strategy(
             strategy_dict["telemetry_data"] = TelemetryData(**strategy_dict["telemetry_data"]).model_dump(mode='json')
 
         resp = supabase.table("trading_strategies").insert(strategy_dict).execute()
-        
+
         if not resp.data:
             raise HTTPException(status_code=500, detail="Failed to create strategy in database")
-        
+
         # Convert back to Pydantic model for response
         created_strategy = TradingStrategyResponse(**resp.data[0])
         logger.info(f"✅ Strategy created: {created_strategy.name} (ID: {created_strategy.id})")
-        
-        # Immediately execute the strategy after creation
-        try:
-            logger.info(f"🚀 Executing newly created strategy: {created_strategy.name}")
-            
-            # Get trading clients
-            trading_client = await get_alpaca_trading_client(current_user, supabase)
-            stock_client = get_alpaca_stock_data_client()
-            crypto_client = get_alpaca_crypto_data_client()
-            
-            # Get strategy executor from factory
-            executor = StrategyExecutorFactory.create_executor(
-                created_strategy.type,
-                trading_client,
-                stock_client,
-                crypto_client,
-                supabase
-            )
-            
-            if executor:
-                # Execute strategy using the appropriate executor
-                result = await executor.execute(resp.data[0])  # Use raw DB data
-                logger.info(f"📊 Initial execution result: {result}")
+
+        # Check if auto_start is enabled - if so, immediately execute and activate
+        should_auto_execute = strategy_data.auto_start or (created_strategy.type in ["spot_grid", "futures_grid", "reverse_grid", "infinity_grid"])
+
+        if should_auto_execute:
+            logger.info(f"🚀 Auto-start enabled for {created_strategy.name}, executing immediately")
+
+        # Immediately execute the strategy after creation if auto_start is enabled
+        if should_auto_execute:
+            try:
+                logger.info(f"🚀 Executing newly created strategy: {created_strategy.name}")
+
+                # Get trading clients
+                trading_client = await get_alpaca_trading_client(current_user, supabase)
+                stock_client = get_alpaca_stock_data_client()
+                crypto_client = get_alpaca_crypto_data_client()
+
+                # Get strategy executor from factory
+                executor = StrategyExecutorFactory.create_executor(
+                    created_strategy.type,
+                    trading_client,
+                    stock_client,
+                    crypto_client,
+                    supabase
+                )
+
+                if executor:
+                    # Execute strategy using the appropriate executor
+                    result = await executor.execute(resp.data[0])  # Use raw DB data
+                    logger.info(f"📊 Initial execution result: {result}")
                 
-                # Record trade in database if action was taken
-                # Skip for strategies that manage their own trade recording
-                if result and result.get("action") in ["buy", "sell"] and created_strategy.type not in ["smart_rebalance", "spot_grid", "reverse_grid"]:
-                    try:
-                        trade_data = {
-                            "user_id": current_user.id,
-                            "strategy_id": created_strategy.id,
-                            "symbol": result.get("symbol", "UNKNOWN"),
-                            "type": result.get("action"),
-                            "quantity": result.get("quantity", 0),
-                            "price": result.get("price", 0),
-                            "profit_loss": 0,
-                            "status": "pending",
-                            "order_type": "market",
-                            "time_in_force": "day",
-                            "filled_qty": 0,
-                            "filled_avg_price": 0,
-                            "commission": 0,
-                            "fees": 0,
-                            "alpaca_order_id": result.get("order_id"),
-                        }
-                        
-                        trade_resp = supabase.table("trades").insert(trade_data).execute()
-                        
-                        if trade_resp.data:
-                            trade_id = trade_resp.data[0]["id"]
-                            logger.info(f"✅ Initial trade recorded: {trade_id}")
-                        
-                    except Exception as trade_error:
-                        logger.error(f"❌ Error recording initial trade: {trade_error}")
-                
-                # Add execution result to the response
-                created_strategy_dict = created_strategy.model_dump()
-                created_strategy_dict["initial_execution_result"] = result
-                return TradingStrategyResponse(**created_strategy_dict)
-            else:
-                logger.warning(f"⚠️ No executor available for strategy type: {created_strategy.type}")
-                
-        except Exception as exec_error:
-            logger.error(f"❌ Error executing newly created strategy: {exec_error}")
-            # Don't fail the creation, just log the error
+                    # Record trade in database if action was taken
+                    # Skip for strategies that manage their own trade recording
+                    if result and result.get("action") in ["buy", "sell"] and created_strategy.type not in ["smart_rebalance", "spot_grid", "reverse_grid"]:
+                        try:
+                            trade_data = {
+                                "user_id": current_user.id,
+                                "strategy_id": created_strategy.id,
+                                "symbol": result.get("symbol", "UNKNOWN"),
+                                "type": result.get("action"),
+                                "quantity": result.get("quantity", 0),
+                                "price": result.get("price", 0),
+                                "profit_loss": 0,
+                                "status": "pending",
+                                "order_type": "market",
+                                "time_in_force": "day",
+                                "filled_qty": 0,
+                                "filled_avg_price": 0,
+                                "commission": 0,
+                                "fees": 0,
+                                "alpaca_order_id": result.get("order_id"),
+                            }
+
+                            trade_resp = supabase.table("trades").insert(trade_data).execute()
+
+                            if trade_resp.data:
+                                trade_id = trade_resp.data[0]["id"]
+                                logger.info(f"✅ Initial trade recorded: {trade_id}")
+
+                        except Exception as trade_error:
+                            logger.error(f"❌ Error recording initial trade: {trade_error}")
+
+                    # Add execution result to the response
+                    created_strategy_dict = created_strategy.model_dump()
+                    created_strategy_dict["initial_execution_result"] = result
+                    return TradingStrategyResponse(**created_strategy_dict)
+                else:
+                    logger.warning(f"⚠️ No executor available for strategy type: {created_strategy.type}")
+
+            except Exception as exec_error:
+                logger.error(f"❌ Error executing newly created strategy: {exec_error}")
+                # Don't fail the creation, just log the error
         
         return created_strategy
         
