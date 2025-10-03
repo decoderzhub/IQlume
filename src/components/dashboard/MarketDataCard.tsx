@@ -60,7 +60,11 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
     historicalData,
   } = strategyData;
 
-  const symbol = strategy.base_symbol || strategy.type.toUpperCase();
+  // Get symbol from multiple possible locations
+  // Priority: base_symbol > configuration.symbol > type
+  const symbol = strategy.base_symbol ||
+                 (strategy as any).configuration?.symbol ||
+                 strategy.type.toUpperCase();
   const isProfit = currentProfit >= 0;
   const isPriceUp = currentPrice >= startPrice;
   const timeActive = strategy.created_at
