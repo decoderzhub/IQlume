@@ -204,10 +204,27 @@ async def update_strategy(
     """Update an existing trading strategy"""
     try:
         logger.info(f"✏️ Updating strategy {strategy_id} for user {current_user.id}")
-        
+
+        # Check if strategy is being activated
+        was_activated = False
+        if strategy_data.is_active is not None:
+            # Get current strategy state
+            current_resp = supabase.table("trading_strategies").select("is_active, type, telemetry_data").eq("id", strategy_id).eq("user_id", current_user.id).execute()
+            if current_resp.data:
+                old_is_active = current_resp.data[0].get("is_active", False)
+                new_is_active = strategy_data.is_active
+                strategy_type = current_resp.data[0].get("type", "")
+                telemetry_data = current_resp.data[0].get("telemetry_data", {})
+
+                # Check if being activated and is a grid strategy without initial buy
+                if not old_is_active and new_is_active:
+                    was_activated = True
+                    initial_buy_submitted = telemetry_data.get("initial_buy_order_submitted", False) if isinstance(telemetry_data, dict) else False
+                    logger.info(f"🔄 Strategy being activated. Type: {strategy_type}, Initial buy submitted: {initial_buy_submitted}")
+
         # Convert Pydantic model to dictionary for Supabase update
         update_dict = strategy_data.model_dump(exclude_unset=True, mode='json')
-        
+
         # Ensure enum values are strings for Supabase
         if isinstance(update_dict.get("risk_level"), RiskLevel):
             update_dict["risk_level"] = update_dict["risk_level"].value
@@ -221,7 +238,7 @@ async def update_strategy(
             update_dict["backtest_mode"] = update_dict["backtest_mode"].value
         if isinstance(update_dict.get("grid_mode"), GridMode):
             update_dict["grid_mode"] = update_dict["grid_mode"].value
-            
+
         # Handle nested Pydantic models for JSONB fields
         if update_dict.get("technical_indicators"):
             update_dict["technical_indicators"] = TechnicalIndicators(**update_dict["technical_indicators"]).model_dump(mode='json')
@@ -229,14 +246,44 @@ async def update_strategy(
             update_dict["telemetry_data"] = TelemetryData(**update_dict["telemetry_data"]).model_dump(mode='json')
 
         resp = supabase.table("trading_strategies").update(update_dict).eq("id", strategy_id).eq("user_id", current_user.id).execute()
-        
+
         if not resp.data:
             raise HTTPException(status_code=500, detail="Failed to update strategy in database")
-            
+
         updated_strategy = TradingStrategyResponse(**resp.data[0])
         logger.info(f"✅ Strategy updated: {updated_strategy.name} (ID: {updated_strategy.id})")
+
+        # If strategy was just activated, execute it immediately
+        if was_activated:
+            try:
+                logger.info(f"🚀 Executing newly activated strategy: {updated_strategy.name}")
+
+                # Get trading clients
+                trading_client = await get_alpaca_trading_client(current_user, supabase)
+                stock_client = get_alpaca_stock_data_client()
+                crypto_client = get_alpaca_crypto_data_client()
+
+                # Get strategy executor from factory
+                executor = StrategyExecutorFactory.create_executor(
+                    updated_strategy.type,
+                    trading_client,
+                    stock_client,
+                    crypto_client,
+                    supabase
+                )
+
+                if executor:
+                    # Execute strategy
+                    result = await executor.execute(resp.data[0])
+                    logger.info(f"📊 Activation execution result: {result}")
+                else:
+                    logger.warning(f"⚠️ No executor for strategy type: {updated_strategy.type}")
+
+            except Exception as exec_error:
+                logger.error(f"❌ Error executing activated strategy: {exec_error}")
+
         return updated_strategy
-        
+
     except HTTPException:
         raise
     except Exception as e:
