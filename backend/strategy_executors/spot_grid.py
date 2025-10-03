@@ -535,8 +535,35 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     "price": current_price,
                     "reason": "Waiting for initial buy order to be submitted"
                 }
-            
+
             self.logger.info(f"🔄 [GRID LOGIC] Initial buy completed, proceeding with regular grid operations")
+
+            # CHECK IF GRID HAS ALREADY BEEN INITIALIZED
+            # Grid strategies should only place orders ONCE during initial setup
+            # After that, the order fill monitor handles all subsequent order placement
+            try:
+                existing_grid_orders = self.supabase.table("grid_orders").select("id, status").eq(
+                    "strategy_id", strategy_id
+                ).in_("status", ["pending", "partially_filled", "filled"]).execute()
+
+                if existing_grid_orders.data and len(existing_grid_orders.data) > 0:
+                    active_count = len([o for o in existing_grid_orders.data if o["status"] in ["pending", "partially_filled"]])
+                    self.logger.info(f"✅ [GRID INITIALIZED] Grid already has {len(existing_grid_orders.data)} orders ({active_count} active). Skipping re-initialization.")
+
+                    # Grid is already set up - no need to place more orders
+                    # The order fill monitor will handle placing new orders as fills occur
+                    return {
+                        "action": "hold",
+                        "symbol": symbol,
+                        "quantity": 0,
+                        "price": current_price,
+                        "reason": f"Grid already initialized with {len(existing_grid_orders.data)} orders ({active_count} active). Order fill monitor is managing grid."
+                    }
+            except Exception as check_error:
+                self.logger.error(f"❌ Error checking existing grid orders: {check_error}")
+                # Continue with execution if we can't check - better to potentially duplicate than fail
+
+            self.logger.info(f"🆕 [GRID SETUP] No existing grid orders found. Initializing grid for the first time.")
             
             # Check if market is open before attempting to trade
             is_market_open = self.is_market_open(symbol)
