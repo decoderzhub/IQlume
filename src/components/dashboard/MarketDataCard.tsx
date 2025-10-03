@@ -1,42 +1,82 @@
 import React from 'react';
-import { TrendingUp, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Info, Activity } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Card } from '../ui/Card';
+import { formatCurrency } from '../../lib/utils';
+import { formatDistanceToNow } from 'date-fns';
 
-interface HistoricalDataPoint {
-  time: number;
-  timeLabel: string;
-  price: number;
-  value: number;
+interface StrategyPerformanceData {
+  strategy: {
+    id: string;
+    name: string;
+    type: string;
+    base_symbol?: string;
+    created_at?: string;
+  };
+  totalInvestment: number;
+  currentValue: number;
+  currentProfit: number;
+  currentProfitPercent: number;
+  gridProfit: number;
+  holdingProfit: number;
+  gridProfitPercent: number;
+  annualizedReturn: number;
+  totalTransactions: number;
+  last24hTransactions: number;
+  priceRangeUpper: number;
+  priceRangeLower: number;
+  gridLevels: number;
+  startPrice: number;
+  currentPrice: number;
+  historicalData: Array<{
+    time: number;
+    timeLabel: string;
+    price: number;
+    value: number;
+  }>;
 }
 
 interface MarketDataCardProps {
-  symbol: string;
-  data: {
-    price: number;
-    change: number;
-    change_percent: number;
-    open?: number;
-    high: number;
-    low: number;
-  };
-  historicalData?: HistoricalDataPoint[];
+  strategyData: StrategyPerformanceData;
 }
 
-export function MarketDataCard({ symbol, data, historicalData }: MarketDataCardProps) {
+export function MarketDataCard({ strategyData }: MarketDataCardProps) {
+  const {
+    strategy,
+    totalInvestment,
+    currentProfit,
+    currentProfitPercent,
+    gridProfit,
+    holdingProfit,
+    gridProfitPercent,
+    annualizedReturn,
+    totalTransactions,
+    last24hTransactions,
+    priceRangeUpper,
+    priceRangeLower,
+    gridLevels,
+    startPrice,
+    currentPrice,
+    historicalData,
+  } = strategyData;
+
+  const symbol = strategy.base_symbol || strategy.type.toUpperCase();
+  const isProfit = currentProfit >= 0;
+  const isPriceUp = currentPrice >= startPrice;
+  const timeActive = strategy.created_at
+    ? formatDistanceToNow(new Date(strategy.created_at), { addSuffix: false })
+    : 'N/A';
+
   return (
     <Card className="p-6" hoverable>
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-          <span className="text-white font-bold text-sm">
-            {symbol === 'BTC' ? '₿' : symbol === 'ETH' ? 'Ξ' : symbol.charAt(0)}
-          </span>
+        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-teal-500 to-green-500 rounded-full flex items-center justify-center">
+          <Activity className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-white">{symbol}/USDT Grid Trading</h3>
+          <h3 className="text-lg font-semibold text-white">{strategy.name}</h3>
           <p className="text-sm text-gray-400">
-            Active for {Math.floor(Math.random() * 24)}h {Math.floor(Math.random() * 60)}m (Created{' '}
-            {new Date().toLocaleDateString()})
+            Active for {timeActive} {strategy.created_at && `(Created ${new Date(strategy.created_at).toLocaleDateString()})`}
           </p>
         </div>
       </div>
@@ -45,21 +85,21 @@ export function MarketDataCard({ symbol, data, historicalData }: MarketDataCardP
         <div className="bg-gray-800/30 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-sm text-gray-400">Investment</span>
-            <span className="text-xs text-gray-500">USDT</span>
+            <span className="text-xs text-gray-500">USD</span>
           </div>
           <div className="text-xl lg:text-2xl font-bold text-white break-words">
-            {(Math.random() * 5000 + 1000).toFixed(1)}
+            {formatCurrency(totalInvestment)}
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-green-600/20 to-green-500/20 border border-green-500/30 rounded-lg p-4 flex-1">
+        <div className={`bg-gradient-to-r ${isProfit ? 'from-green-600/20 to-green-500/20 border-green-500/30' : 'from-red-600/20 to-red-500/20 border-red-500/30'} border rounded-lg p-4 flex-1`}>
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm text-green-400">Current profit</span>
-            <span className="text-xs text-green-400">USDT</span>
-            <Info className="w-3 h-3 text-green-400" />
+            <span className={`text-sm ${isProfit ? 'text-green-400' : 'text-red-400'}`}>Current profit</span>
+            <span className={`text-xs ${isProfit ? 'text-green-400' : 'text-red-400'}`}>USD</span>
+            <Info className={`w-3 h-3 ${isProfit ? 'text-green-400' : 'text-red-400'}`} />
           </div>
-          <div className="text-lg lg:text-xl xl:text-2xl font-bold text-green-400 break-words overflow-hidden">
-            +{(data.change * 10).toFixed(4)}({data.change_percent?.toFixed(2)}%)
+          <div className={`text-lg lg:text-xl xl:text-2xl font-bold ${isProfit ? 'text-green-400' : 'text-red-400'} break-words overflow-hidden`}>
+            {isProfit ? '+' : ''}{formatCurrency(currentProfit)} ({currentProfitPercent.toFixed(2)}%)
           </div>
         </div>
       </div>
@@ -68,27 +108,37 @@ export function MarketDataCard({ symbol, data, historicalData }: MarketDataCardP
         <div>
           <div className="flex items-center gap-1 mb-1">
             <span className="text-sm text-gray-400">Grid profit</span>
-            <span className="text-xs text-gray-500">USDT</span>
+            <span className="text-xs text-gray-500">USD</span>
           </div>
-          <div className="text-green-400 font-semibold">+{(Math.random() * 50).toFixed(4)}</div>
-          <div className="text-green-400 text-sm">+{(Math.random() * 0.1).toFixed(2)}%</div>
+          <div className={`${gridProfit >= 0 ? 'text-green-400' : 'text-red-400'} font-semibold`}>
+            {gridProfit >= 0 ? '+' : ''}{formatCurrency(gridProfit)}
+          </div>
+          <div className={`${gridProfitPercent >= 0 ? 'text-green-400' : 'text-red-400'} text-sm`}>
+            {gridProfitPercent >= 0 ? '+' : ''}{gridProfitPercent.toFixed(2)}%
+          </div>
         </div>
 
         <div>
           <div className="flex items-center gap-1 mb-1">
             <span className="text-sm text-gray-400">Holding profit</span>
-            <span className="text-xs text-gray-500">USDT</span>
+            <span className="text-xs text-gray-500">USD</span>
           </div>
-          <div className="text-green-400 font-semibold">+{(data.change * 8).toFixed(4)}</div>
-          <div className="text-green-400 text-sm">+{(Math.random() * 1 + 0.5).toFixed(2)}%</div>
+          <div className={`${holdingProfit >= 0 ? 'text-green-400' : 'text-red-400'} font-semibold`}>
+            {holdingProfit >= 0 ? '+' : ''}{formatCurrency(holdingProfit)}
+          </div>
+          <div className={`${holdingProfit >= 0 ? 'text-green-400' : 'text-red-400'} text-sm`}>
+            {holdingProfit >= 0 ? '+' : ''}{((holdingProfit / totalInvestment) * 100).toFixed(2)}%
+          </div>
         </div>
 
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <span className="text-sm text-gray-400">Grid/Total annualized</span>
+            <span className="text-sm text-gray-400">Annualized return</span>
           </div>
-          <div className="text-green-400 font-semibold">{(Math.random() * 10 + 5).toFixed(1)}%</div>
-          <div className="text-green-400 text-sm">{(Math.random() * 200 + 50).toFixed(2)}%</div>
+          <div className={`${annualizedReturn >= 0 ? 'text-green-400' : 'text-red-400'} font-semibold`}>
+            {annualizedReturn >= 0 ? '+' : ''}{annualizedReturn.toFixed(1)}%
+          </div>
+          <div className="text-gray-400 text-sm">Per year</div>
         </div>
       </div>
 
@@ -96,60 +146,77 @@ export function MarketDataCard({ symbol, data, historicalData }: MarketDataCardP
         <div>
           <div className="text-sm text-gray-400 mb-1">24H/Total Transactions</div>
           <div className="text-white font-semibold">
-            {Math.floor(Math.random() * 5)}/{Math.floor(Math.random() * 20 + 5)} times
+            {last24hTransactions}/{totalTransactions} times
           </div>
         </div>
 
         <div>
           <div className="text-sm text-gray-400 mb-1">
-            Price range <span className="text-xs">USDT</span>
+            Price range <span className="text-xs">USD</span>
           </div>
-          <div className="text-white font-semibold">
-            {(data.low * 0.95).toFixed(0)} - {(data.high * 1.05).toFixed(0)}
-          </div>
-          <div className="text-gray-400 text-sm">({Math.floor(Math.random() * 50 + 20)} grids)</div>
+          {priceRangeLower > 0 && priceRangeUpper > 0 ? (
+            <>
+              <div className="text-white font-semibold">
+                {formatCurrency(priceRangeLower)} - {formatCurrency(priceRangeUpper)}
+              </div>
+              {gridLevels > 0 && (
+                <div className="text-gray-400 text-sm">({gridLevels} grids)</div>
+              )}
+            </>
+          ) : (
+            <div className="text-gray-500 text-sm">Not configured</div>
+          )}
         </div>
 
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <span className="text-sm text-gray-400">Accum grid/</span>
-            <span className="text-xs text-gray-500">USDT</span>
             <span className="text-sm text-gray-400">Total profit</span>
+            <span className="text-xs text-gray-500">USD</span>
           </div>
-          <div className="text-green-400 font-semibold">+{(Math.random() * 50).toFixed(4)}</div>
-          <div className="text-green-400 text-sm">+{(data.change * 10).toFixed(4)}</div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div>
-          <div className="text-sm text-gray-400 mb-1">
-            Price <span className="text-xs">USDT</span>
+          <div className={`${currentProfit >= 0 ? 'text-green-400' : 'text-red-400'} font-semibold`}>
+            {currentProfit >= 0 ? '+' : ''}{formatCurrency(currentProfit)}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-white font-semibold text-lg">{data.price?.toFixed(3)}</span>
-            <TrendingUp className="w-4 h-4 text-orange-400" />
-          </div>
-        </div>
-
-        <div>
-          <div className="text-sm text-gray-400 mb-1">
-            Start price <span className="text-xs">USDT</span>
-          </div>
-          <div className="text-white font-semibold text-lg">
-            {(data.open || data.price * 0.98)?.toFixed(3)}
+          <div className={`${currentProfit >= 0 ? 'text-green-400' : 'text-red-400'} text-sm`}>
+            {currentProfit >= 0 ? '+' : ''}{currentProfitPercent.toFixed(2)}%
           </div>
         </div>
       </div>
+
+      {currentPrice > 0 && startPrice > 0 && (
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div>
+            <div className="text-sm text-gray-400 mb-1">
+              Current price <span className="text-xs">USD</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-white font-semibold text-lg">{formatCurrency(currentPrice)}</span>
+              {isPriceUp ? (
+                <TrendingUp className="w-4 h-4 text-green-400" />
+              ) : (
+                <TrendingDown className="w-4 h-4 text-red-400" />
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm text-gray-400 mb-1">
+              Start price <span className="text-xs">USD</span>
+            </div>
+            <div className="text-white font-semibold text-lg">
+              {formatCurrency(startPrice)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {historicalData && historicalData.length > 0 && (
         <div className="h-48 mb-4">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={historicalData}>
               <defs>
-                <linearGradient id={`gradient-${symbol}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                <linearGradient id={`gradient-${strategy.id}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={isProfit ? "#10b981" : "#ef4444"} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={isProfit ? "#10b981" : "#ef4444"} stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <XAxis
@@ -160,20 +227,20 @@ export function MarketDataCard({ symbol, data, historicalData }: MarketDataCardP
                 interval="preserveStartEnd"
               />
               <YAxis
-                domain={['dataMin - 1', 'dataMax + 1']}
+                domain={['dataMin - 10', 'dataMax + 10']}
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 12, fill: '#d1d5db' }}
-                tickFormatter={(value) => `${value.toFixed(0)}`}
+                tickFormatter={(value) => formatCurrency(value)}
               />
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke="#10b981"
+                stroke={isProfit ? "#10b981" : "#ef4444"}
                 strokeWidth={2}
-                fill={`url(#gradient-${symbol})`}
+                fill={`url(#gradient-${strategy.id})`}
                 dot={false}
-                activeDot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#ffffff' }}
+                activeDot={{ r: 4, fill: isProfit ? '#10b981' : '#ef4444', strokeWidth: 2, stroke: '#ffffff' }}
               />
             </AreaChart>
           </ResponsiveContainer>
