@@ -178,17 +178,21 @@ async def get_real_time_quotes(symbols: List[str], credentials: HTTPAuthorizatio
         try:
             req = StockLatestQuoteRequest(symbol_or_symbols=stock_symbols, feed=DataFeed.IEX)
             data = stock_data_client.get_stock_latest_quote(req)
+            logger.info(f"📊 Alpaca IEX quote response for {stock_symbols}: {len(data or {})} quotes received")
             for sym, q in (data or {}).items():
+                bid = float(q.bid_price) if getattr(q, "bid_price", None) else 0.0
+                ask = float(q.ask_price) if getattr(q, "ask_price", None) else 0.0
+                logger.info(f"💰 {sym} IEX Quote - Bid: ${bid}, Ask: ${ask}")
                 quotes[sym] = {
-                    "bid_price": float(q.bid_price) if getattr(q, "bid_price", None) else 0.0,
-                    "ask_price": float(q.ask_price) if getattr(q, "ask_price", None) else 0.0,
+                    "bid_price": bid,
+                    "ask_price": ask,
                     "bid_size": int(getattr(q, "bid_size", 0) or 0),
                     "ask_size": int(getattr(q, "ask_size", 0) or 0),
                     "timestamp": q.timestamp.isoformat() if getattr(q, "timestamp", None) else tz_now_iso(),
                     "source": "alpaca:iex",
                 }
         except Exception as e:
-            logger.error(f"Error fetching stock quotes: {e}")
+            logger.error(f"❌ ERROR fetching stock quotes from Alpaca IEX: {e}", exc_info=True)
             # graceful degrade: add mocks so UI stays alive
             for sym in stock_symbols:
                 quotes[sym] = _mock_quote(sym)
@@ -297,17 +301,14 @@ async def get_live_prices_data(symbols: List[str], credentials: HTTPAuthorizatio
         ask = q.get("ask_price", 0) or 0
         mid = (bid + ask) / 2 if bid and ask else (bid or ask or 0)
 
-        # For crypto symbols, use realistic demo prices if API data is invalid
-        if normalize_crypto_symbol(sym_u) and (not mid or mid <= 0):
-            if sym_u in ["BTC", "BITCOIN"]:
-                mid = 55.0 + (hash(sym_u) % 20)  # $55-75 range to match grid
-                logger.info(f"💰 Using realistic BTC price for frontend: ${mid}")
-            elif sym_u in ["ETH", "ETHEREUM"]:
-                mid = 2500.0 + (hash(sym_u) % 1000)  # $2500-3500 range
-                logger.info(f"💰 Using realistic ETH price for frontend: ${mid}")
+        # If no valid price data, log error and return zero (don't use fake prices)
+        if not mid or mid <= 0:
+            logger.error(f"❌ No valid market data for {sym_u} from Alpaca API. Bid: {bid}, Ask: {ask}")
+            # Check if this is a crypto symbol
+            if normalize_crypto_symbol(sym_u):
+                logger.warning(f"⚠️ Crypto symbol {sym_u} has no data. API might not support this pair.")
             else:
-                mid = 100.0 + (hash(sym_u) % 500)
-                logger.info(f"💰 Using realistic crypto price for frontend: ${mid}")
+                logger.warning(f"⚠️ Stock symbol {sym_u} has no data. Market might be closed or API error.")
         daily_bar = (snap or {}).get("daily_bar") if snap else None
         open_px = (daily_bar or {}).get("open", 0) if daily_bar else 0
         change = (mid - open_px) if (mid and open_px) else 0
@@ -935,12 +936,25 @@ async def ai_configure_grid_range(
         closing_prices = [float(bar["close"]) for bar in bars]
         high_prices = [float(bar["high"]) for bar in bars]
         low_prices = [float(bar["low"]) for bar in bars]
-        
+
         # Calculate yearly extremes
         yearly_high = max(high_prices)
         yearly_low = min(low_prices)
-        current_price = closing_prices[-1]
-        
+
+        # IMPORTANT: Use LIVE current price, not historical close
+        logger.info(f"📊 Fetching live current price for {symbol}...")
+        current_price_data = await get_live_prices_data([symbol], credentials)
+        live_current_price = current_price_data.get(symbol.upper(), {}).get("price", 0)
+
+        # Use historical as fallback only if live price fails
+        historical_close = closing_prices[-1]
+        if live_current_price and live_current_price > 0:
+            current_price = live_current_price
+            logger.info(f"✅ Using LIVE current price: ${current_price:.2f}")
+        else:
+            current_price = historical_close
+            logger.warning(f"⚠️ Live price unavailable, using historical close: ${current_price:.2f}")
+
         logger.info(f"📈 Yearly range: ${yearly_low:.2f} - ${yearly_high:.2f}, Current: ${current_price:.2f}")
         
         # Calculate Bollinger Bands (20-period, 2 std dev)
