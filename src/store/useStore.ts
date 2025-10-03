@@ -72,12 +72,24 @@ export const useStore = create<AppState>((set) => ({
     const brokerageTotal = state.brokerageAccounts.reduce((sum, acc) => sum + acc.balance, 0);
     const bankTotal = state.bankAccounts.reduce((sum, acc) => sum + acc.balance, 0);
     const walletTotal = state.custodialWallets.reduce((sum, wallet) => sum + wallet.balance_usd + wallet.balance_treasuries, 0);
-    const buyingPower = bankTotal + state.custodialWallets.reduce((sum, wallet) => sum + wallet.balance_usd, 0);
-    
+
+    // Calculate buying power: liquid cash available for trading
+    // Includes bank account balances, custodial wallet USD balances, and brokerage cash
+    // Note: This is a simplified calculation. Real buying power calculation should come from backend
+    const brokerageCash = state.brokerageAccounts.reduce((sum, acc) => {
+      // Assuming 20% of brokerage balance is available cash (this should come from API)
+      return sum + (acc.balance * 0.2);
+    }, 0);
+    const buyingPower = bankTotal + state.custodialWallets.reduce((sum, wallet) => sum + wallet.balance_usd, 0) + brokerageCash;
+
     const totalValue = brokerageTotal + bankTotal + walletTotal;
-    const dayChange = totalValue * 0.01; // Mock 1% daily change
-    const dayChangePercent = 1.0;
-    
+
+    // Use existing portfolio data for day change if available, otherwise calculate from backend
+    // Day change should be fetched from backend API with actual market data
+    const existingPortfolio = state.portfolio;
+    const dayChange = existingPortfolio?.day_change || 0;
+    const dayChangePercent = existingPortfolio?.day_change_percent || 0;
+
     return {
       portfolio: {
         total_value: totalValue,

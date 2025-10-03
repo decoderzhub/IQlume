@@ -80,6 +80,8 @@ export function usePortfolioData() {
         const portfolioData = await portfolioResponse.json();
 
         if (mountedRef.current) {
+          // Use actual day change data from backend API
+          // These values should reflect real market performance, not mock data
           setPortfolio({
             total_value: portfolioData.total_value || 0,
             buying_power: portfolioData.buying_power || 0,

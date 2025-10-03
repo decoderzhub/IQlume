@@ -154,15 +154,20 @@ export function useStrategyPerformance(userId?: string) {
           const telemetryData = strategy.telemetry_data || {};
           const config = strategy.configuration || {};
 
-          const priceRangeUpper = telemetryData.upper_price_limit ||
+          // Extract grid configuration with correct field names
+          // Grid strategies store configuration as: price_range_lower, price_range_upper, number_of_grids
+          const priceRangeUpper = config.price_range_upper ||
+                                  telemetryData.upper_price_limit ||
                                   config.upper_price ||
                                   config.price_upper ||
                                   0;
-          const priceRangeLower = telemetryData.lower_price_limit ||
+          const priceRangeLower = config.price_range_lower ||
+                                  telemetryData.lower_price_limit ||
                                   config.lower_price ||
                                   config.price_lower ||
                                   0;
-          const gridLevels = telemetryData.active_grid_levels ||
+          const gridLevels = config.number_of_grids ||
+                            telemetryData.active_grid_levels ||
                             config.num_grids ||
                             config.grid_levels ||
                             0;
