@@ -93,7 +93,14 @@ export function TradingStrategies() {
           >
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h4 className="font-medium text-white">{strategy.name}</h4>
+                <h4 className="font-medium text-white">
+                  {strategy.name}
+                  {(strategy.base_symbol || strategy.configuration?.symbol) && (
+                    <span className="ml-2 text-blue-400">
+                      ({strategy.base_symbol || strategy.configuration?.symbol})
+                    </span>
+                  )}
+                </h4>
                 <p className="text-sm text-gray-400">{strategy.description}</p>
               </div>
               <div className="flex items-center gap-2">
