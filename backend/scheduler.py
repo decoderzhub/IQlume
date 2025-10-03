@@ -112,11 +112,14 @@ class TradingScheduler:
             # High frequency strategies
             "scalping": 30,           # 30 seconds
             "arbitrage": 60,          # 1 minute
-            
-            # Medium frequency strategies  
-            "spot_grid": 300,         # 5 minutes
-            "futures_grid": 300,      # 5 minutes
-            "infinity_grid": 300,     # 5 minutes
+
+            # Grid strategies - use limit orders, only need periodic checks
+            "spot_grid": 1800,        # 30 minutes (checks for filled orders and rebalances grid)
+            "futures_grid": 1800,     # 30 minutes
+            "infinity_grid": 1800,    # 30 minutes
+            "reverse_grid": 1800,     # 30 minutes
+
+            # Medium frequency strategies
             "momentum_breakout": 300, # 5 minutes
             "news_based_trading": 300, # 5 minutes
             
