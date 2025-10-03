@@ -9,8 +9,8 @@ by selling at higher prices and buying back at lower prices.
 import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
-from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
-from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, GetOrdersRequest
+from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
 from alpaca.common.exceptions import APIError as AlpacaAPIError
 from .base import BaseStrategyExecutor
 
@@ -498,8 +498,13 @@ class ReverseGridExecutor(BaseStrategyExecutor):
                 current_position = next((p for p in positions if p.symbol == symbol), None)
                 current_qty = float(current_position.qty) if current_position else 0
 
-                orders = self.trading_client.get_orders()
-                open_orders = [o for o in orders if o.symbol == symbol and o.status in ['new', 'accepted', 'partially_filled']]
+                # Get open orders using proper request object
+                orders_request = GetOrdersRequest(
+                    status=QueryOrderStatus.OPEN,
+                    limit=100
+                )
+                orders = self.trading_client.get_orders(filter=orders_request)
+                open_orders = [o for o in orders if o.symbol == symbol]
 
                 if current_qty > 0:
                     nearest_sell_level = self.find_nearest_grid_level_above(current_price, grid_levels)

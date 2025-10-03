@@ -8,8 +8,8 @@ Grid trading involves placing buy and sell orders at regular intervals above and
 import logging
 from typing import Dict, Any, List, Optional, Any as AnyType
 from datetime import datetime, timezone
-from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
-from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, GetOrdersRequest
+from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
 from alpaca.common.exceptions import APIError as AlpacaAPIError
 from .base import BaseStrategyExecutor
 
@@ -607,10 +607,15 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 positions = self.trading_client.get_all_positions()
                 current_position = next((p for p in positions if p.symbol == symbol), None)
                 current_qty = float(current_position.qty) if current_position else 0
-                
-                orders = self.trading_client.get_orders()
-                open_orders = [o for o in orders if o.symbol == symbol and o.status in ['new', 'accepted', 'partially_filled']]
-                
+
+                # Get open orders using proper request object
+                orders_request = GetOrdersRequest(
+                    status=QueryOrderStatus.OPEN,
+                    limit=100
+                )
+                orders = self.trading_client.get_orders(filter=orders_request)
+                open_orders = [o for o in orders if o.symbol == symbol]
+
                 self.logger.info(f"📊 Current position: {current_qty} {symbol}, Open orders: {len(open_orders)}")
             except AlpacaAPIError as e:
                 self.logger.error(f"❌ Error fetching positions/orders: {e}")

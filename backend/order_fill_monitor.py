@@ -11,7 +11,8 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 from alpaca.trading.client import TradingClient
-from alpaca.trading.enums import OrderStatus
+from alpaca.trading.requests import GetOrdersRequest
+from alpaca.trading.enums import OrderStatus, QueryOrderStatus
 from alpaca.common.exceptions import APIError as AlpacaAPIError
 from supabase import Client
 
@@ -90,7 +91,12 @@ class OrderFillMonitor:
 
             # Fetch all orders from Alpaca for this user
             try:
-                alpaca_orders = trading_client.get_orders(status="all", limit=100)
+                # Use GetOrdersRequest with proper filter parameter
+                request = GetOrdersRequest(
+                    status=QueryOrderStatus.ALL,
+                    limit=100
+                )
+                alpaca_orders = trading_client.get_orders(filter=request)
             except AlpacaAPIError as e:
                 logger.error(f"❌ Failed to fetch orders from Alpaca for user {user_id}: {e}")
                 return
