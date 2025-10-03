@@ -841,12 +841,20 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 self.logger.error(f"❌ [GRID] Unexpected error placing buy order at level {grid_level_index}: {e}")
 
         # Place sell orders at ALL levels above current price
-        # IMPORTANT: Place sell orders even without position - they will be filled as buys execute
+        # IMPORTANT: Only place sell orders if we have sufficient position
+        # Alpaca doesn't support naked sell orders - you must own the shares first
         sell_levels = [level for level in grid_levels if level > current_price * 1.002]  # 0.2% above current
-        self.logger.info(f"📈 Placing sell orders at {len(sell_levels)} levels above ${current_price:.2f}")
+        self.logger.info(f"📈 Checking sell order placement at {len(sell_levels)} levels above ${current_price:.2f}")
 
-        # For sell orders, use the same quantity calculation
-        # The grid bot will accumulate position through buys and sell it through these orders
+        # Check if we have sufficient position to place sell orders
+        if current_qty < quantity_per_grid * 0.1:  # Need at least 10% of one grid quantity
+            self.logger.info(f"⏸️ [GRID] Insufficient position ({current_qty:.6f}) to place sell orders. Waiting for buy orders to fill first.")
+            self.logger.info(f"💡 [GRID] Buy orders will be placed, and sell orders will be added as position accumulates.")
+        else:
+            self.logger.info(f"✅ [GRID] Current position: {current_qty:.6f} {symbol}. Placing sell orders.")
+
+        # For sell orders, only place them if we have sufficient position
+        # The order fill monitor will place new sell orders as buy orders fill
         for level in sell_levels:
             grid_level_index = grid_levels.index(level)
 
@@ -855,10 +863,24 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 self.logger.info(f"⏭️ [GRID] Sell order already exists at level {grid_level_index}")
                 continue
 
+            # CRITICAL: Skip sell orders if we don't have enough position
+            # Alpaca will reject sell orders for shares you don't own
+            if current_qty < quantity_per_grid * 0.1:
+                self.logger.info(f"⏸️ [GRID] Skipping sell order at level {grid_level_index} - insufficient position ({current_qty:.6f} < {quantity_per_grid * 0.1:.6f})")
+                continue
+
             try:
+                # Calculate sell quantity - never sell more than we have
+                # Reserve some position for multiple sell orders
+                max_sell_qty = min(quantity_per_grid, current_qty * 0.8)  # Max 80% of position per order
+                sell_qty = max(0.001, max_sell_qty) if max_sell_qty > 0 else quantity_per_grid
+
+                # Update fractional check based on actual sell quantity
+                is_sell_fractional = sell_qty < 1.0
+
                 # Determine appropriate time_in_force based on quantity
                 # Alpaca requires fractional orders to be DAY orders, not GTC
-                if is_fractional and not is_crypto:
+                if is_sell_fractional and not is_crypto:
                     time_in_force = TimeInForce.DAY
                     self.logger.info(f"⚠️ [GRID] Using DAY order for fractional quantity at level {grid_level_index}")
                 else:
@@ -866,14 +888,14 @@ class SpotGridExecutor(BaseStrategyExecutor):
 
                 order_request = LimitOrderRequest(
                     symbol=symbol.replace("/", ""),
-                    qty=quantity_per_grid,
+                    qty=sell_qty,
                     side=OrderSide.SELL,
                     time_in_force=time_in_force,
                     limit_price=round(level, 2)
                 )
 
                 order = self.trading_client.submit_order(order_request)
-                self.logger.info(f"✅ [GRID] Sell order placed at level {grid_level_index}: ${level:.2f}, TIF: {time_in_force}, Order ID: {order.id}")
+                self.logger.info(f"✅ [GRID] Sell order placed at level {grid_level_index}: ${level:.2f}, Qty: {sell_qty:.6f}, TIF: {time_in_force}, Order ID: {order.id}")
                 orders_placed += 1
 
                 # Record grid order in database
@@ -883,15 +905,21 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     str(order.id),
                     symbol,
                     "sell",
-                    quantity_per_grid,
+                    sell_qty,
                     level,
                     grid_level_index,
                     time_in_force.value if hasattr(time_in_force, 'value') else str(time_in_force),
-                    is_fractional
+                    is_sell_fractional
                 )
 
             except AlpacaAPIError as e:
                 error_msg = str(e).lower()
+
+                # Check for insufficient quantity error
+                if "insufficient" in error_msg and "qty" in error_msg:
+                    self.logger.warning(f"⚠️ [GRID] Insufficient position to place sell order at level {grid_level_index}. Skipping.")
+                    continue
+
                 # If we get fractional order error, retry with DAY order
                 if "fractional" in error_msg and "day" in error_msg and time_in_force == TimeInForce.GTC:
                     self.logger.warning(f"⚠️ [GRID] Retrying sell order at level {grid_level_index} with DAY time_in_force")
@@ -906,7 +934,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
                             str(order.id),
                             symbol,
                             "sell",
-                            quantity_per_grid,
+                            sell_qty,
                             level,
                             grid_level_index,
                             "DAY",
