@@ -30,7 +30,7 @@ A sophisticated full-stack trading platform that enables automated strategy exec
 
 **Frontend:**
 - React 18 with TypeScript
-- Vite for fast development
+- Vite for fast development 
 - TailwindCSS for styling
 - Framer Motion for animations
 - Zustand for state management
