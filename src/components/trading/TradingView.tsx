@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, DollarSign, BarChart3, Clock, RefreshCw } from 'lucide-react';
+import { TrendingUp, DollarSign, BarChart3, Clock, RefreshCw, AlertCircle } from 'lucide-react';
+import { getMarketStatus, formatTimeUntil, isCryptoMarketOpen, type MarketStatus } from '../../lib/marketHours';
 import { Card } from '../ui/Card';
 import { OrderEntryForm, OrderData } from './OrderEntryForm';
 import { OrderPreviewModal } from './OrderPreviewModal';
@@ -38,6 +39,7 @@ export function TradingView() {
     expiration: string;
     data: any;
   } | null>(null);
+  const [marketStatus, setMarketStatus] = useState<MarketStatus>(getMarketStatus());
 
   const currentPrice = marketData?.price || 0;
 
@@ -96,6 +98,18 @@ export function TradingView() {
       setMarketData(null);
     }
   }, [selectedSymbol, fetchMarketData]);
+
+  // Update market status every minute
+  useEffect(() => {
+    const updateMarketStatus = () => {
+      setMarketStatus(getMarketStatus());
+    };
+
+    updateMarketStatus();
+    const interval = setInterval(updateMarketStatus, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleOrderSubmit = (order: OrderData) => {
     setPendingOrder(order);
@@ -175,10 +189,32 @@ export function TradingView() {
           <h1 className="text-3xl font-bold text-white">Live Trading</h1>
           <p className="text-gray-400 mt-1">Place manual trades with real-time market data</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-sm text-green-400 font-medium">Market Open</span>
-        </div>
+        {assetClass === 'crypto' ? (
+          <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <span className="text-sm text-blue-400 font-medium">24/7 Trading</span>
+          </div>
+        ) : marketStatus.isOpen ? (
+          <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            <div className="flex flex-col">
+              <span className="text-sm text-green-400 font-medium">Market Open</span>
+              {marketStatus.nextClose && (
+                <span className="text-xs text-green-300/60">Closes in {formatTimeUntil(marketStatus.nextClose)}</span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-lg">
+            <AlertCircle className="w-4 h-4 text-red-400" />
+            <div className="flex flex-col">
+              <span className="text-sm text-red-400 font-medium">Market Closed</span>
+              {marketStatus.nextOpen && (
+                <span className="text-xs text-red-300/60">Opens in {formatTimeUntil(marketStatus.nextOpen)}</span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quick Stats */}
