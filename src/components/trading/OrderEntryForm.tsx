@@ -327,6 +327,3 @@ export function OrderEntryForm({ symbol, currentPrice, onSubmit, disabled, buyin
     </form>
   );
 }
-
-
-export { OrderEntryForm }

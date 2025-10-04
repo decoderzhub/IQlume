@@ -74,7 +74,7 @@ export function TradingView() {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedSymbol) {
       fetchMarketData(selectedSymbol);
 
