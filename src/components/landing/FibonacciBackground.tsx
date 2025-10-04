@@ -80,7 +80,7 @@ export function FibonacciBackground() {
     const points: PulsePoint[] = [];
 
     // Reduce pulse points for better performance
-    const maxPulsePoints = window.innerWidth < 768 ? 8 : 15; // Fewer on mobile
+    const maxPulsePoints = window.innerWidth < 768 ? 4 : 6; // Fewer on mobile
     for (let i = 0; i < maxPulsePoints; i++) {
       const fibValue = fibonacci[i % fibonacci.length];
       
@@ -106,7 +106,7 @@ export function FibonacciBackground() {
     }
 
     // Reduce mini pulses significantly
-    const maxMiniPulses = window.innerWidth < 768 ? 3 : 6;
+    const maxMiniPulses = window.innerWidth < 768 ? 2 : 3;
     for (let i = 0; i < maxMiniPulses; i++) {
       points.push({
         id: `mini-pulse-${i}`,
@@ -126,7 +126,7 @@ export function FibonacciBackground() {
     const ecgLines: ECGPulse[] = [];
     
     // Reduce ECG lines for performance
-    const maxECGLines = window.innerWidth < 768 ? 2 : 4;
+    const maxECGLines = window.innerWidth < 768 ? 1 : 2;
     for (let i = 0; i < maxECGLines; i++) {
       const directions: ('horizontal' | 'vertical' | 'diagonal')[] = ['horizontal', 'vertical', 'diagonal'];
       const direction = directions[Math.floor(Math.random() * directions.length)];
@@ -165,9 +165,9 @@ export function FibonacciBackground() {
             <stop offset="70%" stopColor="#6366f1" stopOpacity="0.9" />
             <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.8" />
           </linearGradient>
-          <filter id="ecgGlow">
+          <filter id="ecgGlowMain">
             <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-            <feMerge> 
+            <feMerge>
               <feMergeNode in="coloredBlur"/>
               <feMergeNode in="SourceGraphic"/>
             </feMerge>
@@ -184,7 +184,7 @@ export function FibonacciBackground() {
               stroke={index % 2 === 0 ? "url(#ecgGradient)" : "url(#ecgGradientReverse)"}
               strokeWidth="0.3"
               fill="none"
-              filter="url(#ecgGlow)"
+              filter="url(#ecgGlowMain)"
               initial={{ 
                 pathLength: 0, 
                 opacity: 0,
@@ -344,7 +344,7 @@ export function FibonacciBackground() {
         </defs>
         
         {/* Random connecting lines that pulse */}
-        {[...Array(12)].map((_, i) => {
+        {[...Array(window.innerWidth < 768 ? 3 : 6)].map((_, i) => {
           const fibonacci = generateFibonacci(15);
           const x1 = (fibonacci[i] % 80) + 10;
           const y1 = (fibonacci[i + 1] % 80) + 10;
@@ -393,9 +393,9 @@ export function FibonacciBackground() {
             <stop offset="80%" stopColor="#a855f7" stopOpacity="0.8" />
             <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
           </linearGradient>
-          <filter id="ecgGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <filter id="ecgGlowSecondary" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-            <feMerge> 
+            <feMerge>
               <feMergeNode in="coloredBlur"/>
               <feMergeNode in="SourceGraphic"/>
             </feMerge>
@@ -419,7 +419,7 @@ export function FibonacciBackground() {
               stroke={pulse.direction === 'vertical' ? "url(#ecgPulseGradientVertical)" : "url(#ecgPulseGradient)"}
               strokeWidth="0.2"
               fill="none"
-              filter="url(#ecgGlow)"
+              filter="url(#ecgGlowSecondary)"
               initial={{ 
                 pathLength: 0, 
                 opacity: 0,
@@ -441,7 +441,7 @@ export function FibonacciBackground() {
         })}
         
         {/* Reduce additional ECG bursts */}
-        {[...Array(window.innerWidth < 768 ? 1 : 3)].map((_, i) => {
+        {[...Array(window.innerWidth < 768 ? 0 : 1)].map((_, i) => {
           const startX = Math.random() * 100;
           const startY = Math.random() * 100;
           const amplitude = 15 + Math.random() * 25;
@@ -451,9 +451,9 @@ export function FibonacciBackground() {
               key={`ecg-burst-${i}`}
               d={generateECGPath(startX, startY, 'horizontal', amplitude / 10)}
               stroke="url(#ecgPulseGradient)"
-              strokeWidth="0.1" // Thinner for better performance
+              strokeWidth="0.1"
               fill="none"
-              filter="url(#ecgGlow)"
+              filter="url(#ecgGlowSecondary)"
               initial={{ pathLength: 0, opacity: 0 }}
               animate={{ 
                 pathLength: [0, 1],
@@ -492,7 +492,7 @@ export function FibonacciBackground() {
       </motion.div>
 
       {/* Large ambient pulses */}
-      {[...Array(window.innerWidth < 768 ? 2 : 4)].map((_, i) => { // Fewer on mobile
+      {[...Array(window.innerWidth < 768 ? 1 : 2)].map((_, i) => { // Fewer on mobile
         const fibonacci = generateFibonacci(12);
         const fibValue = fibonacci[i + 4];
         return (

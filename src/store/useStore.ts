@@ -43,8 +43,6 @@ interface AppState {
   getEffectiveSubscriptionTier: () => SubscriptionTier;
 }
 
-type SubscriptionTier = 'starter' | 'pro' | 'elite';
-
 export const useStore = create<AppState>((set) => ({
   // Initial state
   user: null,

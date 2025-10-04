@@ -47,28 +47,50 @@ function OAuthCallbackHandler() {
 }
 
 function AppContent() {
-  const { isAuthenticated, setUser, setLoading } = useStore();
+  const { isAuthenticated, setUser, setLoading, loading } = useStore();
   const [showLogin, setShowLogin] = React.useState(false);
+  const [initialized, setInitialized] = React.useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
-      setLoading(true);
-      const { user } = await auth.getCurrentUser();
-      
-      if (user) {
-        setUser({
-          id: user.id,
-          email: user.email!,
-          subscription_tier: 'starter', // This would come from your user profile in production
-          created_at: user.created_at,
-          is_verified: user.email_confirmed_at !== null,
-        });
+      try {
+        setLoading(true);
+        const { user, error } = await auth.getCurrentUser();
+
+        if (error) {
+          console.error('Auth check error:', error);
+        }
+
+        if (user) {
+          setUser({
+            id: user.id,
+            email: user.email!,
+            subscription_tier: 'starter',
+            created_at: user.created_at,
+            is_verified: user.email_confirmed_at !== null,
+          });
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setLoading(false);
+        setInitialized(true);
       }
-      setLoading(false);
     };
 
     checkAuth();
   }, [setUser, setLoading]);
+
+  if (!initialized || loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900/20 to-purple-900/20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-lg">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated && !showLogin) {
     return <HomePage onGetStarted={() => setShowLogin(true)} />;
