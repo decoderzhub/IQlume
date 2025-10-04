@@ -118,6 +118,26 @@ async def place_order(
         alpaca_order = trading_client.submit_order(order_request)
 
         logger.info(f"✅ Order submitted successfully. Alpaca Order ID: {alpaca_order.id}")
+        logger.info(f"📊 Order status: {alpaca_order.status}")
+
+        # Determine appropriate price for database record
+        # For limit/stop orders, use those prices; for market orders use a placeholder that meets DB constraint
+        db_price = float(limit_price or stop_price or 0.01)  # Use 0.01 as minimum to satisfy price > 0 constraint
+
+        # Determine order status based on Alpaca response and market conditions
+        # Map Alpaca status to our database status
+        alpaca_status_str = str(alpaca_order.status).lower()
+
+        if alpaca_status_str in ['new', 'accepted', 'pending_new']:
+            db_status = "pending"
+        elif alpaca_status_str in ['filled', 'partially_filled']:
+            db_status = "executed" if alpaca_status_str == 'filled' else "pending"
+        elif alpaca_status_str in ['canceled', 'expired', 'rejected']:
+            db_status = "canceled"
+        else:
+            db_status = "pending"  # Default to pending for unknown statuses
+
+        logger.info(f"💾 Storing order with status '{db_status}' (Alpaca status: {alpaca_status_str})")
 
         # Store order in database
         trade_record = {
@@ -127,8 +147,8 @@ async def place_order(
             "symbol": symbol,
             "type": side,
             "quantity": quantity,
-            "price": float(limit_price or stop_price or 0),
-            "status": "pending",
+            "price": db_price,
+            "status": db_status,
             "order_type": order_type,
             "time_in_force": time_in_force,
             "alpaca_order_id": str(alpaca_order.id),
