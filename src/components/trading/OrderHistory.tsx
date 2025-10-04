@@ -58,8 +58,9 @@ export function OrderHistory({ className = '' }: OrderHistoryProps) {
           type: trade.order_type || trade.type || 'market',
           quantity: trade.quantity || 0,
           order_type: trade.order_type || 'market',
-          filled_qty: trade.filled_qty || trade.quantity || 0,
-          filled_avg_price: trade.filled_avg_price || trade.price || 0,
+          filled_qty: trade.filled_qty || 0,
+          // Only use filled_avg_price if it's actually filled (> 0), otherwise use limit/stop price for display
+          filled_avg_price: (trade.filled_avg_price && trade.filled_avg_price > 0.01) ? trade.filled_avg_price : 0,
           status: trade.status || 'unknown',
           timestamp: trade.timestamp || new Date().toISOString(),
           price: trade.price,
@@ -253,7 +254,7 @@ export function OrderHistory({ className = '' }: OrderHistoryProps) {
                     <span className="text-gray-400">Qty: </span>
                     <span className="text-white">{order.quantity.toLocaleString()}</span>
                   </div>
-                  {(order.filled_avg_price && order.filled_avg_price > 0) && (
+                  {(order.status === 'executed' || order.status === 'filled') && order.filled_avg_price > 0 && (
                     <>
                       <div>
                         <span className="text-gray-400">Filled: </span>
@@ -264,6 +265,12 @@ export function OrderHistory({ className = '' }: OrderHistoryProps) {
                         <span className="text-white">${order.filled_avg_price.toFixed(2)}</span>
                       </div>
                     </>
+                  )}
+                  {(order.status === 'pending' || order.status === 'new') && order.order_type === 'market' && (
+                    <div className="col-span-2">
+                      <span className="text-gray-400">Market Order - </span>
+                      <span className="text-yellow-400">Pending execution when market opens</span>
+                    </div>
                   )}
                   {(order.limit_price && order.limit_price > 0) && (
                     <div>

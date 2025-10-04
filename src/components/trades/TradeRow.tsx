@@ -312,7 +312,13 @@ export function TradeRow({
         {trade.quantity}
       </td>
       <td className="py-4 px-4 text-right text-white">
-        {formatCurrency(trade.price)}
+        {trade.status === 'pending' && (!trade.filled_avg_price || trade.filled_avg_price <= 0.01) ? (
+          <span className="text-yellow-400 text-sm">Pending</span>
+        ) : trade.filled_avg_price && trade.filled_avg_price > 0.01 ? (
+          formatCurrency(trade.filled_avg_price)
+        ) : (
+          formatCurrency(trade.price)
+        )}
       </td>
       <td className="py-4 px-4 text-right">
         {trade.profit_loss !== 0 && (
