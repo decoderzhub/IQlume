@@ -4,20 +4,20 @@ import { Card } from '../ui/Card';
 
 interface Order {
   id: string;
-  order_id: string;
+  order_id?: string;
   symbol: string;
-  side: string;
-  type: string;
+  side?: string;
+  type?: string;
   quantity: number;
-  order_type: string;
-  filled_qty: number;
-  filled_avg_price: number;
+  order_type?: string;
+  filled_qty?: number;
+  filled_avg_price?: number;
   status: string;
   timestamp: string;
   price?: number;
   limit_price?: number;
   stop_price?: number;
-  time_in_force: string;
+  time_in_force?: string;
 }
 
 interface OrderHistoryProps {
@@ -48,7 +48,27 @@ export function OrderHistory({ className = '' }: OrderHistoryProps) {
 
       if (response.ok) {
         const data = await response.json();
-        setOrders(data.trades || []);
+        const trades = data.trades || [];
+
+        const transformedOrders = trades.map((trade: any) => ({
+          id: trade.id,
+          order_id: trade.alpaca_order_id || trade.id,
+          symbol: trade.symbol || '',
+          side: trade.type || trade.side || '',
+          type: trade.order_type || trade.type || 'market',
+          quantity: trade.quantity || 0,
+          order_type: trade.order_type || 'market',
+          filled_qty: trade.filled_qty || trade.quantity || 0,
+          filled_avg_price: trade.filled_avg_price || trade.price || 0,
+          status: trade.status || 'unknown',
+          timestamp: trade.timestamp || new Date().toISOString(),
+          price: trade.price,
+          limit_price: trade.limit_price,
+          stop_price: trade.stop_price,
+          time_in_force: trade.time_in_force || 'day',
+        }));
+
+        setOrders(transformedOrders);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -200,17 +220,19 @@ export function OrderHistory({ className = '' }: OrderHistoryProps) {
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    {order.side === 'buy' ? (
+                    {(order.side === 'buy' || (!order.side && order.type === 'buy')) ? (
                       <TrendingUp className="w-4 h-4 text-green-400" />
                     ) : (
                       <TrendingDown className="w-4 h-4 text-red-400" />
                     )}
                     <span className="font-semibold text-white">{order.symbol}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded ${
-                      order.side === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                    }`}>
-                      {order.side.toUpperCase()}
-                    </span>
+                    {(order.side || order.type) && (
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        (order.side === 'buy' || order.type === 'buy') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {(order.side || order.type || '').toUpperCase()}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {getStatusIcon(order.status)}
@@ -221,19 +243,21 @@ export function OrderHistory({ className = '' }: OrderHistoryProps) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                  <div>
-                    <span className="text-gray-400">Type: </span>
-                    <span className="text-white capitalize">{order.order_type.replace('_', ' ')}</span>
-                  </div>
+                  {order.order_type && (
+                    <div>
+                      <span className="text-gray-400">Type: </span>
+                      <span className="text-white capitalize">{order.order_type.replace('_', ' ')}</span>
+                    </div>
+                  )}
                   <div>
                     <span className="text-gray-400">Qty: </span>
                     <span className="text-white">{order.quantity.toLocaleString()}</span>
                   </div>
-                  {order.filled_avg_price > 0 && (
+                  {(order.filled_avg_price && order.filled_avg_price > 0) && (
                     <>
                       <div>
                         <span className="text-gray-400">Filled: </span>
-                        <span className="text-white">{order.filled_qty.toLocaleString()}</span>
+                        <span className="text-white">{(order.filled_qty || 0).toLocaleString()}</span>
                       </div>
                       <div>
                         <span className="text-gray-400">Avg Price: </span>
