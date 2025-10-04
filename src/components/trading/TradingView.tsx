@@ -5,6 +5,8 @@ import { Card } from '../ui/Card';
 import { OrderEntryForm, OrderData } from './OrderEntryForm';
 import { OrderPreviewModal } from './OrderPreviewModal';
 import { OrderHistory } from './OrderHistory';
+import { OptionsChain } from './OptionsChain';
+import { OptionsOrderEntry, OptionsOrderData } from './OptionsOrderEntry';
 
 interface MarketData {
   price: number;
@@ -25,10 +27,17 @@ export function TradingView() {
   const [selectedSymbol, setSelectedSymbol] = useState('');
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [pendingOrder, setPendingOrder] = useState<OrderData | null>(null);
+  const [pendingOptionsOrder, setPendingOptionsOrder] = useState<OptionsOrderData | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [loadingMarketData, setLoadingMarketData] = useState(false);
   const [assetClass, setAssetClass] = useState<AssetClass>('stocks');
+  const [selectedOption, setSelectedOption] = useState<{
+    type: 'call' | 'put';
+    strike: number;
+    expiration: string;
+    data: any;
+  } | null>(null);
 
   const currentPrice = marketData?.price || 0;
 
@@ -93,8 +102,17 @@ export function TradingView() {
     setShowPreviewModal(true);
   };
 
+  const handleOptionsOrderSubmit = (order: OptionsOrderData) => {
+    setPendingOptionsOrder(order);
+    setShowPreviewModal(true);
+  };
+
+  const handleOptionSelect = (type: 'call' | 'put', strike: number, expiration: string, data: any) => {
+    setSelectedOption({ type, strike, expiration, data });
+  };
+
   const handleOrderConfirm = async () => {
-    if (!pendingOrder) return;
+    if (!pendingOrder && !pendingOptionsOrder) return;
 
     setIsSubmittingOrder(true);
 
@@ -107,13 +125,19 @@ export function TradingView() {
       }
 
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+      const orderPayload = pendingOptionsOrder ? {
+        ...pendingOptionsOrder,
+        asset_class: 'options',
+      } : pendingOrder;
+
       const response = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(pendingOrder),
+        body: JSON.stringify(orderPayload),
       });
 
       if (!response.ok) {
@@ -124,10 +148,12 @@ export function TradingView() {
       const result = await response.json();
       console.log('Order placed successfully:', result);
 
-      alert(`Order placed successfully!\n\nOrder ID: ${result.order_id}\nStatus: ${result.status}`);
+      const orderType = pendingOptionsOrder ? 'Options' : 'Stock';
+      alert(`${orderType} order placed successfully!\n\nOrder ID: ${result.order_id}\nStatus: ${result.status}`);
 
       setShowPreviewModal(false);
       setPendingOrder(null);
+      setPendingOptionsOrder(null);
     } catch (error) {
       console.error('Error submitting order:', error);
       alert(`Failed to submit order: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -206,15 +232,6 @@ export function TradingView() {
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Market Data</h3>
 
-            {/* Options Notice */}
-            {assetClass === 'options' && (
-              <div className="mb-4 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-                <p className="text-sm text-purple-300 font-medium mb-1">Options Trading</p>
-                <p className="text-xs text-purple-400">
-                  Options order entry requires additional features like strike selection, expiration dates, and Greeks display. This will be added in a future update.
-                </p>
-              </div>
-            )}
 
             <div className="space-y-4">
               {/* Symbol Search Input */}
@@ -352,17 +369,24 @@ export function TradingView() {
             </div>
           </Card>
 
-          {/* Price Chart Placeholder */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Price Chart</h3>
-            <div className="h-64 flex items-center justify-center bg-gray-800/30 rounded-lg border border-gray-700/50">
-              <div className="text-center text-gray-400">
-                <BarChart3 className="w-16 h-16 mx-auto mb-3 opacity-30" />
-                <p>Chart will be displayed here</p>
-                <p className="text-sm mt-1">Coming in Stage 6</p>
+          {/* Options Chain or Price Chart */}
+          {assetClass === 'options' && selectedSymbol ? (
+            <OptionsChain
+              symbol={selectedSymbol}
+              onSelectOption={handleOptionSelect}
+            />
+          ) : (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Price Chart</h3>
+              <div className="h-64 flex items-center justify-center bg-gray-800/30 rounded-lg border border-gray-700/50">
+                <div className="text-center text-gray-400">
+                  <BarChart3 className="w-16 h-16 mx-auto mb-3 opacity-30" />
+                  <p>Chart will be displayed here</p>
+                  <p className="text-sm mt-1">Coming in Stage 6</p>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          )}
         </div>
 
         {/* Order Entry Panel - Right (1/3 width) */}
@@ -370,21 +394,18 @@ export function TradingView() {
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Order Entry</h3>
             {assetClass === 'options' ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BarChart3 className="w-8 h-8 text-purple-400" />
-                </div>
-                <p className="text-gray-400 mb-2">Options Trading</p>
-                <p className="text-sm text-gray-500">
-                  Options order entry interface coming soon
-                </p>
-              </div>
+              <OptionsOrderEntry
+                symbol={selectedSymbol}
+                currentPrice={currentPrice}
+                selectedOption={selectedOption}
+                onSubmit={handleOptionsOrderSubmit}
+              />
             ) : (
               <OrderEntryForm
                 symbol={selectedSymbol}
                 currentPrice={currentPrice}
                 onSubmit={handleOrderSubmit}
-                disabled={assetClass === 'options'}
+                disabled={false}
               />
             )}
           </Card>
@@ -431,21 +452,29 @@ export function TradingView() {
           <div className="ml-auto flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${assetClass === 'stocks' ? 'bg-blue-400' : assetClass === 'options' ? 'bg-purple-400' : 'bg-orange-400'}`} />
             <span className="text-sm text-gray-400">
-              {assetClass === 'stocks' ? 'Trading Equities' : assetClass === 'options' ? 'Options Coming Soon' : 'Trading Crypto'}
+              {assetClass === 'stocks' ? 'Trading Equities' : assetClass === 'options' ? 'Trading Options' : 'Trading Crypto'}
             </span>
           </div>
         </div>
       </Card>
 
       {/* Order Preview Modal */}
-      {pendingOrder && (
+      {(pendingOrder || pendingOptionsOrder) && (
         <OrderPreviewModal
           isOpen={showPreviewModal}
           onClose={() => {
             setShowPreviewModal(false);
             setPendingOrder(null);
+            setPendingOptionsOrder(null);
           }}
-          order={pendingOrder}
+          order={pendingOrder || (pendingOptionsOrder ? {
+            symbol: `${pendingOptionsOrder.symbol} $${pendingOptionsOrder.strike} ${pendingOptionsOrder.option_type.toUpperCase()}`,
+            side: pendingOptionsOrder.side,
+            type: pendingOptionsOrder.order_type,
+            quantity: pendingOptionsOrder.contracts,
+            limit_price: pendingOptionsOrder.limit_price,
+            time_in_force: pendingOptionsOrder.time_in_force,
+          } as OrderData : null)}
           estimatedPrice={currentPrice}
           onConfirm={handleOrderConfirm}
           isSubmitting={isSubmittingOrder}
