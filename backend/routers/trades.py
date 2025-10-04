@@ -55,6 +55,10 @@ async def place_order(
         # Get Alpaca trading client
         trading_client = await get_alpaca_trading_client(current_user, supabase)
 
+        # Log API mode for debugging
+        is_paper = getattr(trading_client, '_paper', True)
+        logger.info(f"🔌 Trading client mode: {'PAPER' if is_paper else 'LIVE'} (All Alpaca accounts are paper trading accounts)")
+
         # Map order side
         alpaca_side = OrderSide.BUY if side == "buy" else OrderSide.SELL
 

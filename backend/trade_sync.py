@@ -25,16 +25,17 @@ class TradeSyncService:
     async def start(self):
         """Start the trade sync service"""
         self.is_running = True
-        logger.info("🔄 Starting trade sync service...")
-        
+        logger.info("🔄 Starting trade sync service for manual orders...")
+        logger.info("📡 Will sync pending orders with Alpaca every 30 seconds")
+
         while self.is_running:
             try:
                 await self.sync_pending_trades()
-                # Run every 2 minutes
-                await asyncio.sleep(120)
+                # Run every 30 seconds for faster order status updates
+                await asyncio.sleep(30)
             except Exception as e:
                 logger.error(f"❌ Error in trade sync loop: {e}")
-                await asyncio.sleep(60)  # Wait 1 minute before retrying
+                await asyncio.sleep(30)  # Wait 30 seconds before retrying
     
     async def stop(self):
         """Stop the trade sync service"""
@@ -52,10 +53,10 @@ class TradeSyncService:
             pending_trades = resp.data or []
             
             if not pending_trades:
-                logger.debug("📭 No pending trades to sync")
+                # Only log occasionally to reduce noise
                 return
-            
-            logger.info(f"🔄 Syncing {len(pending_trades)} pending trades...")
+
+            logger.info(f"🔄 [TRADE SYNC] Syncing {len(pending_trades)} pending trades with Alpaca...")
             
             # Group trades by user_id to minimize API calls
             trades_by_user: Dict[str, List[Dict[str, Any]]] = {}
@@ -146,9 +147,9 @@ class TradeSyncService:
 
                     if update_resp.data:
                         updates_made += 1
-                        logger.info(f"✅ Updated portfolio trade {trade['id']}: {len(order_ids)} orders -> {new_status}")
+                        logger.info(f"✅ [TRADE SYNC] Updated portfolio trade {trade['id']}: {len(order_ids)} orders -> {new_status}")
                     else:
-                        logger.error(f"❌ Failed to update portfolio trade {trade['id']}")
+                        logger.error(f"❌ [TRADE SYNC] Failed to update portfolio trade {trade['id']}")
 
                     continue
 
@@ -195,12 +196,15 @@ class TradeSyncService:
                 
                 if update_resp.data:
                     updates_made += 1
-                    logger.info(f"✅ Updated trade {trade['id']}: {trade['symbol']} {trade['type']} -> {new_status}")
+                    filled_info = ""
+                    if alpaca_order.status == OrderStatus.FILLED:
+                        filled_info = f" @ ${float(getattr(alpaca_order, 'filled_avg_price', 0) or 0):.2f}"
+                    logger.info(f"✅ [TRADE SYNC] Updated trade {trade['id']}: {trade['symbol']} {trade['type']} -> {new_status}{filled_info}")
                 else:
-                    logger.error(f"❌ Failed to update trade {trade['id']}")
-            
+                    logger.error(f"❌ [TRADE SYNC] Failed to update trade {trade['id']}")
+
             if updates_made > 0:
-                logger.info(f"📊 Updated {updates_made} trades for user {user_id}")
+                logger.info(f"📊 [TRADE SYNC] Successfully updated {updates_made}/{len(trades)} trades for user {user_id}")
             
         except AlpacaAPIError as e:
             logger.error(f"❌ Alpaca API error syncing trades for user {user_id}: {e}")

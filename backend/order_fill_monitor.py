@@ -24,11 +24,12 @@ class OrderFillMonitor:
     def __init__(self, supabase: Client):
         self.supabase = supabase
         self.is_running = False
-        self.check_interval = 15  # Check every 15 seconds
+        self.check_interval = 10  # Check every 10 seconds for faster order updates
 
     async def start(self):
         """Start the order fill monitoring loop"""
-        logger.info("🔍 Starting order fill monitor...")
+        logger.info("🔍 Starting order fill monitor for grid orders...")
+        logger.info("📡 Will check grid order status with Alpaca every 10 seconds")
         self.is_running = True
 
         while self.is_running:
