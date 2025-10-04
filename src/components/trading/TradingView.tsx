@@ -2,9 +2,64 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, DollarSign, BarChart3, Clock } from 'lucide-react';
 import { Card } from '../ui/Card';
+import { OrderEntryForm, OrderData } from './OrderEntryForm';
+import { OrderPreviewModal } from './OrderPreviewModal';
 
 export function TradingView() {
   const [selectedSymbol, setSelectedSymbol] = useState('');
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState<OrderData | null>(null);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+
+  const currentPrice = 150.00;
+
+  const handleOrderSubmit = (order: OrderData) => {
+    setPendingOrder(order);
+    setShowPreviewModal(true);
+  };
+
+  const handleOrderConfirm = async () => {
+    if (!pendingOrder) return;
+
+    setIsSubmittingOrder(true);
+
+    try {
+      const { supabase } = await import('../../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE}/api/orders`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(pendingOrder),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to place order');
+      }
+
+      const result = await response.json();
+      console.log('Order placed successfully:', result);
+
+      alert(`Order placed successfully!\n\nOrder ID: ${result.order_id}\nStatus: ${result.status}`);
+
+      setShowPreviewModal(false);
+      setPendingOrder(null);
+    } catch (error) {
+      console.error('Error submitting order:', error);
+      alert(`Failed to submit order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmittingOrder(false);
+    }
+  };
 
   return (
     <motion.div
@@ -145,13 +200,11 @@ export function TradingView() {
         <div className="space-y-6">
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Order Entry</h3>
-            <div className="space-y-4">
-              <div className="text-center py-8 text-gray-400">
-                <DollarSign className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>Order entry form</p>
-                <p className="text-sm mt-1">Coming in Stage 4</p>
-              </div>
-            </div>
+            <OrderEntryForm
+              symbol={selectedSymbol}
+              currentPrice={currentPrice}
+              onSubmit={handleOrderSubmit}
+            />
           </Card>
 
           {/* Order History Placeholder */}
@@ -183,6 +236,21 @@ export function TradingView() {
           </div>
         </div>
       </Card>
+
+      {/* Order Preview Modal */}
+      {pendingOrder && (
+        <OrderPreviewModal
+          isOpen={showPreviewModal}
+          onClose={() => {
+            setShowPreviewModal(false);
+            setPendingOrder(null);
+          }}
+          order={pendingOrder}
+          estimatedPrice={currentPrice}
+          onConfirm={handleOrderConfirm}
+          isSubmitting={isSubmittingOrder}
+        />
+      )}
     </motion.div>
   );
 }

@@ -28,6 +28,140 @@ router = APIRouter(prefix="/api", tags=["trading"])
 logger = logging.getLogger(__name__)
 
 
+@router.post("/orders")
+async def place_order(
+    order_data: Dict[str, Any],
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Place a new order via Alpaca"""
+    try:
+        logger.info(f"📝 Placing order for user {current_user.id}: {order_data}")
+
+        # Extract order parameters
+        symbol = order_data.get("symbol")
+        side = order_data.get("side")  # 'buy' or 'sell'
+        order_type = order_data.get("type")  # 'market', 'limit', 'stop', 'stop_limit'
+        quantity = float(order_data.get("quantity", 0))
+        time_in_force = order_data.get("time_in_force", "day")
+        limit_price = order_data.get("limit_price")
+        stop_price = order_data.get("stop_price")
+
+        # Validation
+        if not symbol or not side or not order_type or quantity <= 0:
+            raise HTTPException(status_code=400, detail="Missing required order parameters")
+
+        # Get Alpaca trading client
+        trading_client = await get_alpaca_trading_client(current_user, supabase)
+
+        # Map order side
+        alpaca_side = OrderSide.BUY if side == "buy" else OrderSide.SELL
+
+        # Map time in force
+        tif_map = {
+            "day": TimeInForce.DAY,
+            "gtc": TimeInForce.GTC,
+            "ioc": TimeInForce.IOC,
+            "fok": TimeInForce.FOK,
+        }
+        alpaca_tif = tif_map.get(time_in_force, TimeInForce.DAY)
+
+        # Build order request based on type
+        order_request = None
+
+        if order_type == "market":
+            order_request = MarketOrderRequest(
+                symbol=symbol,
+                qty=quantity,
+                side=alpaca_side,
+                time_in_force=alpaca_tif,
+            )
+        elif order_type == "limit":
+            if not limit_price:
+                raise HTTPException(status_code=400, detail="Limit price required for limit orders")
+            order_request = LimitOrderRequest(
+                symbol=symbol,
+                qty=quantity,
+                side=alpaca_side,
+                time_in_force=alpaca_tif,
+                limit_price=float(limit_price),
+            )
+        elif order_type == "stop":
+            if not stop_price:
+                raise HTTPException(status_code=400, detail="Stop price required for stop orders")
+            from alpaca.trading.requests import StopOrderRequest
+            order_request = StopOrderRequest(
+                symbol=symbol,
+                qty=quantity,
+                side=alpaca_side,
+                time_in_force=alpaca_tif,
+                stop_price=float(stop_price),
+            )
+        elif order_type == "stop_limit":
+            if not limit_price or not stop_price:
+                raise HTTPException(status_code=400, detail="Both limit and stop prices required for stop-limit orders")
+            from alpaca.trading.requests import StopLimitOrderRequest
+            order_request = StopLimitOrderRequest(
+                symbol=symbol,
+                qty=quantity,
+                side=alpaca_side,
+                time_in_force=alpaca_tif,
+                limit_price=float(limit_price),
+                stop_price=float(stop_price),
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported order type: {order_type}")
+
+        # Submit order to Alpaca
+        logger.info(f"📤 Submitting {order_type} {side} order for {quantity} {symbol} to Alpaca")
+        alpaca_order = trading_client.submit_order(order_request)
+
+        logger.info(f"✅ Order submitted successfully. Alpaca Order ID: {alpaca_order.id}")
+
+        # Store order in database
+        trade_record = {
+            "id": str(uuid4()),
+            "user_id": current_user.id,
+            "strategy_id": None,  # Manual order
+            "symbol": symbol,
+            "type": side,
+            "quantity": quantity,
+            "price": float(limit_price or stop_price or 0),
+            "status": "pending",
+            "order_type": order_type,
+            "time_in_force": time_in_force,
+            "alpaca_order_id": str(alpaca_order.id),
+            "filled_qty": float(alpaca_order.filled_qty or 0),
+            "filled_avg_price": float(alpaca_order.filled_avg_price or 0),
+        }
+
+        supabase.table("trades").insert(trade_record).execute()
+        logger.info(f"💾 Stored order in database with ID: {trade_record['id']}")
+
+        # Return order details
+        return {
+            "success": True,
+            "order_id": str(alpaca_order.id),
+            "trade_id": trade_record["id"],
+            "status": str(alpaca_order.status),
+            "symbol": symbol,
+            "side": side,
+            "quantity": quantity,
+            "order_type": order_type,
+            "message": "Order placed successfully",
+        }
+
+    except AlpacaAPIError as e:
+        logger.error(f"❌ Alpaca API error: {e}")
+        raise HTTPException(status_code=500, detail=f"Alpaca API error: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error placing order: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to place order: {str(e)}")
+
+
 @router.get("/positions")
 async def get_positions(
     credentials: HTTPAuthorizationCredentials = Depends(security),
