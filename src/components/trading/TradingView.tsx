@@ -4,6 +4,7 @@ import { TrendingUp, DollarSign, BarChart3, Clock, RefreshCw } from 'lucide-reac
 import { Card } from '../ui/Card';
 import { OrderEntryForm, OrderData } from './OrderEntryForm';
 import { OrderPreviewModal } from './OrderPreviewModal';
+import { OrderHistory } from './OrderHistory';
 
 interface MarketData {
   price: number;
@@ -18,6 +19,8 @@ interface MarketData {
   timestamp?: string;
 }
 
+type AssetClass = 'stocks' | 'options' | 'crypto';
+
 export function TradingView() {
   const [selectedSymbol, setSelectedSymbol] = useState('');
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -25,8 +28,15 @@ export function TradingView() {
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [loadingMarketData, setLoadingMarketData] = useState(false);
+  const [assetClass, setAssetClass] = useState<AssetClass>('stocks');
 
   const currentPrice = marketData?.price || 0;
+
+  const handleAssetClassChange = (newClass: AssetClass) => {
+    setAssetClass(newClass);
+    setSelectedSymbol('');
+    setMarketData(null);
+  };
 
   const fetchMarketData = async (symbol: string) => {
     if (!symbol) {
@@ -193,6 +203,17 @@ export function TradingView() {
           {/* Symbol Search and Quote */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Market Data</h3>
+
+            {/* Options Notice */}
+            {assetClass === 'options' && (
+              <div className="mb-4 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                <p className="text-sm text-purple-300 font-medium mb-1">Options Trading</p>
+                <p className="text-xs text-purple-400">
+                  Options order entry requires additional features like strike selection, expiration dates, and Greeks display. This will be added in a future update.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-4">
               {/* Symbol Search Input */}
               <div>
@@ -203,9 +224,64 @@ export function TradingView() {
                   type="text"
                   value={selectedSymbol}
                   onChange={(e) => setSelectedSymbol(e.target.value.toUpperCase())}
-                  placeholder="Enter symbol (e.g., AAPL, BTC/USD)"
+                  placeholder={
+                    assetClass === 'stocks' ? 'Enter symbol (e.g., AAPL, TSLA, SPY)' :
+                    assetClass === 'crypto' ? 'Enter crypto (e.g., BTC/USD, ETH/USD)' :
+                    'Enter underlying (e.g., AAPL, SPY)'
+                  }
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
                 />
+                {assetClass === 'crypto' && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Use format: BTC/USD, ETH/USD, etc.
+                  </p>
+                )}
+              </div>
+
+              {/* Popular Symbols Quick Select */}
+              <div>
+                <p className="text-xs font-medium text-gray-400 mb-2">Popular {assetClass === 'stocks' ? 'Stocks' : assetClass === 'crypto' ? 'Crypto' : 'Underlyings'}:</p>
+                <div className="flex flex-wrap gap-2">
+                  {assetClass === 'stocks' && ['AAPL', 'TSLA', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'SPY', 'QQQ'].map(symbol => (
+                    <button
+                      key={symbol}
+                      onClick={() => setSelectedSymbol(symbol)}
+                      className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                        selectedSymbol === symbol
+                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                      }`}
+                    >
+                      {symbol}
+                    </button>
+                  ))}
+                  {assetClass === 'crypto' && ['BTC/USD', 'ETH/USD', 'LTC/USD', 'BCH/USD', 'LINK/USD', 'UNI/USD'].map(symbol => (
+                    <button
+                      key={symbol}
+                      onClick={() => setSelectedSymbol(symbol)}
+                      className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                        selectedSymbol === symbol
+                          ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                      }`}
+                    >
+                      {symbol}
+                    </button>
+                  ))}
+                  {assetClass === 'options' && ['AAPL', 'TSLA', 'SPY', 'QQQ', 'NVDA', 'AMZN'].map(symbol => (
+                    <button
+                      key={symbol}
+                      onClick={() => setSelectedSymbol(symbol)}
+                      className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                        selectedSymbol === symbol
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                      }`}
+                    >
+                      {symbol}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Quote Display */}
@@ -291,39 +367,70 @@ export function TradingView() {
         <div className="space-y-6">
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-white mb-4">Order Entry</h3>
-            <OrderEntryForm
-              symbol={selectedSymbol}
-              currentPrice={currentPrice}
-              onSubmit={handleOrderSubmit}
-            />
+            {assetClass === 'options' ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 className="w-8 h-8 text-purple-400" />
+                </div>
+                <p className="text-gray-400 mb-2">Options Trading</p>
+                <p className="text-sm text-gray-500">
+                  Options order entry interface coming soon
+                </p>
+              </div>
+            ) : (
+              <OrderEntryForm
+                symbol={selectedSymbol}
+                currentPrice={currentPrice}
+                onSubmit={handleOrderSubmit}
+                disabled={assetClass === 'options'}
+              />
+            )}
           </Card>
 
-          {/* Order History Placeholder */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Recent Orders</h3>
-            <div className="text-center py-8 text-gray-400">
-              <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>Order history</p>
-              <p className="text-sm mt-1">Coming in Stage 8</p>
-            </div>
-          </Card>
         </div>
       </div>
 
-      {/* Asset Class Tabs Placeholder */}
+      {/* Order History - Full Width */}
+      <OrderHistory />
+
+      {/* Asset Class Tabs */}
       <Card className="p-6">
         <div className="flex items-center gap-4">
-          <button className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-medium">
+          <button
+            onClick={() => handleAssetClassChange('stocks')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              assetClass === 'stocks'
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+          >
             Stocks
           </button>
-          <button className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg font-medium hover:bg-gray-700">
+          <button
+            onClick={() => handleAssetClassChange('options')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              assetClass === 'options'
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+          >
             Options
           </button>
-          <button className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg font-medium hover:bg-gray-700">
+          <button
+            onClick={() => handleAssetClassChange('crypto')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              assetClass === 'crypto'
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+          >
             Crypto
           </button>
-          <div className="ml-auto text-sm text-gray-400">
-            Asset class support coming in Stage 7
+          <div className="ml-auto flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${assetClass === 'stocks' ? 'bg-blue-400' : assetClass === 'options' ? 'bg-purple-400' : 'bg-orange-400'}`} />
+            <span className="text-sm text-gray-400">
+              {assetClass === 'stocks' ? 'Trading Equities' : assetClass === 'options' ? 'Options Coming Soon' : 'Trading Crypto'}
+            </span>
           </div>
         </div>
       </Card>

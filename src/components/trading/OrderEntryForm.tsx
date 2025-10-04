@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { AlertCircle, DollarSign, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { NumericInput } from '../ui/NumericInput';
 
@@ -12,6 +12,7 @@ interface OrderEntryFormProps {
   currentPrice: number;
   onSubmit: (order: OrderData) => void;
   disabled?: boolean;
+  buyingPower?: number;
 }
 
 export interface OrderData {
@@ -24,7 +25,7 @@ export interface OrderData {
   time_in_force: TimeInForce;
 }
 
-export function OrderEntryForm({ symbol, currentPrice, onSubmit, disabled }: OrderEntryFormProps) {
+export function OrderEntryForm({ symbol, currentPrice, onSubmit, disabled, buyingPower = 0 }: OrderEntryFormProps) {
   const [side, setSide] = useState<OrderSide>('buy');
   const [orderType, setOrderType] = useState<OrderType>('market');
   const [quantity, setQuantity] = useState<string>('');
@@ -32,9 +33,11 @@ export function OrderEntryForm({ symbol, currentPrice, onSubmit, disabled }: Ord
   const [stopPrice, setStopPrice] = useState<string>('');
   const [timeInForce, setTimeInForce] = useState<TimeInForce>('day');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const validateOrder = (): boolean => {
     const newErrors: Record<string, string> = {};
+    const newWarnings: string[] = [];
 
     if (!symbol) {
       newErrors.symbol = 'Please select a symbol';
@@ -49,6 +52,10 @@ export function OrderEntryForm({ symbol, currentPrice, onSubmit, disabled }: Ord
       const limit = parseFloat(limitPrice);
       if (!limitPrice || isNaN(limit) || limit <= 0) {
         newErrors.limitPrice = 'Limit price is required';
+      } else if (side === 'buy' && limit > currentPrice * 1.1) {
+        newWarnings.push('Limit price is 10%+ above market price');
+      } else if (side === 'sell' && limit < currentPrice * 0.9) {
+        newWarnings.push('Limit price is 10%+ below market price');
       }
     }
 
@@ -56,10 +63,28 @@ export function OrderEntryForm({ symbol, currentPrice, onSubmit, disabled }: Ord
       const stop = parseFloat(stopPrice);
       if (!stopPrice || isNaN(stop) || stop <= 0) {
         newErrors.stopPrice = 'Stop price is required';
+      } else if (side === 'buy' && stop < currentPrice) {
+        newWarnings.push('Stop price below market (will trigger immediately)');
+      } else if (side === 'sell' && stop > currentPrice) {
+        newWarnings.push('Stop price above market (will trigger immediately)');
       }
     }
 
+    const estimatedCost = calculateEstimatedCost();
+    if (side === 'buy' && estimatedCost > buyingPower && buyingPower > 0) {
+      newErrors.quantity = `Insufficient buying power. Available: $${buyingPower.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    if (estimatedCost > 100000) {
+      newWarnings.push('Large order value (>$100k) - verify quantity');
+    }
+
+    if (qty > 1000) {
+      newWarnings.push('Large quantity - may impact market price');
+    }
+
     setErrors(newErrors);
+    setWarnings(newWarnings);
     return Object.keys(newErrors).length === 0;
   };
 
@@ -243,14 +268,38 @@ export function OrderEntryForm({ symbol, currentPrice, onSubmit, disabled }: Ord
         </select>
       </div>
 
+      {/* Warnings */}
+      {warnings.length > 0 && (
+        <div className="space-y-2">
+          {warnings.map((warning, index) => (
+            <div key={index} className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-yellow-300">{warning}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Estimated Cost */}
       {quantity && !isNaN(parseFloat(quantity)) && (
         <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-400">Estimated Cost:</span>
-            <span className="text-white font-semibold">
-              ${estimatedCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-400">Estimated Cost:</span>
+              <span className="text-white font-semibold">
+                ${estimatedCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            {buyingPower > 0 && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">Buying Power:</span>
+                <span className={`font-medium ${estimatedCost > buyingPower ? 'text-red-400' : 'text-gray-400'}`}>
+                  ${buyingPower.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -278,3 +327,6 @@ export function OrderEntryForm({ symbol, currentPrice, onSubmit, disabled }: Ord
     </form>
   );
 }
+
+
+export { OrderEntryForm }
