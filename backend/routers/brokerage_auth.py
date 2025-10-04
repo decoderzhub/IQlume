@@ -368,3 +368,59 @@ async def refresh_access_token(
     except Exception as e:
         logger.exception(f"[alpaca] Error refreshing token: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to refresh token: {str(e)}")
+
+
+@router.get("/connection-status")
+async def get_connection_status(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """
+    Get detailed connection status for Alpaca account including paper/live mode.
+    """
+    try:
+        resp = (
+            supabase.table("brokerage_accounts")
+            .select("*")
+            .eq("user_id", current_user.id)
+            .eq("brokerage", "alpaca")
+            .eq("is_connected", True)
+            .execute()
+        )
+
+        if not resp.data or len(resp.data) == 0:
+            return {
+                "connected": False,
+                "message": "No Alpaca account connected"
+            }
+
+        account = resp.data[0]
+        oauth_data = account.get("oauth_data", {})
+
+        # Determine environment
+        env = oauth_data.get("env", "paper")
+        is_paper = env == "paper"
+        api_base = oauth_data.get("api_base", "https://paper-api.alpaca.markets")
+        alpaca_account_id = oauth_data.get("alpaca_account_id", account.get("account_number"))
+        account_status = oauth_data.get("account_status", "unknown")
+
+        logger.info(f"[alpaca] Connection status check - User: {current_user.id}, Mode: {env.upper()}")
+
+        return {
+            "connected": True,
+            "account_id": account["id"],
+            "account_name": account.get("account_name", "Alpaca Trading Account"),
+            "alpaca_account_id": alpaca_account_id,
+            "environment": env,
+            "is_paper": is_paper,
+            "api_base": api_base,
+            "account_status": account_status,
+            "balance": float(account.get("balance", 0)),
+            "last_sync": account.get("last_sync"),
+            "connected_at": oauth_data.get("connected_at")
+        }
+
+    except Exception as e:
+        logger.exception(f"[alpaca] Error getting connection status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get connection status: {str(e)}")

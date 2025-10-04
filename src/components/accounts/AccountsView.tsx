@@ -8,6 +8,7 @@ import { ConnectBrokerageModal } from './ConnectBrokerageModal';
 import { ConnectBankModal } from './ConnectBankModal';
 import { CustodialWalletModal } from './CustodialWalletModal';
 import { TransferAssetsModal } from './TransferAssetsModal';
+import { AlpacaConnectionStatus } from './AlpacaConnectionStatus';
 import { BrokerageAccount, BankAccount, CustodialWallet } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { DepositFundsModal } from './DepositFundsModal';
@@ -250,6 +251,9 @@ export function AccountsView() {
           </div>
         </Card>
       </div>
+
+      {/* Alpaca Connection Status */}
+      <AlpacaConnectionStatus />
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-4">

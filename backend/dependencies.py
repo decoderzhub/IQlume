@@ -39,42 +39,52 @@ async def get_alpaca_trading_client(
     current_user,
     supabase: Client
 ) -> TradingClient:
-    """Get Alpaca trading client"""
+    """Get Alpaca trading client with proper paper/live mode detection"""
     try:
         # First try to get OAuth token from database
         resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
-        
+
         if resp.data and len(resp.data) > 0:
             account = resp.data[0]
             access_token = account.get("access_token")
             refresh_token = account.get("refresh_token")
             expires_at = account.get("expires_at")
-            
+            oauth_data = account.get("oauth_data", {})
+
+            # Determine if this is a paper or live account from OAuth data
+            is_paper = oauth_data.get("env", "paper") == "paper"
+            api_base = oauth_data.get("api_base", "https://paper-api.alpaca.markets")
+
+            logger.info(f"🔗 Alpaca connection - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}, Base: {api_base}")
+
             # Check if token is expired
             if expires_at:
                 expiry_time = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
                 if datetime.now(timezone.utc) >= expiry_time and refresh_token:
                     # Refresh the token
                     access_token = await refresh_alpaca_token(account["id"], refresh_token, supabase)
-            
+
             if access_token:
-                # Use OAuth token
-                return TradingClient(api_key=access_token, secret_key="", paper=True, oauth_token=access_token)
-        
+                # Use OAuth token with correct paper/live mode
+                logger.info(f"✅ Using OAuth token for {'PAPER' if is_paper else 'LIVE'} trading")
+                return TradingClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
+
         # Fallback to API key method
         api_key = os.getenv("ALPACA_API_KEY")
         secret_key = os.getenv("ALPACA_SECRET_KEY")
-        
+
         if not api_key or not secret_key:
             raise HTTPException(
-                status_code=500, 
+                status_code=500,
                 detail="No Alpaca connection found. Please connect your Alpaca account or configure API credentials."
             )
-        
+
+        # For fallback API keys, always use paper mode for safety
+        logger.info(f"⚠️ Using fallback API keys in PAPER mode for user {current_user.id}")
         return TradingClient(api_key, secret_key, paper=True)
-        
+
     except Exception as e:
-        logger.error(f"Error creating Alpaca trading client: {e}")
+        logger.error(f"❌ Error creating Alpaca trading client: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create Alpaca client: {str(e)}")
 
 async def refresh_alpaca_token(account_id: str, refresh_token: str, supabase: Client) -> Optional[str]:

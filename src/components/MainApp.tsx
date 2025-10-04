@@ -7,6 +7,7 @@ import { cn } from '../lib/utils';
 import { AIChatView } from './ai-chat/AIChatView';
 import { SettingsView } from './settings/SettingsView';
 import { AnalyticsView } from './analytics/AnalyticsView';
+import { TradingView } from './trading/TradingView';
 
 import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
@@ -72,6 +73,8 @@ export function MainApp() {
     switch (activeView) {
       case 'dashboard':
         return <Dashboard />;
+      case 'trading':
+        return <TradingView />;
       case 'strategies':
         return <StrategiesView />;
       case 'ai-chat':

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { PortfolioOverview } from './PortfolioOverview';
+import { PositionsCard } from './PositionsCard';
 import { TradingStrategies } from './TradingStrategies';
 import { RecentTrades } from './RecentTrades';
 import { BotStatusDashboard } from '../bots/BotStatusDashboard';
@@ -38,6 +39,8 @@ export function Dashboard() {
       )}
 
       <PortfolioOverview />
+
+      <PositionsCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <TradingStrategies />

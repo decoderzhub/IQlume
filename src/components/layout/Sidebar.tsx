@@ -1,16 +1,17 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LayoutDashboard, 
-  TrendingUp, 
-  Activity, 
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Activity,
   Wallet,
-  PieChart, 
+  PieChart,
   Settings,
   Brain,
   Menu,
   X,
-  LogOut
+  LogOut,
+  LineChart
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { auth } from '../../lib/supabase';
@@ -18,6 +19,7 @@ import { cn } from '../../lib/utils';
 
 const navigation = [
   { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
+  { id: 'trading', name: 'Live Trading', icon: LineChart },
   { id: 'strategies', name: 'Strategies', icon: TrendingUp },
   { id: 'ai-chat', name: 'BroNomics Ai', icon: Brain },
   { id: 'trades', name: 'Trades', icon: Activity },

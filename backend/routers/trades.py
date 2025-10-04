@@ -28,6 +28,107 @@ router = APIRouter(prefix="/api", tags=["trading"])
 logger = logging.getLogger(__name__)
 
 
+@router.get("/positions")
+async def get_positions(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Get all open positions from Alpaca and bot positions table"""
+    try:
+        logger.info(f"📊 Fetching positions for user {current_user.id}")
+
+        # Get Alpaca positions
+        alpaca_positions = []
+        try:
+            trading_client = await get_alpaca_trading_client(current_user, supabase)
+            positions = trading_client.get_all_positions()
+
+            for p in positions or []:
+                # Calculate entry price from cost basis and quantity
+                entry_price = (float(p.cost_basis or 0) / float(p.qty or 1)) if float(p.qty or 0) > 0 else 0
+
+                position_data = {
+                    "id": f"alpaca_{p.symbol}",
+                    "source": "alpaca",
+                    "symbol": p.symbol,
+                    "quantity": float(p.qty or 0),
+                    "side": str(p.side).lower(),
+                    "entry_price": entry_price,
+                    "current_price": float(p.current_price or 0) if hasattr(p, 'current_price') else 0,
+                    "market_value": float(p.market_value or 0),
+                    "cost_basis": float(p.cost_basis or 0),
+                    "unrealized_pnl": float(p.unrealized_pl or 0),
+                    "unrealized_pnl_percent": float(p.unrealized_plpc or 0) * 100,
+                    "asset_class": str(p.asset_class) if hasattr(p, 'asset_class') else "equity",
+                    "strategy_id": None,
+                    "is_closed": False,
+                }
+                alpaca_positions.append(position_data)
+                logger.info(f"📈 Alpaca position: {p.symbol} - {float(p.qty or 0)} @ ${float(p.current_price or 0):.2f}")
+        except Exception as alpaca_error:
+            logger.warning(f"⚠️ Could not fetch Alpaca positions: {alpaca_error}")
+
+        # Get bot positions from database
+        bot_positions = []
+        try:
+            resp = supabase.table("bot_positions").select("*").eq("user_id", current_user.id).eq("is_closed", False).execute()
+
+            for bp in resp.data or []:
+                position_data = {
+                    "id": bp["id"],
+                    "source": "bot",
+                    "symbol": bp["symbol"],
+                    "quantity": float(bp["quantity"]),
+                    "side": bp["side"],
+                    "entry_price": float(bp["entry_price"]),
+                    "current_price": float(bp.get("current_price", 0)),
+                    "market_value": float(bp["quantity"]) * float(bp.get("current_price", 0)),
+                    "cost_basis": float(bp["quantity"]) * float(bp["entry_price"]),
+                    "unrealized_pnl": float(bp.get("unrealized_pnl", 0)),
+                    "unrealized_pnl_percent": float(bp.get("unrealized_pnl_percent", 0)),
+                    "asset_class": bp.get("position_type", "equity"),
+                    "strategy_id": bp.get("strategy_id"),
+                    "is_closed": False,
+                    "grid_level": bp.get("grid_level"),
+                    "is_grid_position": bp.get("is_grid_position", False),
+                }
+                bot_positions.append(position_data)
+                logger.info(f"🤖 Bot position: {bp['symbol']} - {float(bp['quantity'])} @ ${float(bp.get('current_price', 0)):.2f}")
+        except Exception as bot_error:
+            logger.warning(f"⚠️ Could not fetch bot positions: {bot_error}")
+
+        # Combine positions (deduplicate by symbol if needed)
+        all_positions = alpaca_positions + bot_positions
+
+        # Calculate aggregate statistics
+        total_market_value = sum(p["market_value"] for p in all_positions)
+        total_unrealized_pnl = sum(p["unrealized_pnl"] for p in all_positions)
+        total_cost_basis = sum(p["cost_basis"] for p in all_positions)
+        avg_unrealized_pnl_percent = (total_unrealized_pnl / total_cost_basis * 100) if total_cost_basis > 0 else 0
+
+        logger.info(f"✅ Found {len(all_positions)} total positions ({len(alpaca_positions)} Alpaca, {len(bot_positions)} bot)")
+
+        return {
+            "positions": all_positions,
+            "summary": {
+                "total_positions": len(all_positions),
+                "total_market_value": total_market_value,
+                "total_cost_basis": total_cost_basis,
+                "total_unrealized_pnl": total_unrealized_pnl,
+                "avg_unrealized_pnl_percent": avg_unrealized_pnl_percent,
+                "alpaca_positions_count": len(alpaca_positions),
+                "bot_positions_count": len(bot_positions),
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error fetching positions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch positions: {str(e)}")
+
+
 @router.get("/portfolio")
 async def get_portfolio(
     credentials: HTTPAuthorizationCredentials = Depends(security),
