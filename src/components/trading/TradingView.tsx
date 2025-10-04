@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, DollarSign, BarChart3, Clock, RefreshCw } from 'lucide-react';
 import { Card } from '../ui/Card';
@@ -38,7 +38,7 @@ export function TradingView() {
     setMarketData(null);
   };
 
-  const fetchMarketData = async (symbol: string) => {
+  const fetchMarketData = useCallback(async (symbol: string) => {
     if (!symbol) {
       setMarketData(null);
       return;
@@ -72,7 +72,7 @@ export function TradingView() {
     } finally {
       setLoadingMarketData(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (selectedSymbol) {
@@ -83,8 +83,10 @@ export function TradingView() {
       }, 5000);
 
       return () => clearInterval(interval);
+    } else {
+      setMarketData(null);
     }
-  }, [selectedSymbol]);
+  }, [selectedSymbol, fetchMarketData]);
 
   const handleOrderSubmit = (order: OrderData) => {
     setPendingOrder(order);
