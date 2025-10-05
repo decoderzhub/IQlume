@@ -887,11 +887,14 @@ async def ai_configure_grid_range(
         symbol = request_data.get("symbol")
         allocated_capital = request_data.get("allocated_capital", 1000)
         number_of_grids = request_data.get("number_of_grids", 20)
-        
+        strategy_type = request_data.get("strategy_type", "spot_grid")
+        direction = request_data.get("direction", "neutral")
+        leverage = request_data.get("leverage", 1)
+
         if not symbol:
             raise HTTPException(status_code=400, detail="Symbol is required")
         
-        logger.info(f"🤖 AI configuring grid range for {symbol} with ${allocated_capital} capital and {number_of_grids} grids")
+        logger.info(f"🤖 AI configuring {strategy_type} grid range for {symbol} with ${allocated_capital} capital, {number_of_grids} grids, leverage={leverage}x, direction={direction}")
         
         # Fetch 1-year historical data
         end_time = datetime.now(timezone.utc)
@@ -1052,12 +1055,71 @@ async def ai_configure_grid_range(
             ai_lower_limit = round(ai_lower_limit, 2)
             ai_upper_limit = round(ai_upper_limit, 2)
         
+        # Strategy-specific adjustments
+        if strategy_type == "futures_grid":
+            logger.info(f"🎯 Applying futures-specific adjustments: direction={direction}, leverage={leverage}x")
+
+            # Adjust range based on leverage (higher leverage = tighter range to reduce risk)
+            leverage_adjustment = 1.0 / (1.0 + (leverage - 1) * 0.15)
+            range_width = (ai_upper_limit - ai_lower_limit) * leverage_adjustment
+            range_center = (ai_upper_limit + ai_lower_limit) / 2
+
+            ai_lower_limit = range_center - (range_width / 2)
+            ai_upper_limit = range_center + (range_width / 2)
+
+            logger.info(f"🔧 Applied leverage adjustment (×{leverage_adjustment:.2f}): Range ${ai_lower_limit:.2f} - ${ai_upper_limit:.2f}")
+
+            # Adjust based on direction
+            if direction == "long":
+                # Bullish bias - shift range up and tighten lower bound
+                shift_factor = 1.05
+                ai_lower_limit = ai_lower_limit * shift_factor
+                ai_upper_limit = ai_upper_limit * shift_factor
+                logger.info("📈 Long direction: Shifted range upward by 5%")
+            elif direction == "short":
+                # Bearish bias - shift range down and tighten upper bound
+                shift_factor = 0.95
+                ai_lower_limit = ai_lower_limit * shift_factor
+                ai_upper_limit = ai_upper_limit * shift_factor
+                logger.info("📉 Short direction: Shifted range downward by 5%")
+
+        elif strategy_type == "infinity_grid":
+            logger.info(f"♾️ Applying infinity grid adjustments (no upper limit)")
+
+            # For infinity grid, only optimize lower bound
+            # Set upper limit to a very high value to indicate "unlimited"
+            ai_upper_limit = None
+
+            # Lower bound should be a strong support level
+            # Use the lower of: Bollinger lower band or yearly low with buffer
+            support_level = min(bb_lower, yearly_low * 1.05)
+            ai_lower_limit = max(ai_lower_limit * 0.9, support_level)
+
+            # Ensure lower bound is not too close to current price
+            min_distance = current_price * 0.15  # At least 15% below current
+            if current_price - ai_lower_limit < min_distance:
+                ai_lower_limit = current_price - min_distance
+
+            logger.info(f"♾️ Infinity grid lower bound set to ${ai_lower_limit:.2f} (support level)")
+
         # Calculate grid spacing for user information
-        grid_spacing = (ai_upper_limit - ai_lower_limit) / (number_of_grids - 1)
-        range_percentage = ((ai_upper_limit - ai_lower_limit) / current_price) * 100
-        
+        if ai_upper_limit is not None:
+            grid_spacing = (ai_upper_limit - ai_lower_limit) / (number_of_grids - 1)
+            range_percentage = ((ai_upper_limit - ai_lower_limit) / current_price) * 100
+        else:
+            # Infinity grid - use projected range for spacing calculation
+            projected_upper = current_price * 2.0  # Project 100% upside for display
+            grid_spacing = (projected_upper - ai_lower_limit) / (number_of_grids - 1)
+            range_percentage = None
+
         # Generate reasoning explanation
-        reasoning = f"""AI Grid Configuration for {symbol}:
+        strategy_suffix = ""
+        if strategy_type == "futures_grid":
+            strategy_suffix = f" (Futures {direction.upper()}, {leverage}x Leverage)"
+        elif strategy_type == "infinity_grid":
+            strategy_suffix = " (Infinity Grid - Unlimited Upside)"
+
+        reasoning = f"""AI Grid Configuration for {symbol}{strategy_suffix}:
 
 📊 Market Analysis:
 • Current Price: ${current_price:.2f}
@@ -1068,8 +1130,8 @@ async def ai_configure_grid_range(
 
 🎯 Optimized Grid Range:
 • Lower Limit: ${ai_lower_limit:.2f}
-• Upper Limit: ${ai_upper_limit:.2f}
-• Range Width: {range_percentage:.1f}% of current price
+• Upper Limit: {'Unlimited ♾️' if ai_upper_limit is None else f'${ai_upper_limit:.2f}'}
+• Range Width: {'Unlimited upside' if range_percentage is None else f'{range_percentage:.1f}% of current price'}
 • Grid Spacing: ${grid_spacing:.2f}
 
 🧠 AI Reasoning:
@@ -1079,12 +1141,14 @@ async def ai_configure_grid_range(
 • Ensured 20% buffer from current price
 • Optimized for {number_of_grids} grid levels"""
         
-        logger.info(f"✅ AI configuration complete: ${ai_lower_limit:.2f} - ${ai_upper_limit:.2f}")
-        
+        upper_display = "Unlimited" if ai_upper_limit is None else f"${ai_upper_limit:.2f}"
+        logger.info(f"✅ AI configuration complete: ${ai_lower_limit:.2f} - {upper_display}")
+
         return {
             "lower_limit": ai_lower_limit,
             "upper_limit": ai_upper_limit,
             "reasoning": reasoning,
+            "strategy_type": strategy_type,
             "technical_data": {
                 "current_price": current_price,
                 "yearly_high": yearly_high,
@@ -1096,6 +1160,8 @@ async def ai_configure_grid_range(
                 "momentum": momentum,
                 "grid_spacing": grid_spacing,
                 "range_percentage": range_percentage,
+                "direction": direction if strategy_type == "futures_grid" else None,
+                "leverage": leverage if strategy_type == "futures_grid" else None,
             }
         }
         
