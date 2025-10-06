@@ -7,6 +7,7 @@ import { BrokerageAccount } from '../../types';
 import { supportedBrokerages } from '../../lib/plaid';
 import { supabase } from '../../lib/supabase';
 import { useStore } from '../../store/useStore';
+import { useEffect } from 'react';
 
 interface ConnectBrokerageModalProps {
   onClose: () => void;
@@ -19,21 +20,37 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
   const [isConnecting, setIsConnecting] = useState(false);
   const { user } = useStore();
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const message = urlParams.get('message');
+
+    if (status === 'error' && message) {
+      console.error('[Alpaca OAuth] Callback error:', decodeURIComponent(message));
+    } else if (status === 'success' && message) {
+      console.log('[Alpaca OAuth] Callback success:', decodeURIComponent(message));
+    }
+  }, []);
+
   const handleConnect = async () => {
     if (!selectedBrokerage || !accountName) return;
 
     setIsConnecting(true);
-    
+
     try {
       if (selectedBrokerage === 'alpaca') {
-        // Get OAuth URL from backend
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (!session?.access_token) {
           throw new Error('No valid session found. Please log in again.');
         }
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/alpaca/oauth/authorize?account_name=${encodeURIComponent(accountName)}`, {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const authUrl = `${apiUrl}/api/alpaca/oauth/authorize?account_name=${encodeURIComponent(accountName)}`;
+
+        console.log('[Alpaca OAuth] Requesting OAuth URL from:', authUrl);
+
+        const response = await fetch(authUrl, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
@@ -41,12 +58,23 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Failed to get OAuth URL: ${response.status} ${errorText}`);
+          console.error('[Alpaca OAuth] Failed to get OAuth URL:', response.status, errorText);
+          throw new Error(`Failed to get OAuth URL: ${response.status} - ${errorText}`);
         }
 
         const data = await response.json();
-        
-        // Redirect to Alpaca OAuth
+        console.log('[Alpaca OAuth] Received OAuth response:', {
+          oauth_url: data.oauth_url,
+          debug_info: data.debug_info
+        });
+
+        if (!data.oauth_url) {
+          throw new Error('No OAuth URL received from server');
+        }
+
+        console.log('[Alpaca OAuth] Redirecting to Alpaca authorization page...');
+        console.log('[Alpaca OAuth] Debug Info:', data.debug_info);
+
         window.location.href = data.oauth_url;
       } else {
         // For other brokerages, use the existing mock flow
@@ -67,11 +95,11 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
         }
       }
     } catch (error) {
-      console.error('Error connecting brokerage:', error);
-      alert('Failed to connect brokerage account. Please try again.');
+      console.error('[Alpaca OAuth] Error connecting brokerage:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to connect Alpaca account:\n\n${errorMessage}\n\nPlease check:\n1. Your Alpaca OAuth app is registered and approved\n2. The redirect URI in Alpaca matches your server configuration\n3. Your API keys are correctly configured`);
+      setIsConnecting(false);
     }
-    
-    setIsConnecting(false);
   };
 
   const selectedBrokerageData = supportedBrokerages.find(b => b.id === selectedBrokerage);
