@@ -84,22 +84,10 @@ async def get_alpaca_oauth_url(
     try:
         client_id = os.getenv("ALPACA_CLIENT_ID")
         redirect_uri = os.getenv("ALPACA_OAUTH_REDIRECT_URI")
-
-        logger.info(f"[alpaca] OAuth config check - Client ID present: {bool(client_id)}, Redirect URI: {redirect_uri}")
-
         if not client_id or not redirect_uri:
-            logger.error("[alpaca] Missing OAuth configuration")
             raise HTTPException(
                 status_code=500,
                 detail="Alpaca OAuth configuration missing. Ensure ALPACA_CLIENT_ID and ALPACA_OAUTH_REDIRECT_URI are set.",
-            )
-
-        # Validate redirect URI format
-        if not redirect_uri.startswith(("http://", "https://")):
-            logger.error(f"[alpaca] Invalid redirect URI format: {redirect_uri}")
-            raise HTTPException(
-                status_code=500,
-                detail="Invalid ALPACA_OAUTH_REDIRECT_URI format. Must start with http:// or https://"
             )
 
         # Choose env (paper|live). You can expose a query param if you want to switch per-request.
@@ -120,26 +108,14 @@ async def get_alpaca_oauth_url(
             "response_type": "code",
             "client_id": client_id,
             "redirect_uri": redirect_uri,
-            "scope": "account:write trading",
+            "scope": "account:write trading",  # IMPORTANT: 'trading' scope; do NOT request 'data' via OAuth
+            "env": env,
             "state": state,
         }
         oauth_url = f"{AUTHORIZE_URL}?{urlencode(params)}"
+        logger.info(f"[alpaca] authorize URL generated for user={current_user.id} env={env}")
 
-        logger.info(f"[alpaca] OAuth URL generated for user={current_user.id} env={env}")
-        logger.info(f"[alpaca] Full OAuth URL: {oauth_url}")
-        logger.info(f"[alpaca] Redirect URI being used: {redirect_uri}")
-        logger.info(f"[alpaca] Client ID: {client_id[:8]}...")
-
-        return {
-            "oauth_url": oauth_url,
-            "state": state,
-            "debug_info": {
-                "redirect_uri": redirect_uri,
-                "client_id_preview": client_id[:8] + "..." if len(client_id) > 8 else client_id,
-                "env": env,
-                "authorize_endpoint": AUTHORIZE_URL
-            }
-        }
+        return {"oauth_url": oauth_url, "state": state}
 
     except HTTPException:
         raise
@@ -153,7 +129,6 @@ async def alpaca_oauth_callback(
     code: str = Query(..., description="Authorization code from Alpaca"),
     state: str = Query(..., description="State parameter for CSRF protection"),
     error: Optional[str] = Query(None, description="Error from Alpaca"),
-    error_description: Optional[str] = Query(None, description="Error description from Alpaca"),
     supabase: Client = Depends(get_supabase_client),
 ):
     """
@@ -165,13 +140,9 @@ async def alpaca_oauth_callback(
     5) Redirect to frontend with status
     """
     try:
-        logger.info(f"[alpaca] OAuth callback received - code present: {bool(code)}, state: {state[:8]}..., error: {error}")
-
         if error:
             logger.error(f"[alpaca] OAuth error from provider: {error}")
-            if error_description:
-                logger.error(f"[alpaca] OAuth error description: {error_description}")
-            msg = quote(f"OAuth authorization failed: {error}" + (f" - {error_description}" if error_description else ""))
+            msg = quote(f"OAuth authorization failed: {error}")
             return RedirectResponse(url=f"{FRONTEND_URL}/accounts?status=error&message={msg}")
 
         # Verify & consume state
@@ -179,8 +150,7 @@ async def alpaca_oauth_callback(
         state_obj = oauth_states.get(state)
         if not state_obj:
             logger.error(f"[alpaca] Invalid or expired state: {state}")
-            logger.error(f"[alpaca] Available states: {list(oauth_states.keys())}")
-            msg = quote("Invalid or expired authorization state. Please try connecting again.")
+            msg = quote("Invalid authorization state")
             return RedirectResponse(url=f"{FRONTEND_URL}/accounts?status=error&message={msg}")
 
         # Prevent reuse
@@ -398,58 +368,6 @@ async def refresh_access_token(
     except Exception as e:
         logger.exception(f"[alpaca] Error refreshing token: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to refresh token: {str(e)}")
-
-
-@router.get("/config-check")
-async def check_oauth_config(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    current_user=Depends(get_current_user),
-):
-    """
-    Check Alpaca OAuth configuration status (for debugging).
-    """
-    try:
-        client_id = os.getenv("ALPACA_CLIENT_ID")
-        client_secret = os.getenv("ALPACA_CLIENT_SECRET")
-        redirect_uri = os.getenv("ALPACA_OAUTH_REDIRECT_URI")
-        frontend_url = os.getenv("FRONTEND_URL")
-        env = _get_env_value()
-
-        config_status = {
-            "client_id_configured": bool(client_id),
-            "client_id_preview": client_id[:8] + "..." if client_id and len(client_id) > 8 else None,
-            "client_secret_configured": bool(client_secret),
-            "redirect_uri": redirect_uri,
-            "redirect_uri_valid": bool(redirect_uri and redirect_uri.startswith(("http://", "https://"))),
-            "frontend_url": frontend_url,
-            "environment": env,
-            "authorize_endpoint": AUTHORIZE_URL,
-            "token_endpoint": TOKEN_URL,
-            "api_base": _base_for_env(env),
-        }
-
-        issues = []
-        if not client_id:
-            issues.append("ALPACA_CLIENT_ID is not set")
-        if not client_secret:
-            issues.append("ALPACA_CLIENT_SECRET is not set")
-        if not redirect_uri:
-            issues.append("ALPACA_OAUTH_REDIRECT_URI is not set")
-        elif not redirect_uri.startswith(("http://", "https://")):
-            issues.append("ALPACA_OAUTH_REDIRECT_URI must start with http:// or https://")
-        if not frontend_url:
-            issues.append("FRONTEND_URL is not set (using default)")
-
-        config_status["issues"] = issues
-        config_status["configuration_valid"] = len(issues) == 0
-
-        logger.info(f"[alpaca] Config check for user={current_user.id}: {len(issues)} issues found")
-
-        return config_status
-
-    except Exception as e:
-        logger.exception(f"[alpaca] Error checking config: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to check configuration: {str(e)}")
 
 
 @router.get("/connection-status")

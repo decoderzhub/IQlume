@@ -9,7 +9,6 @@ import { ConnectBankModal } from './ConnectBankModal';
 import { CustodialWalletModal } from './CustodialWalletModal';
 import { TransferAssetsModal } from './TransferAssetsModal';
 import { AlpacaConnectionStatus } from './AlpacaConnectionStatus';
-import { AlpacaOAuthDebugger } from './AlpacaOAuthDebugger';
 import { BrokerageAccount, BankAccount, CustodialWallet } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { DepositFundsModal } from './DepositFundsModal';
@@ -255,9 +254,6 @@ export function AccountsView() {
 
       {/* Alpaca Connection Status */}
       <AlpacaConnectionStatus />
-
-      {/* OAuth Configuration Debugger */}
-      <AlpacaOAuthDebugger />
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-4">
