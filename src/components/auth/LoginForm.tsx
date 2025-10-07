@@ -22,22 +22,13 @@ export function LoginForm({ onBack }: LoginFormProps) {
     setLoading(true);
 
     try {
-      console.log('Attempting to', isLogin ? 'sign in' : 'sign up', 'with email:', email);
-
-      const { data, error } = isLogin
+      const { data, error } = isLogin 
         ? await auth.signIn(email, password)
         : await auth.signUp(email, password);
 
-      if (error) {
-        console.error('Authentication error:', error);
-        alert(`Authentication failed: ${error.message || 'Unknown error'}`);
-        throw error;
-      }
-
-      console.log('Auth response:', { hasUser: !!data.user, hasSession: !!data.session });
-
+      if (error) throw error;
+      
       if (data.user) {
-        console.log('Setting user in store:', data.user.email);
         setUser({
           id: data.user.id,
           email: data.user.email!,
@@ -45,11 +36,8 @@ export function LoginForm({ onBack }: LoginFormProps) {
           created_at: data.user.created_at,
           is_verified: data.user.email_confirmed_at !== null,
         });
-      } else {
-        console.warn('No user returned from auth');
-        alert('Authentication succeeded but no user data returned');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Auth error:', error);
     } finally {
       setLoading(false);

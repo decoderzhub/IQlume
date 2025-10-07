@@ -2,39 +2,10 @@
 
 This guide will help you set up and troubleshoot Alpaca OAuth integration for brokernomex.
 
-## ⚠️ IMPORTANT: If OAuth Stopped Working After 9/30/2024
-
-**Root Cause Identified:** The backend `.env` file is missing.
-
-Your backend server requires its own `.env` file in the `backend/` directory, separate from the frontend `.env` file. Without it, OAuth credentials are not loaded, causing the "app.alpaca.markets refused to connect" error.
-
-### Immediate Fix Steps:
-
-1. **Check if backend/.env exists:**
-   ```bash
-   ls backend/.env
-   ```
-
-2. **If missing, create it from the template:**
-   ```bash
-   cp backend/.env.example backend/.env
-   ```
-
-3. **Add your Alpaca OAuth credentials to backend/.env:**
-   ```bash
-   ALPACA_CLIENT_ID=your_client_id_here
-   ALPACA_CLIENT_SECRET=your_secret_here
-   ALPACA_OAUTH_REDIRECT_URI=http://localhost:6853/api/alpaca/oauth/callback
-   FRONTEND_URL=http://localhost:5173
-   ```
-
-4. **Restart your backend server**
-
 ## Prerequisites
 
 1. An Alpaca account (paper or live trading)
 2. Access to your Alpaca dashboard at https://app.alpaca.markets
-3. Backend `.env` file with OAuth credentials
 
 ## Setup Instructions
 

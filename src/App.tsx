@@ -55,25 +55,13 @@ function AppContent() {
     const checkAuth = async () => {
       try {
         setLoading(true);
-
-        console.log('=== Supabase Configuration Check ===');
-        console.log('URL:', import.meta.env.VITE_SUPABASE_URL);
-        console.log('Has Anon Key:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
-        console.log('Anon Key (first 20 chars):', import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20));
-
         const { user, error } = await auth.getCurrentUser();
 
         if (error) {
           console.error('Auth check error:', error);
-          console.error('Error details:', {
-            message: error.message,
-            status: error.status,
-            name: error.name
-          });
         }
 
         if (user) {
-          console.log('User authenticated:', user.email);
           setUser({
             id: user.id,
             email: user.email!,
@@ -81,8 +69,6 @@ function AppContent() {
             created_at: user.created_at,
             is_verified: user.email_confirmed_at !== null,
           });
-        } else {
-          console.log('No authenticated user');
         }
       } catch (error) {
         console.error('Auth check failed:', error);
