@@ -113,9 +113,10 @@ async def get_alpaca_trading_client(
             )
 
         # Use OAuth token with correct paper/live mode
+        # IMPORTANT: When using OAuth, only pass oauth_token parameter, NOT api_key
         logger.info(f"✅ Using OAuth token for {'PAPER' if is_paper else 'LIVE'} trading on account {alpaca_account_id}")
         try:
-            return TradingClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
+            return TradingClient(oauth_token=access_token, paper=is_paper)
         except Exception as client_error:
             logger.error(f"❌ Failed to create Alpaca trading client: {client_error}")
             raise HTTPException(
@@ -271,8 +272,9 @@ async def get_alpaca_stock_data_client(
             )
 
         # Use OAuth token with correct paper/live mode
+        # IMPORTANT: When using OAuth, only pass oauth_token parameter, NOT api_key
         try:
-            return StockHistoricalDataClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
+            return StockHistoricalDataClient(oauth_token=access_token, paper=is_paper)
         except Exception as client_error:
             logger.error(f"❌ Failed to create stock data client: {client_error}")
             raise HTTPException(
@@ -330,8 +332,10 @@ async def get_alpaca_crypto_data_client(
             )
 
         # Use OAuth token with correct paper/live mode
+        # IMPORTANT: When using OAuth, only pass oauth_token parameter, NOT api_key
+        # Note: CryptoHistoricalDataClient doesn't have a 'paper' parameter
         try:
-            return CryptoHistoricalDataClient(api_key=access_token, secret_key="", oauth_token=access_token)
+            return CryptoHistoricalDataClient(oauth_token=access_token)
         except Exception as client_error:
             logger.error(f"❌ Failed to create crypto data client: {client_error}")
             raise HTTPException(
