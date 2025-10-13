@@ -87,10 +87,15 @@ async def create_strategy(
             try:
                 logger.info(f"🚀 Executing newly created strategy: {created_strategy.name}")
 
-                # Get trading clients
+                # Verify account context before executing
+                from dependencies import verify_alpaca_account_context
+                account_context = await verify_alpaca_account_context(current_user, supabase)
+                logger.info(f"📋 Account Context for strategy creation: {account_context}")
+
+                # Get trading clients with user context
                 trading_client = await get_alpaca_trading_client(current_user, supabase)
-                stock_client = get_alpaca_stock_data_client()
-                crypto_client = get_alpaca_crypto_data_client()
+                stock_client = await get_alpaca_stock_data_client(current_user, supabase)
+                crypto_client = await get_alpaca_crypto_data_client(current_user, supabase)
 
                 # Get strategy executor from factory
                 executor = StrategyExecutorFactory.create_executor(

@@ -9,6 +9,7 @@ from dependencies import (
     get_alpaca_trading_client,
     get_alpaca_stock_data_client,
     get_alpaca_crypto_data_client,
+    verify_alpaca_account_context,
 )
 from strategy_executors.factory import StrategyExecutorFactory
 
@@ -159,13 +160,17 @@ class TradingScheduler:
             user = MockUser(user_id)
             
             logger.info(f"🔗 Getting trading clients for user {user_id}")
-            
-            # Get clients
+
+            # Verify account context before trading
+            account_context = await verify_alpaca_account_context(user, self.supabase)
+            logger.info(f"📋 Account Context: {account_context}")
+
+            # Get clients with user context
             trading_client = await get_alpaca_trading_client(user, self.supabase)
-            stock_client = get_alpaca_stock_data_client()
-            crypto_client = get_alpaca_crypto_data_client()
-            
-            logger.info(f"✅ Trading clients obtained successfully")
+            stock_client = await get_alpaca_stock_data_client(user, self.supabase)
+            crypto_client = await get_alpaca_crypto_data_client(user, self.supabase)
+
+            logger.info(f"✅ User-scoped trading clients obtained for user {user_id}")
             
             # Get strategy executor from factory
             executor = StrategyExecutorFactory.create_executor(

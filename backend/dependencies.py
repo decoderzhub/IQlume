@@ -135,25 +135,85 @@ async def refresh_alpaca_token(account_id: str, refresh_token: str, supabase: Cl
         return None
     
 
-def get_alpaca_stock_data_client() -> StockHistoricalDataClient:
-    """Get Alpaca stock data client"""
-    api_key = os.getenv("ALPACA_API_KEY")
-    secret_key = os.getenv("ALPACA_SECRET_KEY")
-    
-    if not api_key or not secret_key:
-        raise HTTPException(status_code=500, detail="Alpaca API credentials missing")
-    
-    return StockHistoricalDataClient(api_key, secret_key)
+async def get_alpaca_stock_data_client(
+    current_user,
+    supabase: Client
+) -> StockHistoricalDataClient:
+    """Get Alpaca stock data client with user-scoped OAuth token"""
+    try:
+        # Try to get OAuth token from database
+        resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
 
-def get_alpaca_crypto_data_client() -> CryptoHistoricalDataClient:
-    """Get Alpaca crypto data client"""
-    api_key = os.getenv("ALPACA_API_KEY")
-    secret_key = os.getenv("ALPACA_SECRET_KEY")
-    
-    if not api_key or not secret_key:
-        raise HTTPException(status_code=500, detail="Alpaca API credentials missing")
-    
-    return CryptoHistoricalDataClient(api_key, secret_key)
+        if resp.data and len(resp.data) > 0:
+            account = resp.data[0]
+            access_token = account.get("access_token")
+            oauth_data = account.get("oauth_data", {})
+
+            # Determine if this is a paper or live account from OAuth data
+            is_paper = oauth_data.get("env", "paper") == "paper"
+
+            logger.info(f"🔗 Stock data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
+
+            if access_token:
+                # Use OAuth token with correct paper/live mode
+                return StockHistoricalDataClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
+
+        # Fallback to API key method (development only)
+        api_key = os.getenv("ALPACA_API_KEY")
+        secret_key = os.getenv("ALPACA_SECRET_KEY")
+
+        if not api_key or not secret_key:
+            raise HTTPException(
+                status_code=500,
+                detail="No Alpaca connection found. Please connect your Alpaca account."
+            )
+
+        logger.warning(f"⚠️ Using fallback API keys for stock data client (user {current_user.id})")
+        return StockHistoricalDataClient(api_key, secret_key)
+
+    except Exception as e:
+        logger.error(f"❌ Error creating stock data client: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create stock data client: {str(e)}")
+
+async def get_alpaca_crypto_data_client(
+    current_user,
+    supabase: Client
+) -> CryptoHistoricalDataClient:
+    """Get Alpaca crypto data client with user-scoped OAuth token"""
+    try:
+        # Try to get OAuth token from database
+        resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
+
+        if resp.data and len(resp.data) > 0:
+            account = resp.data[0]
+            access_token = account.get("access_token")
+            oauth_data = account.get("oauth_data", {})
+
+            # Determine if this is a paper or live account from OAuth data
+            is_paper = oauth_data.get("env", "paper") == "paper"
+
+            logger.info(f"🔗 Crypto data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
+
+            if access_token:
+                # Use OAuth token with correct paper/live mode
+                return CryptoHistoricalDataClient(api_key=access_token, secret_key="", oauth_token=access_token)
+
+        # Fallback to API key method (development only)
+        api_key = os.getenv("ALPACA_API_KEY")
+        secret_key = os.getenv("ALPACA_SECRET_KEY")
+
+        if not api_key or not secret_key:
+            raise HTTPException(
+                status_code=500,
+                detail="No Alpaca connection found. Please connect your Alpaca account."
+            )
+
+        logger.warning(f"⚠️ Using fallback API keys for crypto data client (user {current_user.id})")
+        return CryptoHistoricalDataClient(api_key, secret_key)
+
+    except Exception as e:
+        logger.error(f"❌ Error creating crypto data client: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create crypto data client: {str(e)}")
 
 def get_plaid_client() -> plaid_api.PlaidApi:
     """Get Plaid client"""
@@ -197,3 +257,37 @@ async def get_current_user(
     except Exception as e:
         logger.error(f"Authentication error: {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
+
+async def verify_alpaca_account_context(current_user, supabase: Client) -> dict:
+    """Verify and log which Alpaca account is being used for trading operations"""
+    try:
+        resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
+
+        if resp.data and len(resp.data) > 0:
+            account = resp.data[0]
+            oauth_data = account.get("oauth_data", {})
+            alpaca_account_id = oauth_data.get("alpaca_account_id", "unknown")
+            env = oauth_data.get("env", "paper")
+
+            logger.info(f"✅ Account verification - User: {current_user.id}, Alpaca Account: {alpaca_account_id}, Mode: {env.upper()}")
+
+            return {
+                "user_id": current_user.id,
+                "alpaca_account_id": alpaca_account_id,
+                "environment": env,
+                "account_name": account.get("account_name", "Unknown")
+            }
+        else:
+            logger.warning(f"⚠️ No Alpaca account found for user {current_user.id}")
+            return {
+                "user_id": current_user.id,
+                "alpaca_account_id": None,
+                "environment": None,
+                "account_name": None
+            }
+    except Exception as e:
+        logger.error(f"❌ Error verifying account context: {e}")
+        return {
+            "user_id": current_user.id,
+            "error": str(e)
+        }

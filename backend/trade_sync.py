@@ -10,6 +10,7 @@ from typing import List, Dict, Any
 from dependencies import (
     get_supabase_client,
     get_alpaca_trading_client,
+    verify_alpaca_account_context,
 )
 from alpaca.trading.requests import GetOrdersRequest
 from alpaca.trading.enums import QueryOrderStatus, OrderStatus
@@ -82,7 +83,11 @@ class TradeSyncService:
                     self.id = user_id
             
             user = MockUser(user_id)
-            
+
+            # Verify account context
+            account_context = await verify_alpaca_account_context(user, self.supabase)
+            logger.info(f"📋 [TRADE SYNC] Account Context for user {user_id}: {account_context}")
+
             # Get trading client for this user
             trading_client = await get_alpaca_trading_client(user, self.supabase)
             

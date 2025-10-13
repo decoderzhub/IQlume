@@ -37,6 +37,10 @@ async def place_order(
 ):
     """Place a new order via Alpaca"""
     try:
+        # Verify account context before placing order
+        from dependencies import verify_alpaca_account_context
+        account_context = await verify_alpaca_account_context(current_user, supabase)
+        logger.info(f"📋 Placing order - Account Context: {account_context}")
         logger.info(f"📝 Placing order for user {current_user.id}: {order_data}")
 
         # Extract order parameters
@@ -295,6 +299,10 @@ async def get_portfolio(
 ):
     """Get portfolio information"""
     try:
+        # Verify account context
+        from dependencies import verify_alpaca_account_context
+        account_context = await verify_alpaca_account_context(current_user, supabase)
+        logger.info(f"📋 Fetching portfolio - Account Context: {account_context}")
         logger.info(f"📊 Fetching portfolio for user {current_user.id}")
         trading_client = await get_alpaca_trading_client(current_user, supabase)
         account = trading_client.get_account()
@@ -479,6 +487,11 @@ async def execute_trade(
 ):
     """Execute a trade"""
     try:
+        # Verify account context before executing trade
+        from dependencies import verify_alpaca_account_context
+        account_context = await verify_alpaca_account_context(current_user, supabase)
+        logger.info(f"📋 Executing trade - Account Context: {account_context}")
+
         trading_client = await get_alpaca_trading_client(current_user, supabase)
         symbol = trade_data.get("symbol")
         side = trade_data.get("side")  # "buy" | "sell"

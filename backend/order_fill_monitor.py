@@ -77,13 +77,18 @@ class OrderFillMonitor:
         """Check orders for a specific user"""
         try:
             # Get user's trading client
-            from dependencies import get_alpaca_trading_client, get_supabase_client
+            from dependencies import get_alpaca_trading_client, verify_alpaca_account_context
 
             class MockUser:
                 def __init__(self, user_id: str):
                     self.id = user_id
 
             user = MockUser(user_id)
+
+            # Verify account context
+            account_context = await verify_alpaca_account_context(user, self.supabase)
+            logger.info(f"📋 [ORDER FILL MONITOR] Account Context: {account_context}")
+
             trading_client = await get_alpaca_trading_client(user, self.supabase)
 
             if not trading_client:
@@ -261,8 +266,14 @@ class OrderFillMonitor:
             from strategy_executors.factory import StrategyExecutorFactory
             from dependencies import get_alpaca_stock_data_client, get_alpaca_crypto_data_client
 
-            stock_client = get_alpaca_stock_data_client()
-            crypto_client = get_alpaca_crypto_data_client()
+            # Create user object for data clients
+            class MockUser:
+                def __init__(self, user_id: str):
+                    self.id = user_id
+
+            user = MockUser(user_id)
+            stock_client = await get_alpaca_stock_data_client(user, self.supabase)
+            crypto_client = await get_alpaca_crypto_data_client(user, self.supabase)
 
             executor = StrategyExecutorFactory.create_executor(
                 strategy_type,
