@@ -20,8 +20,10 @@ from dependencies import (
     get_current_user,
     get_alpaca_stock_data_client,
     get_alpaca_crypto_data_client,
+    get_supabase_client,
     security,
 )
+from supabase import Client
 import math
 from scipy.stats import norm
 import numpy as np
@@ -163,9 +165,9 @@ def _is_403(e: Exception) -> bool:
     return "403" in text or "Forbidden" in text
 
 # --------- core getters ---------
-async def get_real_time_quotes(symbols: List[str], credentials: HTTPAuthorizationCredentials) -> Dict[str, Any]:
-    stock_data_client: StockHistoricalDataClient = get_alpaca_stock_data_client()
-    crypto_data_client: CryptoHistoricalDataClient = get_alpaca_crypto_data_client()
+async def get_real_time_quotes(symbols: List[str], credentials: HTTPAuthorizationCredentials, current_user, supabase: Client) -> Dict[str, Any]:
+    stock_data_client: StockHistoricalDataClient = await get_alpaca_stock_data_client(current_user, supabase)
+    crypto_data_client: CryptoHistoricalDataClient = await get_alpaca_crypto_data_client(current_user, supabase)
 
     stock_symbols = [s for s in symbols if is_stock_symbol(s)]
     crypto_symbols_norm = [normalize_crypto_symbol(s) for s in symbols]
@@ -227,8 +229,8 @@ async def get_real_time_quotes(symbols: List[str], credentials: HTTPAuthorizatio
     return {"quotes": out}
 
 
-async def get_market_snapshot(symbols: List[str], credentials: HTTPAuthorizationCredentials) -> Dict[str, Any]:
-    stock_data_client: StockHistoricalDataClient = get_alpaca_stock_data_client()
+async def get_market_snapshot(symbols: List[str], credentials: HTTPAuthorizationCredentials, current_user, supabase: Client) -> Dict[str, Any]:
+    stock_data_client: StockHistoricalDataClient = await get_alpaca_stock_data_client(current_user, supabase)
 
     stock_syms = [s for s in symbols if is_stock_symbol(s)]
     if not stock_syms:
@@ -273,15 +275,15 @@ async def get_market_snapshot(symbols: List[str], credentials: HTTPAuthorization
     return {"snapshots": snapshots}
 
 
-async def get_live_prices_data(symbols: List[str], credentials: HTTPAuthorizationCredentials) -> Dict[str, Any]:
+async def get_live_prices_data(symbols: List[str], credentials: HTTPAuthorizationCredentials, current_user, supabase: Client) -> Dict[str, Any]:
     try:
-        quotes_response = await get_real_time_quotes(symbols, credentials)
+        quotes_response = await get_real_time_quotes(symbols, credentials, current_user, supabase)
     except Exception:
         logger.exception("quotes fetch failed")
         quotes_response = {"quotes": {}}
 
     try:
-        snapshots_response = await get_market_snapshot(symbols, credentials)
+        snapshots_response = await get_market_snapshot(symbols, credentials, current_user, supabase)
     except Exception:
         logger.exception("snapshots fetch failed")
         snapshots_response = {"snapshots": {}}
@@ -337,9 +339,11 @@ async def get_bars_data(
     end_time: Optional[datetime] = None,
     limit: Optional[int] = None,
     credentials: HTTPAuthorizationCredentials = None,
+    current_user = None,
+    supabase: Client = None,
 ) -> Dict[str, Any]:
-    stock_data_client: StockHistoricalDataClient = get_alpaca_stock_data_client()
-    crypto_data_client: CryptoHistoricalDataClient = get_alpaca_crypto_data_client()
+    stock_data_client: StockHistoricalDataClient = await get_alpaca_stock_data_client(current_user, supabase)
+    crypto_data_client: CryptoHistoricalDataClient = await get_alpaca_crypto_data_client(current_user, supabase)
 
     # timeframe mapping
     tf = {
@@ -423,9 +427,10 @@ async def get_market_data(
     symbol: str,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     """Get market data for a single symbol"""
-    data = await get_live_prices_data([symbol.upper()], credentials)
+    data = await get_live_prices_data([symbol.upper()], credentials, current_user, supabase)
     return data.get(symbol.upper(), {})
 
 @router.get("/quotes")
@@ -433,9 +438,10 @@ async def quotes(
     symbols: str = Query(..., description="Comma-separated list of symbols"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
-    return await get_real_time_quotes(symbol_list, credentials)
+    return await get_real_time_quotes(symbol_list, credentials, current_user, supabase)
 
 @router.get("/bars")
 async def bars(
@@ -446,6 +452,7 @@ async def bars(
     limit: Optional[int] = Query(100, description="Max bars"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
 
@@ -463,25 +470,27 @@ async def bars(
     start_dt = parse(start)
     end_dt = parse(end)
 
-    return await get_bars_data(symbol_list, timeframe, start_dt, end_dt, limit, credentials)
+    return await get_bars_data(symbol_list, timeframe, start_dt, end_dt, limit, credentials, current_user, supabase)
 
 @router.get("/snapshot")
 async def snapshot(
     symbols: str = Query(..., description="Comma-separated list of symbols"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
-    return await get_market_snapshot(symbol_list, credentials)
+    return await get_market_snapshot(symbol_list, credentials, current_user, supabase)
 
 @router.get("/live-prices")
 async def live_prices(
     symbols: str = Query(..., description="Comma-separated list of symbols"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    # current_user=Depends(get_current_user),  # optional for public ping
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
-    return await get_live_prices_data(symbol_list, credentials)
+    return await get_live_prices_data(symbol_list, credentials, current_user, supabase)
 
 @router.get("/{symbol}/historical")
 async def historical(
@@ -492,6 +501,7 @@ async def historical(
     limit: Optional[int] = Query(100, description="Max bars"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     def parse(s: Optional[str]) -> Optional[datetime]:
         if not s:
@@ -506,7 +516,7 @@ async def historical(
 
     start_dt = parse(start)
     end_dt = parse(end)
-    data = await get_bars_data([symbol.upper()], timeframe, start_dt, end_dt, limit, credentials)
+    data = await get_bars_data([symbol.upper()], timeframe, start_dt, end_dt, limit, credentials, current_user, supabase)
     # prefer normalized crypto key if needed
     sym_key = symbol.upper() if is_stock_symbol(symbol) else (normalize_crypto_symbol(symbol) or symbol.upper())
     return data.get("bars", {}).get(sym_key, [])
@@ -583,7 +593,7 @@ def calculate_probability_of_success(delta, option_type='call'):
     except:
         return 50.0  # Default 50% if calculation fails
 
-async def get_options_chain_data(symbol: str, expiration_date: str = None) -> Dict[str, Any]:
+async def get_options_chain_data(symbol: str, expiration_date: str = None, current_user = None, supabase: Client = None) -> Dict[str, Any]:
     """
     Get options chain data for a symbol
     In production, this would fetch from a real options data provider
@@ -591,7 +601,7 @@ async def get_options_chain_data(symbol: str, expiration_date: str = None) -> Di
     """
     try:
         # Get current stock price
-        stock_data_client = get_alpaca_stock_data_client()
+        stock_data_client = await get_alpaca_stock_data_client(current_user, supabase)
         
         # Try to get real stock price
         current_price = 150.0  # Default fallback
@@ -760,10 +770,11 @@ async def get_options_chain(
     expiration: Optional[str] = Query(None, description="Expiration date (YYYY-MM-DD)"),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     """Get options chain data for a symbol"""
     try:
-        data = await get_options_chain_data(symbol.upper(), expiration)
+        data = await get_options_chain_data(symbol.upper(), expiration, current_user, supabase)
         return data
     except Exception as e:
         logger.error(f"Error fetching options chain: {e}")
@@ -881,6 +892,7 @@ async def ai_configure_grid_range(
     request_data: Dict[str, Any],
     credentials: HTTPAuthorizationCredentials = Depends(security),
     current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
 ):
     """AI-powered grid range configuration using technical analysis and market data"""
     try:
@@ -921,7 +933,7 @@ async def ai_configure_grid_range(
         if not bars or len(bars) < 30:
             logger.warning(f"⚠️ Insufficient historical data for {symbol}, using fallback calculation")
             # Fallback to current price with percentage range
-            current_price_data = await get_live_prices_data([symbol], credentials)
+            current_price_data = await get_live_prices_data([symbol], credentials, current_user, supabase)
             current_price = current_price_data.get(symbol.upper(), {}).get("price", 100)
             
             fallback_lower = current_price * 0.8  # 20% below
@@ -946,7 +958,7 @@ async def ai_configure_grid_range(
 
         # IMPORTANT: Use LIVE current price, not historical close
         logger.info(f"📊 Fetching live current price for {symbol}...")
-        current_price_data = await get_live_prices_data([symbol], credentials)
+        current_price_data = await get_live_prices_data([symbol], credentials, current_user, supabase)
         live_current_price = current_price_data.get(symbol.upper(), {}).get("price", 0)
 
         # Use historical as fallback only if live price fails
