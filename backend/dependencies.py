@@ -63,10 +63,12 @@ async def get_alpaca_trading_client(
             )
 
         account = resp.data[0]
-        access_token = account.get("access_token")
-        refresh_token = account.get("refresh_token")
-        expires_at = account.get("expires_at")
         oauth_data = account.get("oauth_data", {})
+
+        # Try to get access token from multiple locations (for backward compatibility)
+        access_token = account.get("access_token") or account.get("oauth_token") or oauth_data.get("access_token")
+        refresh_token = account.get("refresh_token") or oauth_data.get("refresh_token")
+        expires_at = account.get("expires_at")
         account_number = account.get("account_number")
         account_name = account.get("account_name", "Unknown")
 
@@ -75,8 +77,10 @@ async def get_alpaca_trading_client(
         api_base = oauth_data.get("api_base", "https://paper-api.alpaca.markets")
         alpaca_account_id = oauth_data.get("alpaca_account_id", account_number)
 
+        # Log which field provided the token
+        token_source = "access_token" if account.get("access_token") else ("oauth_token" if account.get("oauth_token") else "oauth_data.access_token")
         logger.info(f"🔗 Found Alpaca account - User: {current_user.id}, Account: {account_name}, Alpaca ID: {alpaca_account_id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
-        logger.info(f"🔗 API Base: {api_base}, DB Account ID: {account['id']}")
+        logger.info(f"🔗 API Base: {api_base}, DB Account ID: {account['id']}, Token source: {token_source}")
 
         # Check if token is expired
         if expires_at:
@@ -172,16 +176,31 @@ async def refresh_alpaca_token(account_id: str, refresh_token: str, supabase: Cl
                 logger.error("❌ Token refresh response missing access_token")
                 return None
 
-            # Update database
+            # Update database with tokens in all fields for consistency
             try:
                 expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-                supabase.table("brokerage_accounts").update({
+
+                # Update all token fields to maintain consistency
+                update_data = {
                     "access_token": new_access_token,
+                    "oauth_token": new_access_token,
                     "refresh_token": new_refresh_token,
                     "expires_at": expires_at.isoformat()
-                }).eq("id", account_id).execute()
+                }
+
+                # Also update oauth_data to keep it in sync
+                result = supabase.table("brokerage_accounts").select("oauth_data").eq("id", account_id).execute()
+                if result.data and result.data[0].get("oauth_data"):
+                    oauth_data = result.data[0]["oauth_data"]
+                    oauth_data["access_token"] = new_access_token
+                    oauth_data["refresh_token"] = new_refresh_token
+                    oauth_data["expires_in"] = expires_in
+                    update_data["oauth_data"] = oauth_data
+
+                supabase.table("brokerage_accounts").update(update_data).eq("id", account_id).execute()
 
                 logger.info(f"✅ Successfully refreshed Alpaca OAuth token for account {account_id}")
+                logger.info(f"✅ Token fields updated: access_token=✓, oauth_token=✓, refresh_token=✓, oauth_data=✓")
                 return new_access_token
             except Exception as db_error:
                 logger.error(f"❌ Failed to update database with new token: {db_error}")
@@ -232,13 +251,17 @@ async def get_alpaca_stock_data_client(
             )
 
         account = resp.data[0]
-        access_token = account.get("access_token")
         oauth_data = account.get("oauth_data", {})
+
+        # Try to get access token from multiple locations (for backward compatibility)
+        access_token = account.get("access_token") or account.get("oauth_token") or oauth_data.get("access_token")
 
         # Determine if this is a paper or live account from OAuth data
         is_paper = oauth_data.get("env", "paper") == "paper"
 
-        logger.info(f"🔗 Stock data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
+        # Log which field provided the token
+        token_source = "access_token" if account.get("access_token") else ("oauth_token" if account.get("oauth_token") else "oauth_data.access_token")
+        logger.info(f"🔗 Stock data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}, Token source: {token_source}")
 
         if not access_token:
             logger.error(f"❌ No access token for stock data client, user {current_user.id}")
@@ -287,13 +310,17 @@ async def get_alpaca_crypto_data_client(
             )
 
         account = resp.data[0]
-        access_token = account.get("access_token")
         oauth_data = account.get("oauth_data", {})
+
+        # Try to get access token from multiple locations (for backward compatibility)
+        access_token = account.get("access_token") or account.get("oauth_token") or oauth_data.get("access_token")
 
         # Determine if this is a paper or live account from OAuth data
         is_paper = oauth_data.get("env", "paper") == "paper"
 
-        logger.info(f"🔗 Crypto data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
+        # Log which field provided the token
+        token_source = "access_token" if account.get("access_token") else ("oauth_token" if account.get("oauth_token") else "oauth_data.access_token")
+        logger.info(f"🔗 Crypto data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}, Token source: {token_source}")
 
         if not access_token:
             logger.error(f"❌ No access token for crypto data client, user {current_user.id}")

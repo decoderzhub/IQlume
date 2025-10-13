@@ -6,7 +6,7 @@ import logging
 import os
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode, quote
 
@@ -230,8 +230,10 @@ async def alpaca_oauth_callback(
 
         token_json = token_response.json()
         access_token = token_json.get("access_token")
+        refresh_token = token_json.get("refresh_token")
         token_type = token_json.get("token_type", "bearer")
         scope = token_json.get("scope", "")
+        expires_in = token_json.get("expires_in", 31536000)
 
         if not access_token:
             logger.error("[alpaca] No access token in token response")
@@ -275,7 +277,10 @@ async def alpaca_oauth_callback(
             f"[alpaca] Account fetched id={alpaca_account_id} status={account_status} env_base={base_url}"
         )
 
-        # Build DB payload
+        # Calculate token expiration
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+
+        # Build DB payload with tokens in all required fields for consistency
         account_record = {
             "user_id": user_id,
             "brokerage": "alpaca",
@@ -284,12 +289,17 @@ async def alpaca_oauth_callback(
             "balance": portfolio_value,
             "is_connected": True,
             "last_sync": datetime.now(timezone.utc).isoformat(),
+            "access_token": access_token,
             "oauth_token": access_token,
+            "refresh_token": refresh_token,
+            "expires_at": expires_at.isoformat(),
             "account_number": alpaca_account_id,
             "oauth_data": {
                 "access_token": access_token,
+                "refresh_token": refresh_token,
                 "token_type": token_type,
                 "scope": scope,
+                "expires_in": expires_in,
                 "alpaca_account_id": alpaca_account_id,
                 "account_status": account_status,
                 "buying_power": buying_power,
@@ -316,6 +326,11 @@ async def alpaca_oauth_callback(
         else:
             logger.info(f"[alpaca] Inserting new account record for user={user_id}")
             supabase.table("brokerage_accounts").insert(account_record).execute()
+
+        # Log token storage confirmation with masked preview
+        token_preview = access_token[:8] + "..." if len(access_token) > 8 else "***"
+        logger.info(f"[alpaca] ✅ Tokens saved successfully for user={user_id}, token preview={token_preview}")
+        logger.info(f"[alpaca] Token fields populated: access_token=✓, oauth_token=✓, refresh_token={'✓' if refresh_token else '✗'}, expires_at=✓")
 
         # Success
         ok = quote("Alpaca account connected successfully")
