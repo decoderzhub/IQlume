@@ -43,6 +43,19 @@ async def place_order(
         logger.info(f"📋 Placing order - Account Context: {account_context}")
         logger.info(f"📝 Placing order for user {current_user.id}: {order_data}")
 
+        # Get the connected brokerage account for tracking
+        account_resp = supabase.table("brokerage_accounts").select("id, account_name, account_number, oauth_data").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
+
+        if not account_resp.data or len(account_resp.data) == 0:
+            raise HTTPException(status_code=403, detail="No Alpaca account connected. Please connect your account before trading.")
+
+        brokerage_account = account_resp.data[0]
+        brokerage_account_id = brokerage_account["id"]
+        account_name = brokerage_account.get("account_name", "Unknown")
+        alpaca_account_id = brokerage_account.get("oauth_data", {}).get("alpaca_account_id", brokerage_account.get("account_number", "Unknown"))
+
+        logger.info(f"🎯 Order will be placed through: {account_name} (Alpaca ID: {alpaca_account_id}, DB ID: {brokerage_account_id})")
+
         # Extract order parameters
         symbol = order_data.get("symbol")
         side = order_data.get("side")  # 'buy' or 'sell'
@@ -147,10 +160,11 @@ async def place_order(
 
         logger.info(f"💾 Storing order with status '{db_status}' (Alpaca status: {alpaca_status_str})")
 
-        # Store order in database
+        # Store order in database with account tracking
         trade_record = {
             "id": str(uuid4()),
             "user_id": current_user.id,
+            "account_id": brokerage_account_id,  # Track which account was used
             "strategy_id": None,  # Manual order
             "symbol": symbol,
             "type": side,
@@ -165,9 +179,10 @@ async def place_order(
         }
 
         supabase.table("trades").insert(trade_record).execute()
-        logger.info(f"💾 Stored order in database with ID: {trade_record['id']}")
+        logger.info(f"💾 Stored order in database with ID: {trade_record['id']} for account {account_name} (Alpaca: {alpaca_account_id})")
+        logger.info(f"🔗 Order linkage: DB Trade ID {trade_record['id']} -> Alpaca Order ID {alpaca_order.id} -> Account {alpaca_account_id})")
 
-        # Return order details
+        # Return order details with account info
         return {
             "success": True,
             "order_id": str(alpaca_order.id),
@@ -177,7 +192,9 @@ async def place_order(
             "side": side,
             "quantity": quantity,
             "order_type": order_type,
-            "message": "Order placed successfully",
+            "account_name": account_name,
+            "alpaca_account_id": alpaca_account_id,
+            "message": f"Order placed successfully in {account_name} (Alpaca: {alpaca_account_id})",
         }
 
     except AlpacaAPIError as e:

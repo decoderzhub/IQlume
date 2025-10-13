@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, DollarSign, BarChart3, Clock, RefreshCw, AlertCircle } from 'lucide-react';
+import { TrendingUp, DollarSign, BarChart3, Clock, RefreshCw, AlertCircle, CheckCircle, XCircle, Link } from 'lucide-react';
 import { getMarketStatus, formatTimeUntil, isCryptoMarketOpen, type MarketStatus } from '../../lib/marketHours';
 import { Card } from '../ui/Card';
 import { OrderEntryForm, OrderData } from './OrderEntryForm';
@@ -40,8 +40,56 @@ export function TradingView() {
     data: any;
   } | null>(null);
   const [marketStatus, setMarketStatus] = useState<MarketStatus>(getMarketStatus());
+  const [accountStatus, setAccountStatus] = useState<{
+    connected: boolean;
+    account_name?: string;
+    alpaca_account_id?: string;
+    environment?: string;
+    loading: boolean;
+  }>({ connected: false, loading: true });
 
   const currentPrice = marketData?.price || 0;
+
+  // Check account connection status on mount
+  useEffect(() => {
+    const checkAccountStatus = async () => {
+      try {
+        const { supabase } = await import('../../lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          setAccountStatus({ connected: false, loading: false });
+          return;
+        }
+
+        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${API_BASE}/api/alpaca/connection-status`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          setAccountStatus({ connected: false, loading: false });
+          return;
+        }
+
+        const data = await response.json();
+        setAccountStatus({
+          connected: data.connected,
+          account_name: data.account_name,
+          alpaca_account_id: data.alpaca_account_id,
+          environment: data.environment,
+          loading: false,
+        });
+      } catch (error) {
+        console.error('Error checking account status:', error);
+        setAccountStatus({ connected: false, loading: false });
+      }
+    };
+
+    checkAccountStatus();
+  }, []);
 
   const handleAssetClassChange = (newClass: AssetClass) => {
     setAssetClass(newClass);
@@ -163,7 +211,8 @@ export function TradingView() {
       console.log('Order placed successfully:', result);
 
       const orderType = pendingOptionsOrder ? 'Options' : 'Stock';
-      alert(`${orderType} order placed successfully!\n\nOrder ID: ${result.order_id}\nStatus: ${result.status}`);
+      const accountInfo = result.account_name ? `\nAccount: ${result.account_name}\nAlpaca ID: ${result.alpaca_account_id}` : '';
+      alert(`${orderType} order placed successfully!${accountInfo}\n\nOrder ID: ${result.order_id}\nStatus: ${result.status}\n\nYou can verify this order in your Alpaca account.`);
 
       setShowPreviewModal(false);
       setPendingOrder(null);
@@ -189,6 +238,37 @@ export function TradingView() {
           <h1 className="text-3xl font-bold text-white">Live Trading</h1>
           <p className="text-gray-400 mt-1">Place manual trades with real-time market data</p>
         </div>
+        <div className="flex items-center gap-4">
+        {/* Account Connection Status */}
+        {accountStatus.loading ? (
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-lg">
+            <RefreshCw className="w-4 h-4 text-gray-400 animate-spin" />
+            <span className="text-sm text-gray-400">Checking connection...</span>
+          </div>
+        ) : accountStatus.connected ? (
+          <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg">
+            <CheckCircle className="w-4 h-4 text-green-400" />
+            <div className="flex flex-col">
+              <span className="text-sm text-green-400 font-medium">{accountStatus.account_name}</span>
+              <span className="text-xs text-green-300/60">
+                {accountStatus.environment?.toUpperCase()} • {accountStatus.alpaca_account_id}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <a
+            href="/accounts"
+            className="flex items-center gap-2 px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
+          >
+            <XCircle className="w-4 h-4 text-red-400" />
+            <div className="flex flex-col">
+              <span className="text-sm text-red-400 font-medium">No Account Connected</span>
+              <span className="text-xs text-red-300/60">Click to connect</span>
+            </div>
+          </a>
+        )}
+
+        {/* Market Status */}
         {assetClass === 'crypto' ? (
           <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg">
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
@@ -214,8 +294,32 @@ export function TradingView() {
               )}
             </div>
           </div>
-        )}
+        )
+        }
+        </div>
       </div>
+
+      {/* Account Warning Banner */}
+      {!accountStatus.loading && !accountStatus.connected && (
+        <Card className="p-4 bg-red-500/10 border-red-500/30">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-red-400 mb-1">Alpaca Account Required</h3>
+              <p className="text-sm text-red-300/80 mb-3">
+                You need to connect your Alpaca account before you can place trades. All orders will be routed through your connected account.
+              </p>
+              <a
+                href="/accounts"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                <Link className="w-4 h-4" />
+                Connect Alpaca Account
+              </a>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -441,8 +545,15 @@ export function TradingView() {
                 symbol={selectedSymbol}
                 currentPrice={currentPrice}
                 onSubmit={handleOrderSubmit}
-                disabled={false}
+                disabled={!accountStatus.connected}
               />
+            )}
+            {!accountStatus.connected && !accountStatus.loading && (
+              <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <p className="text-xs text-yellow-300 text-center">
+                  Connect your Alpaca account to enable trading
+                </p>
+              </div>
             )}
           </Card>
 

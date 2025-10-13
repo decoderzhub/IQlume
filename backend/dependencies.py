@@ -41,50 +41,68 @@ async def get_alpaca_trading_client(
 ) -> TradingClient:
     """Get Alpaca trading client with proper paper/live mode detection"""
     try:
-        # First try to get OAuth token from database
+        # Query for user's connected Alpaca account
+        logger.info(f"🔍 Looking up Alpaca account for user_id: {current_user.id}")
         resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
 
-        if resp.data and len(resp.data) > 0:
-            account = resp.data[0]
-            access_token = account.get("access_token")
-            refresh_token = account.get("refresh_token")
-            expires_at = account.get("expires_at")
-            oauth_data = account.get("oauth_data", {})
+        logger.info(f"📊 Database query returned {len(resp.data) if resp.data else 0} connected Alpaca accounts")
 
-            # Determine if this is a paper or live account from OAuth data
-            is_paper = oauth_data.get("env", "paper") == "paper"
-            api_base = oauth_data.get("api_base", "https://paper-api.alpaca.markets")
-
-            logger.info(f"🔗 Alpaca connection - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}, Base: {api_base}")
-
-            # Check if token is expired
-            if expires_at:
-                expiry_time = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-                if datetime.now(timezone.utc) >= expiry_time and refresh_token:
-                    # Refresh the token
-                    access_token = await refresh_alpaca_token(account["id"], refresh_token, supabase)
-
-            if access_token:
-                # Use OAuth token with correct paper/live mode
-                logger.info(f"✅ Using OAuth token for {'PAPER' if is_paper else 'LIVE'} trading")
-                return TradingClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
-
-        # Fallback to API key method
-        api_key = os.getenv("ALPACA_API_KEY")
-        secret_key = os.getenv("ALPACA_SECRET_KEY")
-
-        if not api_key or not secret_key:
+        if not resp.data or len(resp.data) == 0:
+            logger.error(f"❌ No connected Alpaca account found for user {current_user.id}")
             raise HTTPException(
-                status_code=500,
-                detail="No Alpaca connection found. Please connect your Alpaca account or configure API credentials."
+                status_code=403,
+                detail="No Alpaca account connected. Please connect your Alpaca account in the Accounts page before trading."
             )
 
-        # For fallback API keys, always use paper mode for safety
-        logger.info(f"⚠️ Using fallback API keys in PAPER mode for user {current_user.id}")
-        return TradingClient(api_key, secret_key, paper=True)
+        account = resp.data[0]
+        access_token = account.get("access_token")
+        refresh_token = account.get("refresh_token")
+        expires_at = account.get("expires_at")
+        oauth_data = account.get("oauth_data", {})
+        account_number = account.get("account_number")
+        account_name = account.get("account_name", "Unknown")
 
+        # Determine if this is a paper or live account from OAuth data
+        is_paper = oauth_data.get("env", "paper") == "paper"
+        api_base = oauth_data.get("api_base", "https://paper-api.alpaca.markets")
+        alpaca_account_id = oauth_data.get("alpaca_account_id", account_number)
+
+        logger.info(f"🔗 Found Alpaca account - User: {current_user.id}, Account: {account_name}, Alpaca ID: {alpaca_account_id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
+        logger.info(f"🔗 API Base: {api_base}, DB Account ID: {account['id']}")
+
+        # Check if token is expired
+        if expires_at:
+            expiry_time = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) >= expiry_time:
+                logger.warning(f"⚠️ OAuth token expired at {expires_at}, attempting refresh...")
+                if refresh_token:
+                    access_token = await refresh_alpaca_token(account["id"], refresh_token, supabase)
+                    if not access_token:
+                        raise HTTPException(
+                            status_code=401,
+                            detail="Alpaca token expired and refresh failed. Please reconnect your account."
+                        )
+                else:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Alpaca token expired and no refresh token available. Please reconnect your account."
+                    )
+
+        if not access_token:
+            logger.error(f"❌ No valid access token found for user {current_user.id}")
+            raise HTTPException(
+                status_code=401,
+                detail="No valid Alpaca access token found. Please reconnect your account."
+            )
+
+        # Use OAuth token with correct paper/live mode
+        logger.info(f"✅ Using OAuth token for {'PAPER' if is_paper else 'LIVE'} trading on account {alpaca_account_id}")
+        return TradingClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"❌ Error creating Alpaca trading client: {e}")
+        logger.error(f"❌ Error creating Alpaca trading client: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create Alpaca client: {str(e)}")
 
 async def refresh_alpaca_token(account_id: str, refresh_token: str, supabase: Client) -> Optional[str]:
@@ -144,35 +162,35 @@ async def get_alpaca_stock_data_client(
         # Try to get OAuth token from database
         resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
 
-        if resp.data and len(resp.data) > 0:
-            account = resp.data[0]
-            access_token = account.get("access_token")
-            oauth_data = account.get("oauth_data", {})
-
-            # Determine if this is a paper or live account from OAuth data
-            is_paper = oauth_data.get("env", "paper") == "paper"
-
-            logger.info(f"🔗 Stock data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
-
-            if access_token:
-                # Use OAuth token with correct paper/live mode
-                return StockHistoricalDataClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
-
-        # Fallback to API key method (development only)
-        api_key = os.getenv("ALPACA_API_KEY")
-        secret_key = os.getenv("ALPACA_SECRET_KEY")
-
-        if not api_key or not secret_key:
+        if not resp.data or len(resp.data) == 0:
+            logger.error(f"❌ No connected Alpaca account found for user {current_user.id}")
             raise HTTPException(
-                status_code=500,
-                detail="No Alpaca connection found. Please connect your Alpaca account."
+                status_code=403,
+                detail="No Alpaca account connected. Please connect your Alpaca account in the Accounts page."
             )
 
-        logger.warning(f"⚠️ Using fallback API keys for stock data client (user {current_user.id})")
-        return StockHistoricalDataClient(api_key, secret_key)
+        account = resp.data[0]
+        access_token = account.get("access_token")
+        oauth_data = account.get("oauth_data", {})
 
+        # Determine if this is a paper or live account from OAuth data
+        is_paper = oauth_data.get("env", "paper") == "paper"
+
+        logger.info(f"🔗 Stock data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
+
+        if not access_token:
+            raise HTTPException(
+                status_code=401,
+                detail="No valid Alpaca access token found. Please reconnect your account."
+            )
+
+        # Use OAuth token with correct paper/live mode
+        return StockHistoricalDataClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"❌ Error creating stock data client: {e}")
+        logger.error(f"❌ Error creating stock data client: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create stock data client: {str(e)}")
 
 async def get_alpaca_crypto_data_client(
@@ -184,35 +202,35 @@ async def get_alpaca_crypto_data_client(
         # Try to get OAuth token from database
         resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
 
-        if resp.data and len(resp.data) > 0:
-            account = resp.data[0]
-            access_token = account.get("access_token")
-            oauth_data = account.get("oauth_data", {})
-
-            # Determine if this is a paper or live account from OAuth data
-            is_paper = oauth_data.get("env", "paper") == "paper"
-
-            logger.info(f"🔗 Crypto data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
-
-            if access_token:
-                # Use OAuth token with correct paper/live mode
-                return CryptoHistoricalDataClient(api_key=access_token, secret_key="", oauth_token=access_token)
-
-        # Fallback to API key method (development only)
-        api_key = os.getenv("ALPACA_API_KEY")
-        secret_key = os.getenv("ALPACA_SECRET_KEY")
-
-        if not api_key or not secret_key:
+        if not resp.data or len(resp.data) == 0:
+            logger.error(f"❌ No connected Alpaca account found for user {current_user.id}")
             raise HTTPException(
-                status_code=500,
-                detail="No Alpaca connection found. Please connect your Alpaca account."
+                status_code=403,
+                detail="No Alpaca account connected. Please connect your Alpaca account in the Accounts page."
             )
 
-        logger.warning(f"⚠️ Using fallback API keys for crypto data client (user {current_user.id})")
-        return CryptoHistoricalDataClient(api_key, secret_key)
+        account = resp.data[0]
+        access_token = account.get("access_token")
+        oauth_data = account.get("oauth_data", {})
 
+        # Determine if this is a paper or live account from OAuth data
+        is_paper = oauth_data.get("env", "paper") == "paper"
+
+        logger.info(f"🔗 Crypto data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
+
+        if not access_token:
+            raise HTTPException(
+                status_code=401,
+                detail="No valid Alpaca access token found. Please reconnect your account."
+            )
+
+        # Use OAuth token with correct paper/live mode
+        return CryptoHistoricalDataClient(api_key=access_token, secret_key="", oauth_token=access_token)
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"❌ Error creating crypto data client: {e}")
+        logger.error(f"❌ Error creating crypto data client: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create crypto data client: {str(e)}")
 
 def get_plaid_client() -> plaid_api.PlaidApi:
