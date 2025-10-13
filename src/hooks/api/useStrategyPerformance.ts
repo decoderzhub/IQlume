@@ -81,12 +81,13 @@ export function useStrategyPerformance(userId?: string) {
 
   const fetchStrategyPerformance = async () => {
     if (!userId) {
+      console.log('[useStrategyPerformance] No user ID provided, skipping fetch');
       setLoading(false);
       return;
     }
 
     try {
-      console.log('📊 Fetching active strategies with performance data...');
+      console.log('[useStrategyPerformance] Fetching active strategies for user:', userId);
 
       const { data: strategies, error: strategiesError } = await supabase
         .from('trading_strategies')
@@ -96,20 +97,20 @@ export function useStrategyPerformance(userId?: string) {
         .order('created_at', { ascending: false });
 
       if (strategiesError) {
-        console.error('❌ Error fetching strategies:', strategiesError);
+        console.error('[useStrategyPerformance] ❌ Error fetching strategies:', strategiesError);
         setStrategiesData([]);
         setLoading(false);
         return;
       }
 
       if (!strategies || strategies.length === 0) {
-        console.log('ℹ️ No active strategies found for user');
+        console.log('[useStrategyPerformance] ℹ️ No active strategies found for user');
         setStrategiesData([]);
         setLoading(false);
         return;
       }
 
-      console.log(`✅ Found ${strategies.length} active strategies`);
+      console.log(`[useStrategyPerformance] ✅ Found ${strategies.length} active strategies`);
 
       const performanceData: StrategyPerformanceData[] = await Promise.all(
         strategies.map(async (strategy) => {
@@ -121,7 +122,7 @@ export function useStrategyPerformance(userId?: string) {
             .order('created_at', { ascending: false });
 
           if (tradesError) {
-            console.error(`❌ Error fetching trades for strategy ${strategy.id}:`, tradesError);
+            console.error(`[useStrategyPerformance] ❌ Error fetching trades for strategy ${strategy.id}:`, tradesError);
           }
 
           const executedTrades = trades || [];
@@ -218,11 +219,11 @@ export function useStrategyPerformance(userId?: string) {
       );
 
       if (mountedRef.current) {
-        console.log('✅ Strategy performance data calculated:', performanceData.length);
+        console.log('[useStrategyPerformance] ✅ Strategy performance data calculated:', performanceData.length);
         setStrategiesData(performanceData);
       }
     } catch (error) {
-      console.error('❌ Error calculating strategy performance:', error);
+      console.error('[useStrategyPerformance] ❌ Error calculating strategy performance:', error);
       if (mountedRef.current) {
         setStrategiesData([]);
       }

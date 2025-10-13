@@ -89,8 +89,12 @@ class APIClient {
       const token = await this.getAuthToken();
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+      } else {
+        console.warn(`[APIClient] No auth token available for ${method} ${endpoint}`);
       }
     }
+
+    console.log(`[APIClient] ${method} ${endpoint}`);
 
     const requestPromise = fetch(url, {
       ...fetchConfig,
@@ -100,9 +104,22 @@ class APIClient {
       .then(async (response) => {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.detail || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+          const errorMessage = errorData.detail || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+          console.error(`[APIClient] Request failed for ${method} ${endpoint}:`, errorMessage);
+          throw new Error(errorMessage);
         }
         return response.json();
+      })
+      .catch((error) => {
+        if (error.name === 'AbortError') {
+          console.log(`[APIClient] Request aborted for ${method} ${endpoint}`);
+          throw error;
+        }
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          console.error(`[APIClient] Network error for ${method} ${endpoint}:`, error.message);
+          throw new Error('Network error: Unable to connect to the server. Please check your connection.');
+        }
+        throw error;
       })
       .finally(() => {
         this.abortControllers.delete(controllerKey);

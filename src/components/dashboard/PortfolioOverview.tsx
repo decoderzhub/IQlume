@@ -11,6 +11,12 @@ export function PortfolioOverview() {
   const { loading: portfolioLoading, accountsLoading } = usePortfolioData();
   const { strategiesData, loading: strategiesLoading } = useStrategyPerformance(user?.id);
 
+  React.useEffect(() => {
+    console.log('[PortfolioOverview] User ID:', user?.id);
+    console.log('[PortfolioOverview] Strategies loading:', strategiesLoading);
+    console.log('[PortfolioOverview] Strategies data:', strategiesData.length, 'strategies');
+  }, [user?.id, strategiesLoading, strategiesData]);
+
   return (
     <div className="space-y-6">
       <PortfolioStats
@@ -37,10 +43,15 @@ export function PortfolioOverview() {
             />
           ))}
         </div>
-      ) : (
+      ) : user?.id ? (
         <div className="text-center py-12 bg-gray-800/30 rounded-lg border border-gray-700/50">
           <p className="text-gray-400 mb-2">No active strategies found</p>
           <p className="text-sm text-gray-500">Create and activate a strategy to see performance data here</p>
+        </div>
+      ) : (
+        <div className="text-center py-12 bg-red-900/20 rounded-lg border border-red-700/50">
+          <p className="text-red-400 mb-2">Unable to load strategy data</p>
+          <p className="text-sm text-red-300">User session not found. Please try logging out and back in.</p>
         </div>
       )}
 

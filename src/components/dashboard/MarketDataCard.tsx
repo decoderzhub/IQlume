@@ -60,6 +60,11 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
     historicalData,
   } = strategyData;
 
+  React.useEffect(() => {
+    console.log('[MarketDataCard] Rendering strategy:', strategy.name, 'ID:', strategy.id);
+    console.log('[MarketDataCard] Current profit:', currentProfit, 'Total investment:', totalInvestment);
+  }, [strategy.id, strategy.name, currentProfit, totalInvestment]);
+
   // Get symbol from multiple possible locations
   // Priority: base_symbol > configuration.symbol > type
   const symbol = strategy.base_symbol ||

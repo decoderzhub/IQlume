@@ -61,6 +61,7 @@ export function useAPI<T>(
     } catch (err) {
       if (mountedRef.current) {
         const error = err instanceof Error ? err : new Error(String(err));
+        console.error(`[useAPI] Error fetching ${endpoint}:`, error.message);
         setError(error);
         onError?.(error);
       }
