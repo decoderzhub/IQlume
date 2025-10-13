@@ -271,10 +271,11 @@ async def get_alpaca_stock_data_client(
                 detail="No valid Alpaca access token found. Please reconnect your account."
             )
 
-        # Use OAuth token with correct paper/live mode
-        # IMPORTANT: When using OAuth, only pass oauth_token parameter, NOT api_key
+        # Use OAuth token - data client automatically detects environment from token
+        # IMPORTANT: When using OAuth, only pass oauth_token parameter, NOT api_key or paper
+        # Note: StockHistoricalDataClient does not accept 'paper' parameter in alpaca-py 0.25.0+
         try:
-            return StockHistoricalDataClient(oauth_token=access_token, paper=is_paper)
+            return StockHistoricalDataClient(oauth_token=access_token)
         except Exception as client_error:
             logger.error(f"❌ Failed to create stock data client: {client_error}")
             raise HTTPException(
