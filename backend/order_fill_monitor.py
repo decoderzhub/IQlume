@@ -78,6 +78,7 @@ class OrderFillMonitor:
         try:
             # Get user's trading client
             from dependencies import get_alpaca_trading_client, verify_alpaca_account_context
+            from fastapi import HTTPException
 
             class MockUser:
                 def __init__(self, user_id: str):
@@ -86,10 +87,22 @@ class OrderFillMonitor:
             user = MockUser(user_id)
 
             # Verify account context
-            account_context = await verify_alpaca_account_context(user, self.supabase)
-            logger.info(f"📋 [ORDER FILL MONITOR] Account Context: {account_context}")
+            try:
+                account_context = await verify_alpaca_account_context(user, self.supabase)
+                logger.info(f"📋 [ORDER FILL MONITOR] Account Context: {account_context}")
+            except Exception as ctx_error:
+                logger.warning(f"⚠️ Could not verify account context for user {user_id}: {ctx_error}")
 
-            trading_client = await get_alpaca_trading_client(user, self.supabase)
+            # Try to get trading client with error handling
+            try:
+                trading_client = await get_alpaca_trading_client(user, self.supabase)
+            except HTTPException as auth_error:
+                logger.warning(f"⚠️ Authentication error for user {user_id}: {auth_error.detail}")
+                # Don't crash the monitor, just skip this user for now
+                return
+            except Exception as client_error:
+                logger.error(f"❌ Failed to get trading client for user {user_id}: {client_error}")
+                return
 
             if not trading_client:
                 logger.warning(f"⚠️ Could not get trading client for user {user_id}")
@@ -104,7 +117,11 @@ class OrderFillMonitor:
                 )
                 alpaca_orders = trading_client.get_orders(filter=request)
             except AlpacaAPIError as e:
-                logger.error(f"❌ Failed to fetch orders from Alpaca for user {user_id}: {e}")
+                logger.warning(f"⚠️ Failed to fetch orders from Alpaca for user {user_id}: {e}")
+                # Don't crash the monitor, continue with other users
+                return
+            except Exception as fetch_error:
+                logger.error(f"❌ Unexpected error fetching orders for user {user_id}: {fetch_error}")
                 return
 
             # Create a map of Alpaca orders by ID
@@ -131,6 +148,8 @@ class OrderFillMonitor:
 
         except Exception as e:
             logger.error(f"❌ Error checking orders for user {user_id}: {e}", exc_info=True)
+            # Don't let one user's error crash the entire monitor
+            # Continue checking other users
 
     async def process_order_update(
         self,
@@ -265,6 +284,7 @@ class OrderFillMonitor:
             # Get strategy executor
             from strategy_executors.factory import StrategyExecutorFactory
             from dependencies import get_alpaca_stock_data_client, get_alpaca_crypto_data_client
+            from fastapi import HTTPException
 
             # Create user object for data clients
             class MockUser:
@@ -272,8 +292,23 @@ class OrderFillMonitor:
                     self.id = user_id
 
             user = MockUser(user_id)
-            stock_client = await get_alpaca_stock_data_client(user, self.supabase)
-            crypto_client = await get_alpaca_crypto_data_client(user, self.supabase)
+
+            # Try to get data clients with error handling
+            try:
+                stock_client = await get_alpaca_stock_data_client(user, self.supabase)
+            except HTTPException as e:
+                logger.warning(f"⚠️ Could not get stock data client for strategy execution: {e.detail}")
+                stock_client = None
+
+            try:
+                crypto_client = await get_alpaca_crypto_data_client(user, self.supabase)
+            except HTTPException as e:
+                logger.warning(f"⚠️ Could not get crypto data client for strategy execution: {e.detail}")
+                crypto_client = None
+
+            if not stock_client and not crypto_client:
+                logger.error(f"❌ No data clients available for strategy execution")
+                return
 
             executor = StrategyExecutorFactory.create_executor(
                 strategy_type,

@@ -43,12 +43,20 @@ async def get_alpaca_trading_client(
     try:
         # Query for user's connected Alpaca account
         logger.info(f"🔍 Looking up Alpaca account for user_id: {current_user.id}")
-        resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
+
+        try:
+            resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
+        except Exception as db_error:
+            logger.error(f"❌ Database query failed for user {current_user.id}: {db_error}")
+            raise HTTPException(
+                status_code=500,
+                detail="Database connection error. Please try again later."
+            )
 
         logger.info(f"📊 Database query returned {len(resp.data) if resp.data else 0} connected Alpaca accounts")
 
         if not resp.data or len(resp.data) == 0:
-            logger.error(f"❌ No connected Alpaca account found for user {current_user.id}")
+            logger.warning(f"⚠️ No connected Alpaca account found for user {current_user.id}")
             raise HTTPException(
                 status_code=403,
                 detail="No Alpaca account connected. Please connect your Alpaca account in the Accounts page before trading."
@@ -72,21 +80,26 @@ async def get_alpaca_trading_client(
 
         # Check if token is expired
         if expires_at:
-            expiry_time = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-            if datetime.now(timezone.utc) >= expiry_time:
-                logger.warning(f"⚠️ OAuth token expired at {expires_at}, attempting refresh...")
-                if refresh_token:
-                    access_token = await refresh_alpaca_token(account["id"], refresh_token, supabase)
-                    if not access_token:
+            try:
+                expiry_time = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) >= expiry_time:
+                    logger.warning(f"⚠️ OAuth token expired at {expires_at}, attempting refresh...")
+                    if refresh_token:
+                        access_token = await refresh_alpaca_token(account["id"], refresh_token, supabase)
+                        if not access_token:
+                            logger.error(f"❌ Token refresh failed for user {current_user.id}")
+                            raise HTTPException(
+                                status_code=401,
+                                detail="Alpaca token expired and refresh failed. Please reconnect your account."
+                            )
+                    else:
+                        logger.error(f"❌ No refresh token available for user {current_user.id}")
                         raise HTTPException(
                             status_code=401,
-                            detail="Alpaca token expired and refresh failed. Please reconnect your account."
+                            detail="Alpaca token expired and no refresh token available. Please reconnect your account."
                         )
-                else:
-                    raise HTTPException(
-                        status_code=401,
-                        detail="Alpaca token expired and no refresh token available. Please reconnect your account."
-                    )
+            except ValueError as date_error:
+                logger.warning(f"⚠️ Invalid expiry date format: {expires_at}. Proceeding with token validation...")
 
         if not access_token:
             logger.error(f"❌ No valid access token found for user {current_user.id}")
@@ -97,7 +110,14 @@ async def get_alpaca_trading_client(
 
         # Use OAuth token with correct paper/live mode
         logger.info(f"✅ Using OAuth token for {'PAPER' if is_paper else 'LIVE'} trading on account {alpaca_account_id}")
-        return TradingClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
+        try:
+            return TradingClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
+        except Exception as client_error:
+            logger.error(f"❌ Failed to create Alpaca trading client: {client_error}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to initialize Alpaca trading client. Please try again."
+            )
 
     except HTTPException:
         raise
@@ -110,46 +130,81 @@ async def refresh_alpaca_token(account_id: str, refresh_token: str, supabase: Cl
     try:
         client_id = os.getenv("ALPACA_CLIENT_ID")
         client_secret = os.getenv("ALPACA_CLIENT_SECRET")
-        
+
         if not client_id or not client_secret:
-            logger.error("Alpaca OAuth configuration missing for token refresh")
+            logger.error("❌ Alpaca OAuth configuration missing for token refresh (ALPACA_CLIENT_ID or ALPACA_CLIENT_SECRET not set)")
             return None
-        
+
+        if not refresh_token:
+            logger.error("❌ No refresh token provided for token refresh")
+            return None
+
         token_data = {
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
             "client_id": client_id,
             "client_secret": client_secret
         }
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.alpaca.markets/oauth/token",
-                data=token_data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
-            )
-        
-        if response.status_code == 200:
-            token_data = response.json()
-            new_access_token = token_data.get("access_token")
-            new_refresh_token = token_data.get("refresh_token", refresh_token)
-            expires_in = token_data.get("expires_in", 3600)
-            
-            # Update database
-            expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-            supabase.table("brokerage_accounts").update({
-                "access_token": new_access_token,
-                "refresh_token": new_refresh_token,
-                "expires_at": expires_at.isoformat()
-            }).eq("id", account_id).execute()
-            
-            return new_access_token
-        else:
-            logger.error(f"Token refresh failed: {response.status_code} {response.text}")
+
+        logger.info(f"🔄 Attempting to refresh Alpaca OAuth token for account {account_id}")
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    "https://api.alpaca.markets/oauth/token",
+                    data=token_data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+        except httpx.TimeoutException:
+            logger.error("❌ Token refresh request timed out")
             return None
-            
+        except httpx.RequestError as req_error:
+            logger.error(f"❌ Token refresh request failed: {req_error}")
+            return None
+
+        if response.status_code == 200:
+            token_response = response.json()
+            new_access_token = token_response.get("access_token")
+            new_refresh_token = token_response.get("refresh_token", refresh_token)
+            expires_in = token_response.get("expires_in", 3600)
+
+            if not new_access_token:
+                logger.error("❌ Token refresh response missing access_token")
+                return None
+
+            # Update database
+            try:
+                expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+                supabase.table("brokerage_accounts").update({
+                    "access_token": new_access_token,
+                    "refresh_token": new_refresh_token,
+                    "expires_at": expires_at.isoformat()
+                }).eq("id", account_id).execute()
+
+                logger.info(f"✅ Successfully refreshed Alpaca OAuth token for account {account_id}")
+                return new_access_token
+            except Exception as db_error:
+                logger.error(f"❌ Failed to update database with new token: {db_error}")
+                # Return the token anyway so user can continue, but log the error
+                return new_access_token
+        else:
+            logger.error(f"❌ Token refresh failed with status {response.status_code}: {response.text}")
+
+            # If refresh token is invalid, mark account as disconnected
+            if response.status_code in [400, 401]:
+                try:
+                    logger.warning(f"⚠️ Marking account {account_id} as disconnected due to invalid refresh token")
+                    supabase.table("brokerage_accounts").update({
+                        "is_connected": False,
+                        "error_message": "OAuth token expired and refresh failed. Please reconnect your account."
+                    }).eq("id", account_id).execute()
+                except Exception as update_error:
+                    logger.error(f"❌ Failed to mark account as disconnected: {update_error}")
+
+            return None
+
     except Exception as e:
-        logger.error(f"Error refreshing token: {e}")
+        logger.error(f"❌ Unexpected error refreshing token: {e}", exc_info=True)
         return None
     
 
@@ -160,10 +215,17 @@ async def get_alpaca_stock_data_client(
     """Get Alpaca stock data client with user-scoped OAuth token"""
     try:
         # Try to get OAuth token from database
-        resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
+        try:
+            resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
+        except Exception as db_error:
+            logger.error(f"❌ Database query failed for stock data client: {db_error}")
+            raise HTTPException(
+                status_code=500,
+                detail="Database connection error. Please try again later."
+            )
 
         if not resp.data or len(resp.data) == 0:
-            logger.error(f"❌ No connected Alpaca account found for user {current_user.id}")
+            logger.warning(f"⚠️ No connected Alpaca account found for user {current_user.id}")
             raise HTTPException(
                 status_code=403,
                 detail="No Alpaca account connected. Please connect your Alpaca account in the Accounts page."
@@ -179,13 +241,21 @@ async def get_alpaca_stock_data_client(
         logger.info(f"🔗 Stock data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
 
         if not access_token:
+            logger.error(f"❌ No access token for stock data client, user {current_user.id}")
             raise HTTPException(
                 status_code=401,
                 detail="No valid Alpaca access token found. Please reconnect your account."
             )
 
         # Use OAuth token with correct paper/live mode
-        return StockHistoricalDataClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
+        try:
+            return StockHistoricalDataClient(api_key=access_token, secret_key="", paper=is_paper, oauth_token=access_token)
+        except Exception as client_error:
+            logger.error(f"❌ Failed to create stock data client: {client_error}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to initialize Alpaca stock data client. Please try again."
+            )
 
     except HTTPException:
         raise
@@ -200,10 +270,17 @@ async def get_alpaca_crypto_data_client(
     """Get Alpaca crypto data client with user-scoped OAuth token"""
     try:
         # Try to get OAuth token from database
-        resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
+        try:
+            resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
+        except Exception as db_error:
+            logger.error(f"❌ Database query failed for crypto data client: {db_error}")
+            raise HTTPException(
+                status_code=500,
+                detail="Database connection error. Please try again later."
+            )
 
         if not resp.data or len(resp.data) == 0:
-            logger.error(f"❌ No connected Alpaca account found for user {current_user.id}")
+            logger.warning(f"⚠️ No connected Alpaca account found for user {current_user.id}")
             raise HTTPException(
                 status_code=403,
                 detail="No Alpaca account connected. Please connect your Alpaca account in the Accounts page."
@@ -219,13 +296,21 @@ async def get_alpaca_crypto_data_client(
         logger.info(f"🔗 Crypto data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}")
 
         if not access_token:
+            logger.error(f"❌ No access token for crypto data client, user {current_user.id}")
             raise HTTPException(
                 status_code=401,
                 detail="No valid Alpaca access token found. Please reconnect your account."
             )
 
         # Use OAuth token with correct paper/live mode
-        return CryptoHistoricalDataClient(api_key=access_token, secret_key="", oauth_token=access_token)
+        try:
+            return CryptoHistoricalDataClient(api_key=access_token, secret_key="", oauth_token=access_token)
+        except Exception as client_error:
+            logger.error(f"❌ Failed to create crypto data client: {client_error}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to initialize Alpaca crypto data client. Please try again."
+            )
 
     except HTTPException:
         raise
@@ -266,15 +351,22 @@ async def get_current_user(
     supabase: Client = Depends(get_supabase_client)
 ):
     """Get current user from JWT token"""
+    if not credentials:
+        logger.warning("⚠️ No authorization credentials provided")
+        raise HTTPException(status_code=401, detail="Authorization required")
+
     try:
         # Verify the JWT token with Supabase
         user = supabase.auth.get_user(credentials.credentials)
         if not user or not user.user:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            logger.warning("⚠️ Invalid or expired token")
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
         return user.user
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Authentication error: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        logger.error(f"❌ Authentication error: {e}", exc_info=True)
+        raise HTTPException(status_code=401, detail="Authentication failed")
 
 async def verify_alpaca_account_context(current_user, supabase: Client) -> dict:
     """Verify and log which Alpaca account is being used for trading operations"""

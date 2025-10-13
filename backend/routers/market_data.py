@@ -166,8 +166,19 @@ def _is_403(e: Exception) -> bool:
 
 # --------- core getters ---------
 async def get_real_time_quotes(symbols: List[str], credentials: HTTPAuthorizationCredentials, current_user, supabase: Client) -> Dict[str, Any]:
-    stock_data_client: StockHistoricalDataClient = await get_alpaca_stock_data_client(current_user, supabase)
-    crypto_data_client: CryptoHistoricalDataClient = await get_alpaca_crypto_data_client(current_user, supabase)
+    try:
+        stock_data_client: StockHistoricalDataClient = await get_alpaca_stock_data_client(current_user, supabase)
+    except HTTPException as e:
+        logger.error(f"❌ Failed to get stock data client: {e.detail}")
+        # Return empty quotes - will fall back to mock data
+        stock_data_client = None
+
+    try:
+        crypto_data_client: CryptoHistoricalDataClient = await get_alpaca_crypto_data_client(current_user, supabase)
+    except HTTPException as e:
+        logger.error(f"❌ Failed to get crypto data client: {e.detail}")
+        # Return empty quotes - will fall back to mock data
+        crypto_data_client = None
 
     stock_symbols = [s for s in symbols if is_stock_symbol(s)]
     crypto_symbols_norm = [normalize_crypto_symbol(s) for s in symbols]
@@ -176,7 +187,7 @@ async def get_real_time_quotes(symbols: List[str], credentials: HTTPAuthorizatio
     quotes: Dict[str, Any] = {}
 
     # Stocks (IEX feed required for free/paper)
-    if stock_symbols:
+    if stock_symbols and stock_data_client:
         try:
             req = StockLatestQuoteRequest(symbol_or_symbols=stock_symbols, feed=DataFeed.IEX)
             data = stock_data_client.get_stock_latest_quote(req)
@@ -200,7 +211,7 @@ async def get_real_time_quotes(symbols: List[str], credentials: HTTPAuthorizatio
                 quotes[sym] = _mock_quote(sym)
 
     # Crypto
-    if crypto_symbols:
+    if crypto_symbols and crypto_data_client:
         try:
             req = CryptoLatestQuoteRequest(symbol_or_symbols=crypto_symbols)
             data = crypto_data_client.get_crypto_latest_quote(req)
@@ -230,7 +241,12 @@ async def get_real_time_quotes(symbols: List[str], credentials: HTTPAuthorizatio
 
 
 async def get_market_snapshot(symbols: List[str], credentials: HTTPAuthorizationCredentials, current_user, supabase: Client) -> Dict[str, Any]:
-    stock_data_client: StockHistoricalDataClient = await get_alpaca_stock_data_client(current_user, supabase)
+    try:
+        stock_data_client: StockHistoricalDataClient = await get_alpaca_stock_data_client(current_user, supabase)
+    except HTTPException as e:
+        logger.error(f"❌ Failed to get stock data client for snapshot: {e.detail}")
+        # Return mock data for all symbols
+        return {"snapshots": {sym: {"latest_quote": _mock_quote(sym), "latest_trade": {"price": 0.0, "size": 0, "timestamp": None, "source": "unavailable"}, "daily_bar": _mock_bar()} for sym in symbols if is_stock_symbol(sym)}}
 
     stock_syms = [s for s in symbols if is_stock_symbol(s)]
     if not stock_syms:
@@ -342,8 +358,17 @@ async def get_bars_data(
     current_user = None,
     supabase: Client = None,
 ) -> Dict[str, Any]:
-    stock_data_client: StockHistoricalDataClient = await get_alpaca_stock_data_client(current_user, supabase)
-    crypto_data_client: CryptoHistoricalDataClient = await get_alpaca_crypto_data_client(current_user, supabase)
+    try:
+        stock_data_client: StockHistoricalDataClient = await get_alpaca_stock_data_client(current_user, supabase)
+    except HTTPException as e:
+        logger.error(f"❌ Failed to get stock data client for bars: {e.detail}")
+        stock_data_client = None
+
+    try:
+        crypto_data_client: CryptoHistoricalDataClient = await get_alpaca_crypto_data_client(current_user, supabase)
+    except HTTPException as e:
+        logger.error(f"❌ Failed to get crypto data client for bars: {e.detail}")
+        crypto_data_client = None
 
     # timeframe mapping
     tf = {
@@ -361,7 +386,7 @@ async def get_bars_data(
     bars: Dict[str, List[Dict[str, Any]]] = {}
 
     # Stocks
-    if stock_syms:
+    if stock_syms and stock_data_client:
         try:
             req = StockBarsRequest(
                 symbol_or_symbols=stock_syms,
@@ -391,7 +416,7 @@ async def get_bars_data(
                 bars[sym] = [_mock_bar()]
 
     # Crypto
-    if crypto_syms:
+    if crypto_syms and crypto_data_client:
         try:
             req = CryptoBarsRequest(
                 symbol_or_symbols=crypto_syms,
