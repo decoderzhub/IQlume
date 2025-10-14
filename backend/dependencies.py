@@ -233,52 +233,24 @@ async def get_alpaca_stock_data_client(
     current_user,
     supabase: Client
 ) -> StockHistoricalDataClient:
-    """Get Alpaca stock data client with user-scoped OAuth token"""
+    """Get Alpaca stock data client - uses API keys for data access"""
     try:
-        # Try to get OAuth token from database
-        try:
-            resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
-        except Exception as db_error:
-            logger.error(f"❌ Database query failed for stock data client: {db_error}")
+        # Market data API requires API keys, not OAuth tokens
+        # OAuth tokens are only for trading endpoints
+        api_key = os.getenv("ALPACA_API_KEY")
+        secret_key = os.getenv("ALPACA_SECRET_KEY")
+
+        if not api_key or not secret_key:
+            logger.error(f"❌ Alpaca API credentials missing for market data access")
             raise HTTPException(
                 status_code=500,
-                detail="Database connection error. Please try again later."
+                detail="Market data API credentials not configured. Please contact support."
             )
 
-        if not resp.data or len(resp.data) == 0:
-            logger.warning(f"⚠️ No connected Alpaca account found for user {current_user.id} (stock data client)")
-            logger.info(f"💡 User needs to connect their Alpaca account for market data access.")
-            raise HTTPException(
-                status_code=403,
-                detail="No Alpaca account connected. Please visit the Accounts page to connect your Alpaca brokerage account."
-            )
+        logger.info(f"🔗 Stock data client - User: {current_user.id}, Mode: PAPER (API key)")
 
-        account = resp.data[0]
-        oauth_data = account.get("oauth_data", {})
-
-        # Try to get access token from multiple locations (for backward compatibility)
-        access_token = account.get("access_token") or account.get("oauth_token") or oauth_data.get("access_token")
-
-        # Determine if this is a paper or live account from OAuth data
-        is_paper = oauth_data.get("env", "paper") == "paper"
-
-        # Log which field provided the token
-        token_source = "access_token" if account.get("access_token") else ("oauth_token" if account.get("oauth_token") else "oauth_data.access_token")
-        logger.info(f"🔗 Stock data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}, Token source: {token_source}")
-        logger.debug(f"📋 Token status - Present: {bool(access_token)}, Length: {len(access_token) if access_token else 0}")
-
-        if not access_token:
-            logger.error(f"❌ No access token for stock data client, user {current_user.id}")
-            raise HTTPException(
-                status_code=401,
-                detail="No valid Alpaca access token found. Please reconnect your account."
-            )
-
-        # Use OAuth token - data client automatically detects environment from token
-        # IMPORTANT: When using OAuth, only pass oauth_token parameter, NOT api_key or paper
-        # Note: StockHistoricalDataClient does not accept 'paper' parameter in alpaca-py 0.25.0+
         try:
-            return StockHistoricalDataClient(oauth_token=access_token)
+            return StockHistoricalDataClient(api_key, secret_key)
         except Exception as client_error:
             logger.error(f"❌ Failed to create stock data client: {client_error}")
             raise HTTPException(
@@ -296,52 +268,24 @@ async def get_alpaca_crypto_data_client(
     current_user,
     supabase: Client
 ) -> CryptoHistoricalDataClient:
-    """Get Alpaca crypto data client with user-scoped OAuth token"""
+    """Get Alpaca crypto data client - uses API keys for data access"""
     try:
-        # Try to get OAuth token from database
-        try:
-            resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "alpaca").eq("is_connected", True).execute()
-        except Exception as db_error:
-            logger.error(f"❌ Database query failed for crypto data client: {db_error}")
+        # Market data API requires API keys, not OAuth tokens
+        # OAuth tokens are only for trading endpoints
+        api_key = os.getenv("ALPACA_API_KEY")
+        secret_key = os.getenv("ALPACA_SECRET_KEY")
+
+        if not api_key or not secret_key:
+            logger.error(f"❌ Alpaca API credentials missing for crypto data access")
             raise HTTPException(
                 status_code=500,
-                detail="Database connection error. Please try again later."
+                detail="Market data API credentials not configured. Please contact support."
             )
 
-        if not resp.data or len(resp.data) == 0:
-            logger.warning(f"⚠️ No connected Alpaca account found for user {current_user.id} (crypto data client)")
-            logger.info(f"💡 User needs to connect their Alpaca account for crypto data access.")
-            raise HTTPException(
-                status_code=403,
-                detail="No Alpaca account connected. Please visit the Accounts page to connect your Alpaca brokerage account."
-            )
+        logger.info(f"🔗 Crypto data client - User: {current_user.id}, Mode: PAPER (API key)")
 
-        account = resp.data[0]
-        oauth_data = account.get("oauth_data", {})
-
-        # Try to get access token from multiple locations (for backward compatibility)
-        access_token = account.get("access_token") or account.get("oauth_token") or oauth_data.get("access_token")
-
-        # Determine if this is a paper or live account from OAuth data
-        is_paper = oauth_data.get("env", "paper") == "paper"
-
-        # Log which field provided the token
-        token_source = "access_token" if account.get("access_token") else ("oauth_token" if account.get("oauth_token") else "oauth_data.access_token")
-        logger.info(f"🔗 Crypto data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}, Token source: {token_source}")
-        logger.debug(f"📋 Token status - Present: {bool(access_token)}, Length: {len(access_token) if access_token else 0}")
-
-        if not access_token:
-            logger.error(f"❌ No access token for crypto data client, user {current_user.id}")
-            raise HTTPException(
-                status_code=401,
-                detail="No valid Alpaca access token found. Please reconnect your account."
-            )
-
-        # Use OAuth token with correct paper/live mode
-        # IMPORTANT: When using OAuth, only pass oauth_token parameter, NOT api_key
-        # Note: CryptoHistoricalDataClient doesn't have a 'paper' parameter
         try:
-            return CryptoHistoricalDataClient(oauth_token=access_token)
+            return CryptoHistoricalDataClient(api_key, secret_key)
         except Exception as client_error:
             logger.error(f"❌ Failed to create crypto data client: {client_error}")
             raise HTTPException(
