@@ -61,7 +61,15 @@ export function useAPI<T>(
     } catch (err) {
       if (mountedRef.current) {
         const error = err instanceof Error ? err : new Error(String(err));
-        console.error(`[useAPI] Error fetching ${endpoint}:`, error.message);
+
+        // Enhanced error logging with user-friendly messages
+        if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+          console.error(`[useAPI] ❌ UNAUTHORIZED: No Alpaca account connected or token expired for endpoint: ${endpoint}`);
+          console.error('[useAPI] 💡 Solution: Go to Accounts page and connect your Alpaca account');
+        } else {
+          console.error(`[useAPI] Error fetching ${endpoint}:`, error.message);
+        }
+
         setError(error);
         onError?.(error);
       }
