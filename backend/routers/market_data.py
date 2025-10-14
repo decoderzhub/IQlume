@@ -29,7 +29,7 @@ from scipy.stats import norm
 import numpy as np
 from technical_indicators import TechnicalIndicators
 
-router = APIRouter(prefix="/api/market_data", tags=["market_data"])
+router = APIRouter(prefix="/api/market-data", tags=["market_data"])
 logger = logging.getLogger(__name__)
 
 # Popular symbols for quick access

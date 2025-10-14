@@ -48,19 +48,31 @@ class OrderFillMonitor:
     async def check_order_fills(self):
         """Check all pending grid orders for fills"""
         try:
-            # Get all pending grid orders
+            # Get only recent, non-stale pending grid orders
+            # Filter: not stale, created within last 7 days, status pending/partially_filled
             resp = self.supabase.table("grid_orders").select(
                 "*, trading_strategies(user_id, name, type, configuration)"
-            ).in_("status", ["pending", "partially_filled"]).execute()
+            ).in_("status", ["pending", "partially_filled"]).eq("is_stale", False).execute()
 
             if not resp.data:
                 return
 
-            logger.info(f"🔍 Checking {len(resp.data)} pending grid orders for fills")
+            # Filter out orders older than 7 days (double-check in case index isn't used)
+            from datetime import datetime, timezone, timedelta
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=7)
+            recent_orders = [
+                order for order in resp.data
+                if datetime.fromisoformat(order["created_at"].replace("Z", "+00:00")) > cutoff_date
+            ]
+
+            if not recent_orders:
+                return
+
+            logger.info(f"🔍 Checking {len(recent_orders)} recent pending grid orders for fills")
 
             # Group orders by user for efficient API usage
             orders_by_user: Dict[str, List[Dict[str, Any]]] = {}
-            for order in resp.data:
+            for order in recent_orders:
                 user_id = order["trading_strategies"]["user_id"]
                 if user_id not in orders_by_user:
                     orders_by_user[user_id] = []
@@ -135,7 +147,8 @@ class OrderFillMonitor:
 
                 alpaca_order = alpaca_orders_map.get(alpaca_order_id)
                 if not alpaca_order:
-                    logger.warning(f"⚠️ Alpaca order {alpaca_order_id} not found")
+                    # Order not found in Alpaca - update check count
+                    await self.handle_order_not_found(grid_order, user_id)
                     continue
 
                 # Check if order status has changed
@@ -150,6 +163,42 @@ class OrderFillMonitor:
             logger.error(f"❌ Error checking orders for user {user_id}: {e}", exc_info=True)
             # Don't let one user's error crash the entire monitor
             # Continue checking other users
+
+    async def handle_order_not_found(self, grid_order: Dict[str, Any], user_id: str):
+        """Handle case when order is not found in Alpaca API"""
+        try:
+            grid_order_id = grid_order["id"]
+            alpaca_order_id = grid_order.get("alpaca_order_id")
+            check_count = grid_order.get("check_count", 0)
+
+            # Increment check count
+            new_check_count = check_count + 1
+
+            # Determine if order should be marked stale (after 5 failed checks)
+            should_mark_stale = new_check_count >= 5
+
+            # Log at appropriate level based on check count
+            if new_check_count <= 2:
+                logger.info(f"⚠️ Alpaca order {alpaca_order_id} not found (attempt {new_check_count}/5)")
+            else:
+                logger.debug(f"Alpaca order {alpaca_order_id} not found (attempt {new_check_count}/5)")
+
+            # Update database
+            update_data = {
+                "check_count": new_check_count,
+                "last_checked_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            if should_mark_stale:
+                update_data["is_stale"] = True
+                logger.info(f"🗑️ Marking order {alpaca_order_id} as stale after {new_check_count} failed checks")
+
+            self.supabase.table("grid_orders").update(update_data).eq(
+                "id", grid_order_id
+            ).execute()
+
+        except Exception as e:
+            logger.error(f"❌ Error handling order not found: {e}", exc_info=True)
 
     async def process_order_update(
         self,
@@ -170,6 +219,11 @@ class OrderFillMonitor:
 
             # Check if status has changed
             if new_status == current_status:
+                # No status change, but update last_checked_at and reset check_count
+                self.supabase.table("grid_orders").update({
+                    "last_checked_at": datetime.now(timezone.utc).isoformat(),
+                    "check_count": 0
+                }).eq("id", grid_order_id).execute()
                 return
 
             logger.info(
@@ -183,6 +237,8 @@ class OrderFillMonitor:
                 "filled_qty": float(alpaca_order.filled_qty or 0),
                 "filled_avg_price": float(alpaca_order.filled_avg_price or 0),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
+                "last_checked_at": datetime.now(timezone.utc).isoformat(),
+                "check_count": 0,
             }
 
             if new_status == "filled":
