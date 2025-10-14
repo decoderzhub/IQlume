@@ -106,6 +106,23 @@ class APIClient {
           const errorData = await response.json().catch(() => ({}));
           const errorMessage = errorData.detail || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
           console.error(`[APIClient] Request failed for ${method} ${endpoint}:`, errorMessage);
+
+          if (response.status === 403) {
+            if (errorMessage.includes('Alpaca account') || errorMessage.includes('brokerage account')) {
+              const error = new Error('Please connect your Alpaca brokerage account in the Accounts page to access market data and trading features.');
+              (error as any).isAuthError = true;
+              (error as any).requiresAccountConnection = true;
+              throw error;
+            }
+          }
+
+          if (response.status === 401) {
+            const error = new Error('Your session has expired. Please log in again.');
+            (error as any).isAuthError = true;
+            (error as any).requiresLogin = true;
+            throw error;
+          }
+
           throw new Error(errorMessage);
         }
         return response.json();

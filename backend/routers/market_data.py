@@ -166,19 +166,25 @@ def _is_403(e: Exception) -> bool:
 
 # --------- core getters ---------
 async def get_real_time_quotes(symbols: List[str], credentials: HTTPAuthorizationCredentials, current_user, supabase: Client) -> Dict[str, Any]:
-    try:
-        stock_data_client: StockHistoricalDataClient = await get_alpaca_stock_data_client(current_user, supabase)
-    except HTTPException as e:
-        logger.error(f"❌ Failed to get stock data client: {e.detail}")
-        # Return empty quotes - will fall back to mock data
-        stock_data_client = None
+    stock_data_client = None
+    crypto_data_client = None
+    auth_error = None
 
     try:
-        crypto_data_client: CryptoHistoricalDataClient = await get_alpaca_crypto_data_client(current_user, supabase)
+        stock_data_client = await get_alpaca_stock_data_client(current_user, supabase)
     except HTTPException as e:
+        auth_error = e.detail
+        logger.error(f"❌ Failed to get stock data client: {e.detail}")
+        if e.status_code in [401, 403]:
+            logger.warning(f"⚠️ Authentication error for user {current_user.id}. Please reconnect your Alpaca account.")
+
+    try:
+        crypto_data_client = await get_alpaca_crypto_data_client(current_user, supabase)
+    except HTTPException as e:
+        auth_error = e.detail
         logger.error(f"❌ Failed to get crypto data client: {e.detail}")
-        # Return empty quotes - will fall back to mock data
-        crypto_data_client = None
+        if e.status_code in [401, 403]:
+            logger.warning(f"⚠️ Authentication error for user {current_user.id}. Please reconnect your Alpaca account.")
 
     stock_symbols = [s for s in symbols if is_stock_symbol(s)]
     crypto_symbols_norm = [normalize_crypto_symbol(s) for s in symbols]
@@ -237,6 +243,11 @@ async def get_real_time_quotes(symbols: List[str], credentials: HTTPAuthorizatio
         else:
             norm = normalize_crypto_symbol(original)
             out[original.upper()] = quotes.get(norm or original.upper(), _mock_quote(original))
+
+    # If we have auth errors and no valid data, include a warning in the response
+    if auth_error and not any(q.get("source") != "unavailable" for q in out.values()):
+        logger.warning(f"⚠️ Returning mock data due to authentication error: {auth_error}")
+
     return {"quotes": out}
 
 

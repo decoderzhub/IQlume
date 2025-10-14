@@ -57,9 +57,10 @@ async def get_alpaca_trading_client(
 
         if not resp.data or len(resp.data) == 0:
             logger.warning(f"⚠️ No connected Alpaca account found for user {current_user.id}")
+            logger.info(f"💡 User needs to connect their Alpaca account. Redirecting to Accounts page.")
             raise HTTPException(
                 status_code=403,
-                detail="No Alpaca account connected. Please connect your Alpaca account in the Accounts page before trading."
+                detail="No Alpaca account connected. Please visit the Accounts page to connect your Alpaca brokerage account. You'll need to authorize Brokernomex to access your Alpaca account via OAuth."
             )
 
         account = resp.data[0]
@@ -245,10 +246,11 @@ async def get_alpaca_stock_data_client(
             )
 
         if not resp.data or len(resp.data) == 0:
-            logger.warning(f"⚠️ No connected Alpaca account found for user {current_user.id}")
+            logger.warning(f"⚠️ No connected Alpaca account found for user {current_user.id} (stock data client)")
+            logger.info(f"💡 User needs to connect their Alpaca account for market data access.")
             raise HTTPException(
                 status_code=403,
-                detail="No Alpaca account connected. Please connect your Alpaca account in the Accounts page."
+                detail="No Alpaca account connected. Please visit the Accounts page to connect your Alpaca brokerage account."
             )
 
         account = resp.data[0]
@@ -263,6 +265,7 @@ async def get_alpaca_stock_data_client(
         # Log which field provided the token
         token_source = "access_token" if account.get("access_token") else ("oauth_token" if account.get("oauth_token") else "oauth_data.access_token")
         logger.info(f"🔗 Stock data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}, Token source: {token_source}")
+        logger.debug(f"📋 Token status - Present: {bool(access_token)}, Length: {len(access_token) if access_token else 0}")
 
         if not access_token:
             logger.error(f"❌ No access token for stock data client, user {current_user.id}")
@@ -306,10 +309,11 @@ async def get_alpaca_crypto_data_client(
             )
 
         if not resp.data or len(resp.data) == 0:
-            logger.warning(f"⚠️ No connected Alpaca account found for user {current_user.id}")
+            logger.warning(f"⚠️ No connected Alpaca account found for user {current_user.id} (crypto data client)")
+            logger.info(f"💡 User needs to connect their Alpaca account for crypto data access.")
             raise HTTPException(
                 status_code=403,
-                detail="No Alpaca account connected. Please connect your Alpaca account in the Accounts page."
+                detail="No Alpaca account connected. Please visit the Accounts page to connect your Alpaca brokerage account."
             )
 
         account = resp.data[0]
@@ -324,6 +328,7 @@ async def get_alpaca_crypto_data_client(
         # Log which field provided the token
         token_source = "access_token" if account.get("access_token") else ("oauth_token" if account.get("oauth_token") else "oauth_data.access_token")
         logger.info(f"🔗 Crypto data client - User: {current_user.id}, Mode: {'PAPER' if is_paper else 'LIVE'}, Token source: {token_source}")
+        logger.debug(f"📋 Token status - Present: {bool(access_token)}, Length: {len(access_token) if access_token else 0}")
 
         if not access_token:
             logger.error(f"❌ No access token for crypto data client, user {current_user.id}")

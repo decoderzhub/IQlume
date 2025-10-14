@@ -8,6 +8,7 @@ import { AIChatView } from './ai-chat/AIChatView';
 import { SettingsView } from './settings/SettingsView';
 import { AnalyticsView } from './analytics/AnalyticsView';
 import { TradingView } from './trading/TradingView';
+import { ErrorNotification } from './ui/ErrorNotification';
 
 import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
@@ -23,7 +24,9 @@ export function MainApp() {
     user,
     brokerageAccounts,
     setBrokerageAccounts,
-    updatePortfolioFromAccounts
+    updatePortfolioFromAccounts,
+    globalError,
+    setGlobalError
   } = useStore();
 
   // Enable real-time updates for autonomous trading
@@ -96,7 +99,12 @@ export function MainApp() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900/20 to-purple-900/20">
       <Sidebar />
       <Header isConnected={isConnected} />
-      
+      <ErrorNotification
+        error={globalError}
+        onDismiss={() => setGlobalError(null)}
+        autoHide={false}
+      />
+
       <main className={cn(
         'pt-20 transition-all duration-300',
         // Desktop margins

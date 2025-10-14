@@ -24,7 +24,8 @@ interface AppState {
   // UI state
   sidebarOpen: boolean;
   activeView: 'dashboard' | 'strategies' | 'ai-chat' | 'trades' | 'accounts' | 'analytics' | 'settings';
-  
+  globalError: Error | null;
+
   // Actions
   setUser: (user: User | null) => void;
   setPortfolio: (portfolio: Portfolio) => void;
@@ -40,6 +41,7 @@ interface AppState {
   setActiveView: (view: AppState['activeView']) => void;
   setLoading: (loading: boolean) => void;
   setIsDeveloperMode: (isDeveloperMode: boolean) => void;
+  setGlobalError: (error: Error | null) => void;
   getEffectiveSubscriptionTier: () => SubscriptionTier;
 }
 
@@ -59,7 +61,8 @@ export const useStore = create<AppState>((set) => ({
   trades: [],
   sidebarOpen: true,
   activeView: 'dashboard',
-  
+  globalError: null,
+
   // Actions
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   setPortfolio: (portfolio) => set({ portfolio }),
@@ -113,6 +116,7 @@ export const useStore = create<AppState>((set) => ({
     }
     set({ isDeveloperMode });
   },
+  setGlobalError: (error) => set({ globalError: error }),
   getEffectiveSubscriptionTier: () => {
     const state = useStore.getState();
     if (state.isDeveloperMode) {
