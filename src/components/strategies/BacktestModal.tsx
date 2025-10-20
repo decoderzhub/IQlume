@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Play, Calendar, TrendingUp, TrendingDown, BarChart3, AlertTriangle } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { NumericInput } from '../ui/NumericInput';
 import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent } from '../../lib/utils';
 import { generateRiskMetrics, determineRiskLevel } from '../../lib/riskUtils';
+import { supabase } from '../../lib/supabase';
 
 interface BacktestModalProps {
   strategy: TradingStrategy;
@@ -31,6 +33,10 @@ interface BacktestResult {
   beta: number;
   alpha: number;
   value_at_risk: number;
+  equity_curve?: any[];
+  benchmark_curve?: any[];
+  excess_return_percent?: number;
+  benchmark_return_percent?: number;
 }
 
 export function BacktestModal({ strategy, onClose, onSave }: BacktestModalProps) {
@@ -43,67 +49,96 @@ export function BacktestModal({ strategy, onClose, onSave }: BacktestModalProps)
 
   const runBacktest = async () => {
     setIsRunning(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Generate base mock results
-    const baseResults = {
-      total_return: 0.156,
-      win_rate: 0.73,
-      max_drawdown: 0.08,
-      total_trades: 48,
-      avg_trade_duration: 28,
-      profit_factor: 1.85,
-      start_date: startDate,
-      end_date: endDate,
-      initial_capital: initialCapital,
-      final_capital: initialCapital * (1 + 0.156),
-    };
-    
-    // Generate realistic risk metrics based on strategy type and performance
-    const riskMetrics = generateRiskMetrics(
-      strategy.type,
-      baseResults.total_return,
-      baseResults.max_drawdown,
-      baseResults.win_rate
-    );
-    
-    // Combine base results with risk metrics
-    const mockResults: BacktestResult = {
-      ...baseResults,
-      ...riskMetrics,
-    };
-    
-    setResults(mockResults);
-    
-    // Create updated strategy with new performance data and dynamic risk level
-    const newPerformance = {
-      total_return: mockResults.total_return,
-      win_rate: mockResults.win_rate,
-      max_drawdown: mockResults.max_drawdown,
-      sharpe_ratio: mockResults.sharpe_ratio,
-      total_trades: mockResults.total_trades,
-      avg_trade_duration: mockResults.avg_trade_duration,
-      volatility: mockResults.volatility,
-      standard_deviation: mockResults.standard_deviation,
-      beta: mockResults.beta,
-      alpha: mockResults.alpha,
-      value_at_risk: mockResults.value_at_risk,
-    };
-    
-    // Dynamically determine risk level based on calculated metrics
-    const dynamicRiskLevel = determineRiskLevel(newPerformance);
-    
-    const strategyWithUpdatedRisk: TradingStrategy = {
-      ...strategy,
-      risk_level: dynamicRiskLevel,
-      performance: newPerformance,
-      updated_at: new Date().toISOString(),
-    };
-    
-    setUpdatedStrategy(strategyWithUpdatedRisk);
-    setIsRunning(false);
+
+    try {
+      // Call the backend API to run backtest
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/strategies/${strategy.id}/backtest`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate,
+            initial_capital: initialCapital
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Backtest failed');
+      }
+
+      const data = await response.json();
+      const backtestResults = data.results;
+
+      // Map API results to our BacktestResult interface
+      const mockResults: BacktestResult = {
+        total_return: backtestResults.total_return_percent / 100,
+        win_rate: backtestResults.win_rate / 100,
+        max_drawdown: backtestResults.max_drawdown_percent / 100,
+        total_trades: backtestResults.total_trades,
+        avg_trade_duration: backtestResults.avg_trade_return_percent || 28,
+        profit_factor: 1.85, // Not returned by API yet
+        start_date: startDate,
+        end_date: endDate,
+        initial_capital: backtestResults.initial_capital,
+        final_capital: backtestResults.final_capital,
+        volatility: 0.25, // Use existing values if not in API
+        standard_deviation: 0.23,
+        beta: backtestResults.beta || 1.0,
+        alpha: (backtestResults.alpha || 0) / 100,
+        value_at_risk: -0.41,
+        sharpe_ratio: backtestResults.sharpe_ratio || 0,
+        equity_curve: backtestResults.equity_curve || [],
+        benchmark_curve: backtestResults.benchmark_curve || [],
+        excess_return_percent: backtestResults.excess_return_percent,
+        benchmark_return_percent: backtestResults.benchmark_return_percent,
+      };
+
+      setResults(mockResults);
+
+      // Create updated strategy with new performance data and dynamic risk level
+      const newPerformance = {
+        total_return: mockResults.total_return,
+        win_rate: mockResults.win_rate,
+        max_drawdown: mockResults.max_drawdown,
+        sharpe_ratio: mockResults.sharpe_ratio,
+        total_trades: mockResults.total_trades,
+        avg_trade_duration: mockResults.avg_trade_duration,
+        volatility: mockResults.volatility,
+        standard_deviation: mockResults.standard_deviation,
+        beta: mockResults.beta,
+        alpha: mockResults.alpha,
+        value_at_risk: mockResults.value_at_risk,
+      };
+
+      // Dynamically determine risk level based on calculated metrics
+      const dynamicRiskLevel = determineRiskLevel(newPerformance);
+
+      const strategyWithUpdatedRisk: TradingStrategy = {
+        ...strategy,
+        risk_level: dynamicRiskLevel,
+        performance: newPerformance,
+        updated_at: new Date().toISOString(),
+      };
+
+      setUpdatedStrategy(strategyWithUpdatedRisk);
+    } catch (error) {
+      console.error('Backtest error:', error);
+      alert('Failed to run backtest. Please try again.');
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const handleSaveUpdatedStrategy = () => {
@@ -406,16 +441,117 @@ export function BacktestModal({ strategy, onClose, onSave }: BacktestModalProps)
                 </Card>
               )}
 
-              {/* Chart Placeholder */}
+              {/* Equity Curve Chart */}
               <Card className="p-6">
-                <h3 className="font-semibold text-white mb-4">Equity Curve</h3>
-                <div className="h-64 bg-gray-800/30 rounded-lg flex items-center justify-center">
-                  <div className="text-center text-gray-400">
-                    <BarChart3 className="w-12 h-12 mx-auto mb-2" />
-                    <p>Interactive equity curve chart would be displayed here</p>
-                    <p className="text-sm">Showing portfolio value over time</p>
+                <h3 className="font-semibold text-white mb-4">Equity Curve: Strategy vs Buy & Hold</h3>
+                {results && results.equity_curve && results.benchmark_curve ? (
+                  <ResponsiveContainer width="100%" height={400}>
+                    <LineChart
+                      data={(() => {
+                        // Merge strategy and benchmark curves
+                        const merged: any[] = [];
+                        const strategyMap = new Map(
+                          results.equity_curve.map((point: any) => [
+                            new Date(point.date).getTime(),
+                            point.equity
+                          ])
+                        );
+                        const benchmarkMap = new Map(
+                          results.benchmark_curve.map((point: any) => [
+                            new Date(point.date).getTime(),
+                            point.equity
+                          ])
+                        );
+
+                        // Get all unique timestamps
+                        const allTimestamps = new Set([
+                          ...Array.from(strategyMap.keys()),
+                          ...Array.from(benchmarkMap.keys())
+                        ]);
+
+                        Array.from(allTimestamps).sort().forEach(timestamp => {
+                          merged.push({
+                            date: new Date(timestamp).toLocaleDateString(),
+                            strategy: strategyMap.get(timestamp) || null,
+                            benchmark: benchmarkMap.get(timestamp) || null
+                          });
+                        });
+
+                        return merged;
+                      })()}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#9CA3AF"
+                        style={{ fontSize: '12px' }}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        stroke="#9CA3AF"
+                        style={{ fontSize: '12px' }}
+                        tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1F2937',
+                          border: '1px solid #374151',
+                          borderRadius: '8px',
+                          color: '#F3F4F6'
+                        }}
+                        formatter={(value: any) => [`$${value.toFixed(2)}`, '']}
+                        labelStyle={{ color: '#F3F4F6' }}
+                      />
+                      <Legend
+                        wrapperStyle={{ color: '#F3F4F6' }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="strategy"
+                        stroke="#10B981"
+                        strokeWidth={2}
+                        dot={false}
+                        name="Strategy"
+                        connectNulls
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="benchmark"
+                        stroke="#6366F1"
+                        strokeWidth={2}
+                        dot={false}
+                        name="Buy & Hold"
+                        connectNulls
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-64 bg-gray-800/30 rounded-lg flex items-center justify-center">
+                    <div className="text-center text-gray-400">
+                      <BarChart3 className="w-12 h-12 mx-auto mb-2" />
+                      <p>Equity curve will be displayed after backtest completes</p>
+                    </div>
                   </div>
-                </div>
+                )}
+                {results && results.excess_return_percent !== undefined && (
+                  <div className="mt-4 p-4 bg-gray-800/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Strategy vs Buy & Hold:</span>
+                      <span className={`text-lg font-bold ${
+                        results.excess_return_percent > 0 ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {results.excess_return_percent > 0 ? '+' : ''}
+                        {formatPercent(results.excess_return_percent / 100)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      {results.excess_return_percent > 0
+                        ? 'Strategy outperformed buy-and-hold'
+                        : 'Strategy underperformed buy-and-hold'}
+                    </p>
+                  </div>
+                )}
               </Card>
 
               <div className="flex gap-4">

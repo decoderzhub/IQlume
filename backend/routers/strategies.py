@@ -457,3 +457,140 @@ async def update_strategy_performance(
     
     supabase.table("trading_strategies").update({"performance": performance_data}).eq("id", strategy_id).execute()
     logger.info(f"✅ Performance updated for strategy {strategy_id}")
+
+
+@router.post("/{strategy_id}/backtest")
+async def run_backtest(
+    strategy_id: str,
+    backtest_config: Dict[str, Any],
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Run a backtest for a trading strategy"""
+    try:
+        from services.backtest_engine import BacktestEngine
+        from alpaca.data.historical import StockHistoricalDataClient
+        import os
+
+        logger.info(f"🔬 Starting backtest for strategy {strategy_id}")
+
+        # Get strategy
+        strategy_resp = supabase.table("trading_strategies").select("*").eq(
+            "id", strategy_id
+        ).eq("user_id", current_user.id).execute()
+
+        if not strategy_resp.data:
+            raise HTTPException(status_code=404, detail="Strategy not found")
+
+        strategy = strategy_resp.data[0]
+
+        # Parse backtest parameters
+        start_date_str = backtest_config.get("start_date")
+        end_date_str = backtest_config.get("end_date")
+        initial_capital = backtest_config.get("initial_capital", 100000)
+
+        if not start_date_str or not end_date_str:
+            raise HTTPException(
+                status_code=400,
+                detail="start_date and end_date are required"
+            )
+
+        # Parse dates
+        from datetime import datetime, timezone
+        try:
+            start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+            end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid date format: {str(e)}"
+            )
+
+        # Initialize backtest engine with market data client
+        alpaca_api_key = os.getenv("ALPACA_API_KEY")
+        alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+
+        if not alpaca_api_key or not alpaca_secret_key:
+            raise HTTPException(
+                status_code=500,
+                detail="Alpaca API credentials not configured"
+            )
+
+        market_data_client = StockHistoricalDataClient(
+            alpaca_api_key,
+            alpaca_secret_key
+        )
+
+        backtest_engine = BacktestEngine(supabase, market_data_client)
+
+        # Run backtest
+        results = await backtest_engine.run_backtest(
+            user_id=current_user.id,
+            strategy_config=strategy,
+            start_date=start_date,
+            end_date=end_date,
+            initial_capital=initial_capital
+        )
+
+        logger.info(f"✅ Backtest completed for strategy {strategy_id}")
+
+        return {
+            "success": True,
+            "backtest_id": results["backtest_id"],
+            "results": results
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error running backtest: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to run backtest: {str(e)}"
+        )
+
+
+@router.get("/{strategy_id}/backtest/{backtest_id}")
+async def get_backtest_results(
+    strategy_id: str,
+    backtest_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Get backtest results including equity curves"""
+    try:
+        logger.info(f"📊 Fetching backtest {backtest_id} for strategy {strategy_id}")
+
+        # Get backtest record
+        backtest_resp = supabase.table("backtests").select("*").eq(
+            "id", backtest_id
+        ).eq("user_id", current_user.id).execute()
+
+        if not backtest_resp.data:
+            raise HTTPException(status_code=404, detail="Backtest not found")
+
+        backtest = backtest_resp.data[0]
+
+        # Get equity curve data
+        equity_resp = supabase.table("backtest_equity_curves").select("*").eq(
+            "backtest_id", backtest_id
+        ).order("timestamp").execute()
+
+        equity_data = equity_resp.data or []
+
+        # Format response
+        return {
+            "backtest": backtest,
+            "equity_curve": equity_data
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error fetching backtest results: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch backtest results: {str(e)}"
+        )

@@ -79,6 +79,12 @@ class BacktestEngine:
             if not market_data:
                 raise ValueError(f"No market data available for {symbol}")
 
+            # Calculate buy-and-hold benchmark
+            benchmark_curve = self._calculate_benchmark(
+                market_data,
+                initial_capital
+            )
+
             # Run simulation
             results = await self._simulate_strategy(
                 strategy_config,
@@ -90,6 +96,7 @@ class BacktestEngine:
             metrics = self._calculate_metrics(
                 results['trades'],
                 results['equity_curve'],
+                benchmark_curve,
                 initial_capital
             )
 
@@ -106,6 +113,13 @@ class BacktestEngine:
                 strategy_config
             )
 
+            # Store equity curves in database
+            await self._store_equity_curves(
+                backtest_id,
+                results['equity_curve'],
+                benchmark_curve
+            )
+
             # Combine all results
             backtest_results = {
                 **metrics,
@@ -113,8 +127,10 @@ class BacktestEngine:
                 'risk_score': risk_score,
                 'trade_log': results['trades'][:100],  # Limit trade log size
                 'equity_curve': results['equity_curve'],
+                'benchmark_curve': benchmark_curve,
                 'initial_capital': initial_capital,
-                'final_capital': results['final_capital']
+                'final_capital': results['final_capital'],
+                'benchmark_final_capital': benchmark_curve[-1]['equity'] if benchmark_curve else initial_capital
             }
 
             # Update backtest record
@@ -193,38 +209,232 @@ class BacktestEngine:
         start_date: datetime,
         end_date: datetime
     ) -> List[Dict[str, Any]]:
-        """Fetch historical price data"""
-        # This would integrate with your market data provider
-        # For now, returning a placeholder structure
-        self.logger.info(f"📊 Fetching historical data for {symbol}")
+        """Fetch historical price data from Alpaca or cached Supabase storage"""
+        self.logger.info(f"📊 Fetching historical data for {symbol} from {start_date.date()} to {end_date.date()}")
 
-        # TODO: Implement actual historical data fetching from Alpaca/Polygon
-        # For now, generate sample data for testing
-        dates = []
-        current_date = start_date
-        while current_date <= end_date:
-            if current_date.weekday() < 5:  # Skip weekends
-                dates.append(current_date)
-            current_date += timedelta(days=1)
+        try:
+            # First, try to get cached data from Supabase
+            cached_data = await self._get_cached_market_data(symbol, start_date, end_date)
 
-        # Generate realistic price data
-        price = 100.0
-        data = []
-        for date in dates:
-            # Random walk with slight upward drift
-            change = np.random.normal(0.001, 0.02)  # 0.1% drift, 2% volatility
-            price *= (1 + change)
+            if cached_data and len(cached_data) > 0:
+                self.logger.info(f"✅ Found {len(cached_data)} cached bars for {symbol}")
+                # Check if we have sufficient coverage
+                coverage = self._calculate_data_coverage(cached_data, start_date, end_date)
+                if coverage > 0.95:  # 95% coverage is acceptable
+                    self.logger.info(f"📦 Using cached data ({coverage:.1%} coverage)")
+                    return cached_data
+                else:
+                    self.logger.warning(f"⚠️ Cached data coverage only {coverage:.1%}, fetching from API")
 
-            data.append({
-                'timestamp': date,
-                'open': price * 0.99,
-                'high': price * 1.01,
-                'low': price * 0.98,
-                'close': price,
-                'volume': np.random.randint(1000000, 10000000)
-            })
+            # Fetch from Alpaca API
+            api_data = await self._fetch_from_alpaca(symbol, start_date, end_date)
 
-        return data
+            if api_data and len(api_data) > 0:
+                self.logger.info(f"✅ Fetched {len(api_data)} bars from Alpaca API")
+                # Cache the data for future use
+                await self._cache_market_data(symbol, api_data)
+                return api_data
+
+            # If both fail, return cached data even if incomplete
+            if cached_data:
+                self.logger.warning(f"⚠️ API fetch failed, using incomplete cached data")
+                return cached_data
+
+            raise ValueError(f"No market data available for {symbol}")
+
+        except Exception as e:
+            self.logger.error(f"❌ Error fetching historical data: {e}")
+            raise
+
+    async def _get_cached_market_data(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime
+    ) -> List[Dict[str, Any]]:
+        """Retrieve cached market data from Supabase"""
+        try:
+            result = self.supabase.table('historical_market_data').select('*').eq(
+                'symbol', symbol.upper()
+            ).eq(
+                'timeframe', '1Day'
+            ).gte(
+                'timestamp', start_date.isoformat()
+            ).lte(
+                'timestamp', end_date.isoformat()
+            ).order('timestamp').execute()
+
+            if result.data:
+                return [{
+                    'timestamp': datetime.fromisoformat(row['timestamp'].replace('Z', '+00:00')),
+                    'open': float(row['open']),
+                    'high': float(row['high']),
+                    'low': float(row['low']),
+                    'close': float(row['close']),
+                    'volume': float(row['volume'])
+                } for row in result.data]
+
+            return []
+        except Exception as e:
+            self.logger.error(f"Error reading cached data: {e}")
+            return []
+
+    async def _fetch_from_alpaca(
+        self,
+        symbol: str,
+        start_date: datetime,
+        end_date: datetime
+    ) -> List[Dict[str, Any]]:
+        """Fetch historical data from Alpaca API"""
+        try:
+            from alpaca.data.requests import StockBarsRequest
+            from alpaca.data.timeframe import TimeFrame
+
+            if not self.market_data_client:
+                self.logger.warning("No market data client available")
+                return []
+
+            request = StockBarsRequest(
+                symbol_or_symbols=symbol.upper(),
+                timeframe=TimeFrame.Day,
+                start=start_date,
+                end=end_date
+            )
+
+            bars = self.market_data_client.get_stock_bars(request)
+
+            if not bars or symbol.upper() not in bars:
+                return []
+
+            data = []
+            for bar in bars[symbol.upper()]:
+                data.append({
+                    'timestamp': bar.timestamp,
+                    'open': float(bar.open),
+                    'high': float(bar.high),
+                    'low': float(bar.low),
+                    'close': float(bar.close),
+                    'volume': int(bar.volume)
+                })
+
+            return data
+
+        except Exception as e:
+            self.logger.error(f"Error fetching from Alpaca: {e}")
+            return []
+
+    async def _cache_market_data(
+        self,
+        symbol: str,
+        data: List[Dict[str, Any]]
+    ):
+        """Cache market data in Supabase for future use"""
+        try:
+            records = []
+            for bar in data:
+                records.append({
+                    'symbol': symbol.upper(),
+                    'timeframe': '1Day',
+                    'timestamp': bar['timestamp'].isoformat(),
+                    'open': bar['open'],
+                    'high': bar['high'],
+                    'low': bar['low'],
+                    'close': bar['close'],
+                    'volume': bar['volume'],
+                    'data_source': 'alpaca',
+                    'data_quality': 'verified'
+                })
+
+            # Upsert to avoid duplicates
+            if records:
+                self.supabase.table('historical_market_data').upsert(
+                    records,
+                    on_conflict='symbol,timeframe,timestamp'
+                ).execute()
+                self.logger.info(f"💾 Cached {len(records)} bars for {symbol}")
+
+        except Exception as e:
+            self.logger.error(f"Error caching market data: {e}")
+
+    def _calculate_data_coverage(
+        self,
+        data: List[Dict[str, Any]],
+        start_date: datetime,
+        end_date: datetime
+    ) -> float:
+        """Calculate what percentage of trading days have data"""
+        if not data:
+            return 0.0
+
+        # Count expected trading days (rough estimate)
+        total_days = (end_date - start_date).days
+        expected_trading_days = total_days * (5/7)  # Assume ~5/7 days are trading days
+
+        actual_bars = len(data)
+        coverage = min(actual_bars / expected_trading_days, 1.0) if expected_trading_days > 0 else 0.0
+
+        return coverage
+
+    def _calculate_benchmark(
+        self,
+        market_data: List[Dict[str, Any]],
+        initial_capital: float
+    ) -> List[Dict[str, Any]]:
+        """Calculate buy-and-hold benchmark equity curve"""
+        if not market_data:
+            return []
+
+        benchmark_curve = []
+        initial_price = market_data[0]['close']
+        shares = initial_capital / initial_price
+
+        for i, bar in enumerate(market_data):
+            equity = shares * bar['close']
+            # Record points at same frequency as strategy (every 5 bars)
+            if i % 5 == 0 or i == len(market_data) - 1:
+                benchmark_curve.append({
+                    'date': bar['timestamp'],
+                    'equity': equity,
+                    'cash': 0,
+                    'position_value': equity
+                })
+
+        return benchmark_curve
+
+    async def _store_equity_curves(
+        self,
+        backtest_id: str,
+        strategy_curve: List[Dict[str, Any]],
+        benchmark_curve: List[Dict[str, Any]]
+    ):
+        """Store equity curve data points in database"""
+        try:
+            records = []
+            # Merge strategy and benchmark curves by timestamp
+            benchmark_dict = {point['date']: point['equity'] for point in benchmark_curve}
+
+            for point in strategy_curve:
+                timestamp = point['date']
+                benchmark_equity = benchmark_dict.get(timestamp, 0)
+
+                records.append({
+                    'backtest_id': backtest_id,
+                    'timestamp': timestamp.isoformat(),
+                    'strategy_equity': point['equity'],
+                    'benchmark_equity': benchmark_equity,
+                    'cash_balance': point.get('cash', 0),
+                    'position_value': point.get('position_value', 0),
+                    'unrealized_pnl': point.get('unrealized_pnl', 0),
+                    'realized_pnl': point.get('realized_pnl', 0),
+                    'total_trades': point.get('total_trades', 0)
+                })
+
+            if records:
+                self.supabase.table('backtest_equity_curves').insert(records).execute()
+                self.logger.info(f"📊 Stored {len(records)} equity curve points")
+
+        except Exception as e:
+            self.logger.error(f"Error storing equity curves: {e}")
 
     async def _simulate_strategy(
         self,
@@ -333,6 +543,7 @@ class BacktestEngine:
         self,
         trades: List[Dict[str, Any]],
         equity_curve: List[Dict[str, Any]],
+        benchmark_curve: List[Dict[str, Any]],
         initial_capital: float
     ) -> Dict[str, Any]:
         """Calculate performance metrics from simulation results"""
@@ -401,6 +612,39 @@ class BacktestEngine:
             sharpe_ratio = 0
             sortino_ratio = 0
 
+        # Calculate beta and alpha vs benchmark
+        beta = 0.0
+        alpha = 0.0
+        if benchmark_curve and len(benchmark_curve) >= 2:
+            # Calculate benchmark returns
+            benchmark_returns = []
+            for i in range(1, len(benchmark_curve)):
+                bench_return = (
+                    (benchmark_curve[i]['equity'] - benchmark_curve[i-1]['equity']) /
+                    benchmark_curve[i-1]['equity']
+                )
+                benchmark_returns.append(bench_return)
+
+            # Align strategy and benchmark returns
+            if len(returns) == len(benchmark_returns) and len(returns) > 1:
+                # Calculate covariance and variance
+                covariance = np.cov(returns, benchmark_returns)[0][1]
+                benchmark_variance = np.var(benchmark_returns)
+
+                if benchmark_variance > 0:
+                    beta = covariance / benchmark_variance
+
+                    # Calculate alpha (excess return beyond what beta predicts)
+                    strategy_avg_return = np.mean(returns) * 252  # Annualized
+                    benchmark_avg_return = np.mean(benchmark_returns) * 252
+                    alpha = strategy_avg_return - (beta * benchmark_avg_return)
+
+        # Calculate benchmark final return for comparison
+        benchmark_return = 0.0
+        if benchmark_curve:
+            benchmark_final = benchmark_curve[-1]['equity']
+            benchmark_return = ((benchmark_final - initial_capital) / initial_capital) * 100
+
         return {
             'total_return_percent': round(total_return, 2),
             'annualized_return_percent': round(annualized_return, 2),
@@ -412,7 +656,11 @@ class BacktestEngine:
             'total_trades': total_trades,
             'winning_trades': len(winning_trades),
             'losing_trades': len(losing_trades),
-            'avg_trade_return_percent': round(avg_trade_return, 2)
+            'avg_trade_return_percent': round(avg_trade_return, 2),
+            'beta': round(beta, 2),
+            'alpha': round(alpha * 100, 2),  # Convert to percentage
+            'benchmark_return_percent': round(benchmark_return, 2),
+            'excess_return_percent': round(total_return - benchmark_return, 2)
         }
 
     def _empty_metrics(self) -> Dict[str, Any]:
