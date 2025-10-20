@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 from dependencies import (
     get_supabase_client,
     get_alpaca_trading_client,
@@ -12,6 +13,7 @@ from dependencies import (
     verify_alpaca_account_context,
 )
 from strategy_executors.factory import StrategyExecutorFactory
+from services.market_data_service import market_data_service
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +27,14 @@ class TradingScheduler:
         """Start the scheduler and load active strategies"""
         logger.info("🚀 Starting autonomous trading scheduler...")
         self.scheduler.start()
+
+        # Initialize market data on startup
+        if market_data_service:
+            logger.info("📊 Initializing market data service...")
+            asyncio.create_task(self.initialize_market_data())
+
         await self.load_active_strategies()
-        
+
         # Schedule periodic strategy reload (every 5 minutes)
         self.scheduler.add_job(
             self.reload_strategies,
@@ -34,7 +42,23 @@ class TradingScheduler:
             id="reload_strategies",
             name="Reload Active Strategies"
         )
-        
+
+        # Schedule daily market data update (at 7 PM EST daily)
+        self.scheduler.add_job(
+            self.update_market_data,
+            CronTrigger(hour=19, minute=0, timezone="America/New_York"),
+            id="daily_market_data_update",
+            name="Daily Market Data Update"
+        )
+
+        # Schedule weekly data validation (Sundays at 2 AM EST)
+        self.scheduler.add_job(
+            self.validate_market_data,
+            CronTrigger(day_of_week='sun', hour=2, minute=0, timezone="America/New_York"),
+            id="weekly_data_validation",
+            name="Weekly Data Validation"
+        )
+
         logger.info("✅ Trading scheduler started successfully")
     
     async def stop(self):
@@ -282,6 +306,72 @@ class TradingScheduler:
         except Exception as e:
             logger.error(f"❌ [SCHEDULER] Error executing strategy {strategy_name}: {e}", exc_info=True)
     
+    async def initialize_market_data(self):
+        """Initialize market data on startup"""
+        if not market_data_service:
+            logger.warning("⚠️ Market data service not available")
+            return
+
+        try:
+            logger.info("📊 Initializing historical market data...")
+            result = await market_data_service.initialize_data()
+
+            if result.get("data_exists"):
+                logger.info("✅ Historical market data already available")
+            elif result.get("initial_population"):
+                pop_result = result["initial_population"]
+                logger.info(
+                    f"✅ Initial data population complete: "
+                    f"{len(pop_result.get('symbols_processed', []))} symbols, "
+                    f"{pop_result.get('total_bars_inserted', 0)} bars"
+                )
+            else:
+                logger.warning("⚠️ Market data initialization incomplete")
+
+        except Exception as e:
+            logger.error(f"❌ Error initializing market data: {e}")
+
+    async def update_market_data(self):
+        """Daily market data update job"""
+        if not market_data_service:
+            logger.warning("⚠️ Market data service not available for daily update")
+            return
+
+        try:
+            logger.info("📅 Running daily market data update...")
+            result = await market_data_service.populate_daily_update()
+
+            logger.info(
+                f"✅ Daily update complete: "
+                f"{len(result.get('symbols_updated', []))} symbols updated, "
+                f"{result.get('total_bars_added', 0)} new bars"
+            )
+
+            if result.get('symbols_failed'):
+                logger.warning(f"⚠️ Failed symbols: {result['symbols_failed']}")
+
+        except Exception as e:
+            logger.error(f"❌ Error in daily market data update: {e}")
+
+    async def validate_market_data(self):
+        """Weekly data validation and gap filling job"""
+        if not market_data_service:
+            logger.warning("⚠️ Market data service not available for validation")
+            return
+
+        try:
+            logger.info("🔍 Running weekly data validation...")
+            result = await market_data_service.validate_and_fix_gaps()
+
+            logger.info(
+                f"✅ Validation complete: "
+                f"{result.get('gaps_filled', 0)} gaps filled in "
+                f"{len(result.get('symbols_affected', []))} symbols"
+            )
+
+        except Exception as e:
+            logger.error(f"❌ Error in data validation: {e}")
+
     async def get_scheduler_status(self) -> Dict[str, Any]:
         """Get current scheduler status"""
         jobs = []
@@ -295,11 +385,24 @@ class TradingScheduler:
             if job.id in self.active_jobs:
                 job_info.update(self.active_jobs[job.id])
             jobs.append(job_info)
-        
+
+        # Get market data status
+        market_data_status = None
+        if market_data_service:
+            try:
+                coverage = await market_data_service.check_data_coverage()
+                market_data_status = {
+                    "symbols_tracked": coverage.get("total_symbols", 0),
+                    "total_records": coverage.get("total_records", 0)
+                }
+            except Exception as e:
+                logger.error(f"Error getting market data status: {e}")
+
         return {
             "scheduler_running": self.scheduler.running,
             "total_jobs": len(jobs),
             "active_strategies": len([j for j in jobs if j["id"].startswith("strategy_")]),
+            "market_data_status": market_data_status,
             "jobs": jobs,
         }
 

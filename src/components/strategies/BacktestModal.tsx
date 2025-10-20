@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Play, Calendar, TrendingUp, TrendingDown, BarChart3, AlertTriangle } from 'lucide-react';
+import { X, Play, Calendar, TrendingUp, TrendingDown, BarChart3, AlertTriangle, Database, CheckCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -9,6 +9,7 @@ import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent } from '../../lib/utils';
 import { generateRiskMetrics, determineRiskLevel } from '../../lib/riskUtils';
 import { supabase } from '../../lib/supabase';
+import { useMarketDataStatus } from '../../hooks/api/useMarketDataStatus';
 
 interface BacktestModalProps {
   strategy: TradingStrategy;
@@ -46,9 +47,18 @@ export function BacktestModal({ strategy, onClose, onSave }: BacktestModalProps)
   const [initialCapital, setInitialCapital] = useState(100000);
   const [results, setResults] = useState<BacktestResult | null>(null);
   const [updatedStrategy, setUpdatedStrategy] = useState<TradingStrategy | null>(null);
+  const [backtestError, setBacktestError] = useState<string | null>(null);
+  const { status: dataStatus, loading: dataStatusLoading } = useMarketDataStatus();
+
+  // Get symbol from strategy
+  const strategySymbol = strategy.configuration?.symbol || strategy.base_symbol || 'Unknown';
+
+  // Check if symbol has data
+  const symbolHasData = dataStatus?.symbols?.includes(strategySymbol.toUpperCase()) || false;
 
   const runBacktest = async () => {
     setIsRunning(true);
+    setBacktestError(null);
 
     try {
       // Call the backend API to run backtest
@@ -75,7 +85,8 @@ export function BacktestModal({ strategy, onClose, onSave }: BacktestModalProps)
       );
 
       if (!response.ok) {
-        throw new Error('Backtest failed');
+        const errorData = await response.json().catch(() => ({ detail: 'Backtest failed' }));
+        throw new Error(errorData.detail || 'Backtest failed');
       }
 
       const data = await response.json();
@@ -133,9 +144,9 @@ export function BacktestModal({ strategy, onClose, onSave }: BacktestModalProps)
       };
 
       setUpdatedStrategy(strategyWithUpdatedRisk);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Backtest error:', error);
-      alert('Failed to run backtest. Please try again.');
+      setBacktestError(error.message || 'Failed to run backtest. Please try again.');
     } finally {
       setIsRunning(false);
     }
@@ -169,6 +180,61 @@ export function BacktestModal({ strategy, onClose, onSave }: BacktestModalProps)
 
           {!results ? (
             <div className="space-y-6">
+              {/* Data Availability Status */}
+              {!dataStatusLoading && dataStatus && (
+                <div className={`p-4 rounded-lg border ${
+                  symbolHasData
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-amber-500/10 border-amber-500/30'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    {symbolHasData ? (
+                      <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <Database className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-white">
+                          {symbolHasData ? 'Historical Data Available' : 'Limited Data Availability'}
+                        </span>
+                        <span className="text-sm text-gray-400">
+                          ({strategySymbol})
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-300">
+                        {symbolHasData ? (
+                          <>
+                            Market data for {strategySymbol} is cached and ready for backtesting.
+                            System tracks {dataStatus.total_symbols} symbols with {dataStatus.total_records.toLocaleString()} data points.
+                          </>
+                        ) : (
+                          <>
+                            Historical data for {strategySymbol} may be limited. The system will attempt to fetch
+                            data from the API. If this fails, consider running the daily data update or choosing a different symbol.
+                            Currently tracking: {dataStatus.symbols.slice(0, 5).join(', ')}
+                            {dataStatus.symbols.length > 5 && ` +${dataStatus.symbols.length - 5} more`}.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Error Display */}
+              {backtestError && (
+                <div className="p-4 rounded-lg border bg-red-500/10 border-red-500/30">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-white mb-1">Backtest Failed</div>
+                      <p className="text-sm text-gray-300 whitespace-pre-wrap">{backtestError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">

@@ -222,20 +222,20 @@ class BacktestEngine:
         self.logger.info(f"📊 Fetching historical data for {symbol} from {start_date.date()} to {end_date.date()}")
 
         try:
-            # First, try to get cached data from Supabase
+            # First, try to get cached data from Supabase (PRIORITY 1: Database cache)
             cached_data = await self._get_cached_market_data(symbol, start_date, end_date)
 
             if cached_data and len(cached_data) > 0:
                 self.logger.info(f"✅ Found {len(cached_data)} cached bars for {symbol}")
                 # Check if we have sufficient coverage
                 coverage = self._calculate_data_coverage(cached_data, start_date, end_date)
-                if coverage > 0.95:  # 95% coverage is acceptable
+                if coverage > 0.90:  # 90% coverage is acceptable (lowered from 95%)
                     self.logger.info(f"📦 Using cached data ({coverage:.1%} coverage)")
                     return cached_data
                 else:
                     self.logger.warning(f"⚠️ Cached data coverage only {coverage:.1%}, will try to fetch more from API")
 
-            # Fetch from Alpaca API
+            # Try to fetch from Alpaca API (PRIORITY 2: Live API)
             api_data = await self._fetch_from_alpaca(symbol, start_date, end_date)
 
             if api_data and len(api_data) > 0:
@@ -244,15 +244,28 @@ class BacktestEngine:
                 await self._cache_market_data(symbol, api_data)
                 return api_data
 
-            # If both fail, return cached data even if incomplete
-            if cached_data:
-                self.logger.warning(f"⚠️ API fetch failed, using incomplete cached data ({len(cached_data)} bars)")
+            # If API fetch failed but we have some cached data, use it (PRIORITY 3: Partial data fallback)
+            if cached_data and len(cached_data) > 10:  # Need at least 10 bars for meaningful backtest
+                coverage = self._calculate_data_coverage(cached_data, start_date, end_date)
+                self.logger.warning(
+                    f"⚠️ Using incomplete cached data for {symbol}: "
+                    f"{len(cached_data)} bars ({coverage:.1%} coverage). "
+                    f"Results may be less accurate. Consider running daily data update."
+                )
                 return cached_data
 
-            # No data available from either source
+            # No usable data available from any source
             raise ValueError(
-                f"No market data available for {symbol}. "
-                f"Please populate historical data first using the /api/market-data/populate-historical-data endpoint."
+                f"No market data available for {symbol} from {start_date.date()} to {end_date.date()}. "
+                f"Possible causes:\n"
+                f"1. Historical data has not been populated yet\n"
+                f"2. Invalid symbol or date range\n"
+                f"3. Market data API is unavailable\n\n"
+                f"Solutions:\n"
+                f"- Wait for the automated daily data update (runs at 7 PM EST)\n"
+                f"- Manually populate data via: POST /api/market-data/populate-historical-data\n"
+                f"- Check system logs for data population status\n"
+                f"- Verify the symbol '{symbol}' is valid and tradable"
             )
 
         except ValueError:

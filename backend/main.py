@@ -18,6 +18,8 @@ from trade_sync import trade_sync_service
 from order_fill_monitor import order_fill_monitor
 from sse_manager import publish
 from dependencies import get_supabase_client
+from services.market_data_service import initialize_market_data_service
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -32,8 +34,29 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("🚀 Starting brokernomex backend...")
 
-    # Initialize order fill monitor with Supabase client
+    # Initialize Supabase client
     supabase = get_supabase_client()
+
+    # Initialize market data service with system-level Alpaca credentials
+    try:
+        from alpaca.data.historical import StockHistoricalDataClient
+
+        alpaca_key = os.getenv("ALPACA_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+
+        if alpaca_key and alpaca_secret:
+            stock_client = StockHistoricalDataClient(alpaca_key, alpaca_secret)
+            initialize_market_data_service(supabase, stock_client)
+            logger.info("📊 Market data service initialized with system credentials")
+        else:
+            initialize_market_data_service(supabase, None)
+            logger.warning("⚠️ Market data service initialized without Alpaca credentials")
+
+    except Exception as e:
+        logger.error(f"❌ Error initializing market data service: {e}")
+        initialize_market_data_service(supabase, None)
+
+    # Initialize order fill monitor with Supabase client
     order_fill_monitor.supabase = supabase
 
     # Start order fill monitor for event-based grid execution
