@@ -69,15 +69,24 @@ class BacktestEngine:
             )
 
             # Get historical market data
-            symbol = strategy_config.get('base_symbol', 'SPY')
+            symbol = strategy_config.get('base_symbol') or strategy_config.get('configuration', {}).get('symbol', 'SPY')
+            if not symbol:
+                raise ValueError("No symbol specified in strategy configuration")
+
+            self.logger.info(f"📊 Using symbol: {symbol}")
+
             market_data = await self._fetch_historical_data(
                 symbol,
                 start_date,
                 end_date
             )
 
-            if not market_data:
-                raise ValueError(f"No market data available for {symbol}")
+            if not market_data or len(market_data) < 2:
+                raise ValueError(
+                    f"Insufficient market data for {symbol}. "
+                    f"At least 2 data points required, got {len(market_data) if market_data else 0}. "
+                    f"Please populate historical data using the data population endpoint."
+                )
 
             # Calculate buy-and-hold benchmark
             benchmark_curve = self._calculate_benchmark(
@@ -224,7 +233,7 @@ class BacktestEngine:
                     self.logger.info(f"📦 Using cached data ({coverage:.1%} coverage)")
                     return cached_data
                 else:
-                    self.logger.warning(f"⚠️ Cached data coverage only {coverage:.1%}, fetching from API")
+                    self.logger.warning(f"⚠️ Cached data coverage only {coverage:.1%}, will try to fetch more from API")
 
             # Fetch from Alpaca API
             api_data = await self._fetch_from_alpaca(symbol, start_date, end_date)
@@ -237,14 +246,23 @@ class BacktestEngine:
 
             # If both fail, return cached data even if incomplete
             if cached_data:
-                self.logger.warning(f"⚠️ API fetch failed, using incomplete cached data")
+                self.logger.warning(f"⚠️ API fetch failed, using incomplete cached data ({len(cached_data)} bars)")
                 return cached_data
 
-            raise ValueError(f"No market data available for {symbol}")
+            # No data available from either source
+            raise ValueError(
+                f"No market data available for {symbol}. "
+                f"Please populate historical data first using the /api/market-data/populate-historical-data endpoint."
+            )
 
+        except ValueError:
+            raise
         except Exception as e:
             self.logger.error(f"❌ Error fetching historical data: {e}")
-            raise
+            raise ValueError(
+                f"Failed to fetch market data for {symbol}: {str(e)}. "
+                f"This may be due to an invalid symbol, API connectivity issues, or missing authentication."
+            )
 
     async def _get_cached_market_data(
         self,
@@ -254,6 +272,8 @@ class BacktestEngine:
     ) -> List[Dict[str, Any]]:
         """Retrieve cached market data from Supabase"""
         try:
+            self.logger.info(f"🔍 Checking cache for {symbol} from {start_date.date()} to {end_date.date()}")
+
             result = self.supabase.table('historical_market_data').select('*').eq(
                 'symbol', symbol.upper()
             ).eq(
@@ -265,6 +285,7 @@ class BacktestEngine:
             ).order('timestamp').execute()
 
             if result.data:
+                self.logger.info(f"✅ Found {len(result.data)} cached bars in database")
                 return [{
                     'timestamp': datetime.fromisoformat(row['timestamp'].replace('Z', '+00:00')),
                     'open': float(row['open']),
@@ -274,9 +295,11 @@ class BacktestEngine:
                     'volume': float(row['volume'])
                 } for row in result.data]
 
+            self.logger.info(f"ℹ️ No cached data found for {symbol}")
             return []
         except Exception as e:
-            self.logger.error(f"Error reading cached data: {e}")
+            self.logger.error(f"⚠️ Error reading cached data (table may not exist): {e}")
+            self.logger.info("💡 If this is your first time, the historical_market_data table may need to be populated")
             return []
 
     async def _fetch_from_alpaca(

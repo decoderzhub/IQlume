@@ -1228,7 +1228,7 @@ async def get_popular_symbols(
     """Get popular trading symbols"""
     try:
         popular_with_details = []
-        
+
         for symbol in POPULAR_SYMBOLS[:limit]:
             # Find details if available
             symbol_data = next((s for s in STOCK_SYMBOLS_WITH_NAMES if s["symbol"] == symbol), None)
@@ -1243,9 +1243,141 @@ async def get_popular_symbols(
                     "type": symbol_type,
                     "score": 100
                 })
-        
+
         return {"symbols": popular_with_details}
-        
+
     except Exception as e:
         logger.error(f"Error fetching popular symbols: {e}")
         return {"symbols": [{"symbol": s, "name": s, "type": "stock", "score": 0} for s in POPULAR_SYMBOLS[:limit]]}
+
+@router.post("/populate-historical-data")
+async def populate_historical_data(
+    request_data: Dict[str, Any],
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """
+    Populate historical market data for specified symbols.
+    This endpoint fetches data from Alpaca and stores it in the database for backtesting.
+    """
+    try:
+        symbols = request_data.get("symbols", ["SPY", "AAPL", "MSFT", "AMZN"])
+        days_back = request_data.get("days_back", 365)
+        timeframe = request_data.get("timeframe", "1Day")
+
+        logger.info(f"📦 Populating historical data for {len(symbols)} symbols, {days_back} days back")
+
+        # Get stock data client
+        try:
+            stock_data_client = await get_alpaca_stock_data_client(current_user, supabase)
+        except HTTPException as e:
+            logger.error(f"Failed to get Alpaca client: {e.detail}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to connect to market data provider. Please ensure your Alpaca account is connected."
+            )
+
+        end_time = datetime.now(timezone.utc)
+        start_time = end_time - timedelta(days=days_back)
+
+        # Map timeframe string to Alpaca TimeFrame
+        from alpaca.data.timeframe import TimeFrame
+        tf_map = {
+            "1Min": TimeFrame.Minute,
+            "5Min": TimeFrame(5, "Min"),
+            "15Min": TimeFrame(15, "Min"),
+            "1Hour": TimeFrame.Hour,
+            "1Day": TimeFrame.Day,
+        }
+        tf = tf_map.get(timeframe, TimeFrame.Day)
+
+        results = {
+            "symbols_processed": [],
+            "symbols_failed": [],
+            "total_bars_inserted": 0
+        }
+
+        for symbol in symbols:
+            try:
+                logger.info(f"📊 Fetching data for {symbol}...")
+
+                # Check if symbol is stock or crypto
+                if is_stock_symbol(symbol):
+                    # Fetch stock data
+                    request = StockBarsRequest(
+                        symbol_or_symbols=symbol.upper(),
+                        timeframe=tf,
+                        start=start_time,
+                        end=end_time,
+                        feed=DataFeed.IEX
+                    )
+                    bars_data = stock_data_client.get_stock_bars(request)
+
+                    if not bars_data or symbol.upper() not in bars_data:
+                        logger.warning(f"⚠️ No data returned for {symbol}")
+                        results["symbols_failed"].append(symbol)
+                        continue
+
+                    bars = bars_data[symbol.upper()]
+                else:
+                    # Skip crypto for now or handle separately
+                    logger.warning(f"⚠️ Skipping crypto symbol {symbol}")
+                    results["symbols_failed"].append(symbol)
+                    continue
+
+                # Prepare records for insertion
+                records = []
+                for bar in bars:
+                    records.append({
+                        "symbol": symbol.upper(),
+                        "timeframe": timeframe,
+                        "timestamp": bar.timestamp.isoformat(),
+                        "open": float(bar.open),
+                        "high": float(bar.high),
+                        "low": float(bar.low),
+                        "close": float(bar.close),
+                        "volume": int(bar.volume),
+                        "trade_count": int(getattr(bar, "trade_count", 0) or 0),
+                        "vwap": float(getattr(bar, "vwap", 0) or 0) if hasattr(bar, "vwap") else None,
+                        "data_source": "alpaca",
+                        "data_quality": "verified"
+                    })
+
+                if records:
+                    # Insert in batches to avoid timeouts
+                    batch_size = 1000
+                    for i in range(0, len(records), batch_size):
+                        batch = records[i:i + batch_size]
+                        try:
+                            supabase.table("historical_market_data").upsert(
+                                batch,
+                                on_conflict="symbol,timeframe,timestamp"
+                            ).execute()
+                        except Exception as batch_error:
+                            logger.error(f"Error inserting batch for {symbol}: {batch_error}")
+
+                    results["symbols_processed"].append(symbol)
+                    results["total_bars_inserted"] += len(records)
+                    logger.info(f"✅ Inserted {len(records)} bars for {symbol}")
+
+            except Exception as symbol_error:
+                logger.error(f"❌ Error processing {symbol}: {symbol_error}")
+                results["symbols_failed"].append(symbol)
+
+        logger.info(f"✅ Data population complete: {results['symbols_processed']}")
+
+        return {
+            "success": True,
+            "message": f"Populated data for {len(results['symbols_processed'])} symbols",
+            "results": results
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error populating historical data: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to populate historical data: {str(e)}"
+        )
