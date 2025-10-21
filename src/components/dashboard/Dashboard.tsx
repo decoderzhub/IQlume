@@ -6,6 +6,7 @@ import { PositionsCard } from './PositionsCard';
 import { TradingStrategies } from './TradingStrategies';
 import { RecentTrades } from './RecentTrades';
 import { BotStatusDashboard } from '../bots/BotStatusDashboard';
+import { WatchlistPanel } from '../watchlist/WatchlistPanel';
 import { Activity, AlertCircle, ExternalLink, CheckCircle, XCircle } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -146,6 +147,8 @@ export function Dashboard() {
       <PortfolioOverview />
 
       <PositionsCard />
+
+      <WatchlistPanel />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <TradingStrategies />

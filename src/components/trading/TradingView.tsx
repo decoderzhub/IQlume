@@ -8,6 +8,7 @@ import { OrderPreviewModal } from './OrderPreviewModal';
 import { OrderHistory } from './OrderHistory';
 import { OptionsChain } from './OptionsChain';
 import { OptionsOrderEntry, OptionsOrderData } from './OptionsOrderEntry';
+import { TradingChart } from '../charts/TradingChart';
 
 interface MarketData {
   price: number;
@@ -515,14 +516,24 @@ export function TradingView() {
               symbol={selectedSymbol}
               onSelectOption={handleOptionSelect}
             />
+          ) : selectedSymbol && marketData ? (
+            <div>
+              <TradingChart
+                symbol={selectedSymbol}
+                data={[]}
+                chartType="candlestick"
+                height={400}
+                showVolume={true}
+              />
+            </div>
           ) : (
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Price Chart</h3>
               <div className="h-64 flex items-center justify-center bg-gray-800/30 rounded-lg border border-gray-700/50">
                 <div className="text-center text-gray-400">
                   <BarChart3 className="w-16 h-16 mx-auto mb-3 opacity-30" />
-                  <p>Chart will be displayed here</p>
-                  <p className="text-sm mt-1">Coming in Stage 6</p>
+                  <p>Select a symbol to view chart</p>
+                  <p className="text-sm mt-1">Real-time candlestick charts with technical indicators</p>
                 </div>
               </div>
             </Card>
