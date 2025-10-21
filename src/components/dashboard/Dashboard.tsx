@@ -40,6 +40,25 @@ export function Dashboard() {
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
+      {/* Beta Disclaimer Banner */}
+      <Card className="p-6 border border-blue-500/50 bg-blue-500/5">
+        <div className="flex items-start gap-4">
+          <AlertCircle className="w-6 h-6 text-blue-400 flex-shrink-0 mt-1" />
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-blue-400 mb-2">
+              BETA - Paper Trading Only
+            </h3>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              BrokerNomex is currently in beta testing. All strategies execute with <strong>paper trading only</strong> (simulated trading with virtual money).
+              No real money is at risk. Live trading will be enabled after successful beta validation.
+            </p>
+            <p className="text-xs text-gray-400 mt-2">
+              Strategy execution is fully automated and orders are sent to Alpaca's paper trading environment for testing.
+            </p>
+          </div>
+        </div>
+      </Card>
+
       {/* Alpaca Connection Status Banner */}
       {!checkingConnection && (
         <Card className={`p-6 border ${

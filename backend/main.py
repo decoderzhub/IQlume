@@ -12,13 +12,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 # Import routers AFTER environment variables are loaded
-from routers import chat, trades, strategies, market_data, plaid_routes, brokerage_auth, sse_routes, bots
+from routers import chat, trades, strategies, market_data, plaid_routes, brokerage_auth, sse_routes, bots, payments
 from scheduler import trading_scheduler
 from trade_sync import trade_sync_service
 from order_fill_monitor import order_fill_monitor
 from sse_manager import publish
 from dependencies import get_supabase_client
 from services.market_data_service import initialize_market_data_service
+from middleware.error_handler import setup_error_handlers
 import os
 
 # Configure logging
@@ -87,6 +88,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Setup error handlers
+setup_error_handlers(app)
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -105,6 +109,7 @@ app.include_router(plaid_routes.router)
 app.include_router(brokerage_auth.router)
 app.include_router(sse_routes.router)
 app.include_router(bots.router, prefix="/api/bots", tags=["bots"])
+app.include_router(payments.router)
 
 @app.get("/")
 async def root():

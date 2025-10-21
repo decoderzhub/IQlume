@@ -41,8 +41,13 @@ export function Header({ isConnected }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Beta Badge */}
+          <span className="px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/50 text-xs font-semibold text-blue-400 hidden sm:inline-block">
+            BETA
+          </span>
+
           {/* User menu would go here */}
-          
+
           {/* Real-time connection indicator */}
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />

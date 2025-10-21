@@ -36,10 +36,10 @@ class BaseStrategyExecutor(ABC):
     async def execute(self, strategy_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute the strategy logic
-        
+
         Args:
             strategy_data: Dictionary containing strategy configuration and metadata
-            
+
         Returns:
             Dictionary with execution result containing:
             - action: 'buy', 'sell', 'hold', or 'error'
@@ -50,6 +50,27 @@ class BaseStrategyExecutor(ABC):
             - order_id: Optional order ID if trade was placed
         """
         pass
+
+    async def execute_on_fill(self, strategy_data: Dict[str, Any], order_fill_event: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute strategy logic when an order is filled (for event-driven strategies like grids)
+
+        Args:
+            strategy_data: Dictionary containing strategy configuration and metadata
+            order_fill_event: Dictionary containing filled order details
+
+        Returns:
+            Dictionary with execution result (same format as execute)
+        """
+        self.logger.warning(f"⚠️ execute_on_fill not implemented for {self.__class__.__name__}, defaulting to hold")
+        configuration = strategy_data.get("configuration", {})
+        return {
+            "action": "hold",
+            "symbol": configuration.get("symbol", "UNKNOWN"),
+            "quantity": 0,
+            "price": 0,
+            "reason": f"execute_on_fill not implemented for {self.__class__.__name__}"
+        }
     
     def get_current_price(self, symbol: str) -> Optional[float]:
         """Get current market price for a symbol"""
