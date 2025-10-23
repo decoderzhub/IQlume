@@ -394,11 +394,14 @@ async def get_bars_data(
     crypto_syms = [normalize_crypto_symbol(s) for s in symbols]
     crypto_syms = [s for s in crypto_syms if s]
 
+    logger.info(f"📊 Fetching bars - Stock symbols: {stock_syms}, Crypto symbols: {crypto_syms}, Timeframe: {timeframe}")
+
     bars: Dict[str, List[Dict[str, Any]]] = {}
 
     # Stocks
     if stock_syms and stock_data_client:
         try:
+            logger.info(f"📈 Fetching stock bars from Alpaca IEX for {stock_syms}")
             req = StockBarsRequest(
                 symbol_or_symbols=stock_syms,
                 timeframe=tf,
@@ -408,8 +411,10 @@ async def get_bars_data(
                 feed=DataFeed.IEX,
             )
             data = stock_data_client.get_stock_bars(req)
+            logger.info(f"📊 Received stock bar data for {len(data or {})} symbols from Alpaca")
+
             for sym, series in (data or {}).items():
-                bars[sym] = [
+                bar_list = [
                     {
                         "timestamp": b.timestamp.isoformat(),
                         "open": float(b.open),
@@ -421,14 +426,18 @@ async def get_bars_data(
                     }
                     for b in series or []
                 ]
+                bars[sym] = bar_list
+                logger.info(f"✅ {sym}: {len(bar_list)} bars processed")
+
         except Exception as e:
-            logger.error(f"Error fetching stock bars: {e}")
+            logger.error(f"❌ Error fetching stock bars from Alpaca: {e}", exc_info=True)
             for sym in stock_syms:
-                bars[sym] = [_mock_bar()]
+                bars[sym] = []
 
     # Crypto
     if crypto_syms and crypto_data_client:
         try:
+            logger.info(f"₿ Fetching crypto bars from Alpaca for {crypto_syms}")
             req = CryptoBarsRequest(
                 symbol_or_symbols=crypto_syms,
                 timeframe=tf,
@@ -437,8 +446,10 @@ async def get_bars_data(
                 limit=limit,
             )
             data = crypto_data_client.get_crypto_bars(req)
+            logger.info(f"₿ Received crypto bar data for {len(data or {})} symbols from Alpaca")
+
             for sym, series in (data or {}).items():
-                bars[sym] = [
+                bar_list = [
                     {
                         "timestamp": b.timestamp.isoformat(),
                         "open": float(b.open),
@@ -450,11 +461,15 @@ async def get_bars_data(
                     }
                     for b in series or []
                 ]
-        except Exception as e:
-            logger.error(f"Error fetching crypto bars: {e}")
-            for sym in crypto_syms:
-                bars[sym] = [_mock_bar()]
+                bars[sym] = bar_list
+                logger.info(f"✅ {sym}: {len(bar_list)} bars processed")
 
+        except Exception as e:
+            logger.error(f"❌ Error fetching crypto bars from Alpaca: {e}", exc_info=True)
+            for sym in crypto_syms:
+                bars[sym] = []
+
+    logger.info(f"📦 Returning bars data with {len(bars)} symbols: {list(bars.keys())}")
     return {"bars": bars}
 
 # --------- routes ---------
@@ -539,6 +554,9 @@ async def historical(
     current_user=Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
 ):
+    """Get historical bar data for a symbol from Alpaca Markets"""
+    logger.info(f"📊 Historical data request: symbol={symbol}, timeframe={timeframe}, limit={limit}")
+
     def parse(s: Optional[str]) -> Optional[datetime]:
         if not s:
             return None
@@ -552,10 +570,28 @@ async def historical(
 
     start_dt = parse(start)
     end_dt = parse(end)
-    data = await get_bars_data([symbol.upper()], timeframe, start_dt, end_dt, limit, credentials, current_user, supabase)
-    # prefer normalized crypto key if needed
-    sym_key = symbol.upper() if is_stock_symbol(symbol) else (normalize_crypto_symbol(symbol) or symbol.upper())
-    return data.get("bars", {}).get(sym_key, [])
+
+    try:
+        data = await get_bars_data([symbol.upper()], timeframe, start_dt, end_dt, limit, credentials, current_user, supabase)
+
+        # prefer normalized crypto key if needed
+        sym_key = symbol.upper() if is_stock_symbol(symbol) else (normalize_crypto_symbol(symbol) or symbol.upper())
+        bars = data.get("bars", {}).get(sym_key, [])
+
+        logger.info(f"✅ Returning {len(bars)} bars for {symbol} (key: {sym_key})")
+
+        if len(bars) == 0:
+            logger.warning(f"⚠️ No historical data found for {symbol} with timeframe {timeframe}")
+            logger.info(f"Available keys in response: {list(data.get('bars', {}).keys())}")
+
+        return bars
+
+    except Exception as e:
+        logger.error(f"❌ Error fetching historical data for {symbol}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch historical data: {str(e)}"
+        )
 
 def calculate_black_scholes_greeks(S, K, T, r, sigma, option_type='call'):
     """

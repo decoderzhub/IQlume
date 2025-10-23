@@ -100,8 +100,13 @@ export function AssetDetailPage({ symbol, onBack, onTrade }: AssetDetailPageProp
 
   const fetchChartData = async (timeframe: string) => {
     try {
+      console.log(`[AssetDetailPage] Fetching chart data for ${symbol} with timeframe ${timeframe}`);
+
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        console.error('[AssetDetailPage] No session available for fetching chart data');
+        return;
+      }
 
       const timeframeMap: Record<string, string> = {
         '1m': '1Min',
@@ -116,26 +121,58 @@ export function AssetDetailPage({ symbol, onBack, onTrade }: AssetDetailPageProp
 
       const apiTimeframe = timeframeMap[timeframe] || '1Day';
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${API_BASE}/api/market-data/${symbol}/historical?timeframe=${apiTimeframe}&limit=100`, {
+      const url = `${API_BASE}/api/market-data/${symbol}/historical?timeframe=${apiTimeframe}&limit=100`;
+
+      console.log(`[AssetDetailPage] Fetching from: ${url}`);
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch chart data');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[AssetDetailPage] API error (${response.status}):`, errorText);
+        throw new Error(`Failed to fetch chart data: ${response.statusText}`);
+      }
 
       const data = await response.json();
-      const formattedData = data.map((bar: any) => ({
-        time: new Date(bar.timestamp).getTime(),
-        open: bar.open,
-        high: bar.high,
-        low: bar.low,
-        close: bar.close,
-        volume: bar.volume,
-      }));
+      console.log(`[AssetDetailPage] Received ${Array.isArray(data) ? data.length : 0} bars from API:`, data?.slice(0, 2));
+
+      if (!Array.isArray(data) || data.length === 0) {
+        console.warn(`[AssetDetailPage] No data received for ${symbol}`);
+        setChartData([]);
+        return;
+      }
+
+      const formattedData = data
+        .filter((bar: any) => {
+          const isValid = bar &&
+                         bar.timestamp &&
+                         typeof bar.open === 'number' &&
+                         typeof bar.high === 'number' &&
+                         typeof bar.low === 'number' &&
+                         typeof bar.close === 'number';
+          if (!isValid) {
+            console.warn('[AssetDetailPage] Invalid bar data:', bar);
+          }
+          return isValid;
+        })
+        .map((bar: any) => ({
+          time: new Date(bar.timestamp).getTime(),
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close,
+          volume: bar.volume || 0,
+        }))
+        .sort((a, b) => a.time - b.time); // Ensure chronological order
+
+      console.log(`[AssetDetailPage] Formatted ${formattedData.length} valid bars for chart:`, formattedData.slice(0, 2));
       setChartData(formattedData);
     } catch (error) {
-      console.error('Error fetching chart data:', error);
+      console.error('[AssetDetailPage] Error fetching chart data:', error);
       setChartData([]);
     }
   };

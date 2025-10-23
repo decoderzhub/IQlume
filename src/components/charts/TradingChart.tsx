@@ -54,7 +54,32 @@ export function TradingChart({
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
-    if (!chartContainerRef.current || data.length === 0) return;
+    console.log(`[TradingChart] Rendering chart for ${symbol} with ${data.length} data points`);
+
+    if (!chartContainerRef.current) {
+      console.warn('[TradingChart] Chart container ref not available');
+      return;
+    }
+
+    if (data.length === 0) {
+      console.warn(`[TradingChart] No data available for ${symbol}`);
+      return;
+    }
+
+    // Validate data format
+    const invalidDataPoints = data.filter(d =>
+      !d.time ||
+      typeof d.open !== 'number' ||
+      typeof d.high !== 'number' ||
+      typeof d.low !== 'number' ||
+      typeof d.close !== 'number'
+    );
+
+    if (invalidDataPoints.length > 0) {
+      console.error('[TradingChart] Invalid data points detected:', invalidDataPoints.slice(0, 3));
+    }
+
+    console.log('[TradingChart] Sample data points:', data.slice(0, 2));
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -304,10 +329,22 @@ export function TradingChart({
 
       {data.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center text-gray-400">
+          <div className="text-center text-gray-400 max-w-md px-4">
             <BarChart2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No chart data available</p>
-            <p className="text-sm mt-1">Select a symbol and timeframe to view chart</p>
+            <p className="font-semibold">No chart data available</p>
+            <p className="text-sm mt-2">
+              {symbol ? (
+                <>
+                  Unable to load historical data for <span className="font-mono text-blue-400">{symbol}</span>
+                  <br />
+                  <span className="text-xs mt-1 block">
+                    Data is sourced from Alpaca Markets. Try a different symbol or check if markets are open.
+                  </span>
+                </>
+              ) : (
+                'Select a symbol and timeframe to view chart'
+              )}
+            </p>
           </div>
         </div>
       )}
