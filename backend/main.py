@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 # Import routers AFTER environment variables are loaded
-from routers import chat, trades, strategies, market_data, plaid_routes, brokerage_auth, sse_routes, bots, payments
+from routers import chat, trades, strategies, market_data, plaid_routes, brokerage_auth, sse_routes, bots, payments, grid_status
 from scheduler import trading_scheduler
 from trade_sync import trade_sync_service
 from order_fill_monitor import order_fill_monitor
@@ -110,6 +110,7 @@ app.include_router(brokerage_auth.router)
 app.include_router(sse_routes.router)
 app.include_router(bots.router, prefix="/api/bots", tags=["bots"])
 app.include_router(payments.router)
+app.include_router(grid_status.router)
 
 @app.get("/")
 async def root():

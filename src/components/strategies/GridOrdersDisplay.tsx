@@ -62,6 +62,7 @@ export function GridOrdersDisplay({
         .select('*')
         .eq('strategy_id', strategyId)
         .in('status', ['pending', 'partially_filled', 'filled'])
+        .eq('is_stale', false)  // Only fetch non-stale orders
         .order('grid_level', { ascending: true });
 
       if (error) {
@@ -263,11 +264,17 @@ export function GridOrdersDisplay({
         <div className="bg-gray-800/50 px-6 py-4 border-b border-gray-700">
           <h3 className="text-lg font-semibold text-white flex items-center gap-2">
             <Grid3X3 className="w-5 h-5 text-blue-400" />
-            Open Grid Orders
+            Grid Order Status
             <span className="ml-auto text-sm text-gray-400">
-              {gridOrders.length} active orders
+              {gridOrders.length} of {numberOfGrids} levels covered
             </span>
           </h3>
+          {gridOrders.length < numberOfGrids && (
+            <div className="mt-2 text-xs text-yellow-400 flex items-center gap-1">
+              <Activity className="w-3 h-3 animate-pulse" />
+              Grid Price Monitor is automatically placing orders at missing levels
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">

@@ -14,6 +14,7 @@ from dependencies import (
 )
 from strategy_executors.factory import StrategyExecutorFactory
 from services.market_data_service import market_data_service
+from services.grid_price_monitor import GridPriceMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,8 @@ class TradingScheduler:
         self.scheduler = AsyncIOScheduler()
         self.active_jobs: Dict[str, Any] = {}
         self.supabase = get_supabase_client()
-        
+        self.grid_price_monitor = None
+
     async def start(self):
         """Start the scheduler and load active strategies"""
         logger.info("🚀 Starting autonomous trading scheduler...")
@@ -32,6 +34,11 @@ class TradingScheduler:
         if market_data_service:
             logger.info("📊 Initializing market data service...")
             asyncio.create_task(self.initialize_market_data())
+
+        # Start Grid Price Monitor
+        logger.info("🔍 Starting Grid Price Monitor...")
+        self.grid_price_monitor = GridPriceMonitor(self.supabase)
+        asyncio.create_task(self.grid_price_monitor.start())
 
         await self.load_active_strategies()
 
@@ -64,6 +71,11 @@ class TradingScheduler:
     async def stop(self):
         """Stop the scheduler"""
         logger.info("🛑 Stopping trading scheduler...")
+
+        # Stop Grid Price Monitor
+        if self.grid_price_monitor:
+            await self.grid_price_monitor.stop()
+
         self.scheduler.shutdown()
         
     async def load_active_strategies(self):
