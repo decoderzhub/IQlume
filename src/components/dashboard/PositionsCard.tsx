@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { TrendingUp, TrendingDown, RefreshCw, AlertCircle, Package } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, AlertCircle, Package, X } from 'lucide-react';
 import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 
 interface Position {
@@ -41,6 +42,7 @@ export function PositionsCard() {
   const [data, setData] = useState<PositionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [closingPosition, setClosingPosition] = useState<string | null>(null);
 
   const fetchPositions = async () => {
     try {
@@ -71,6 +73,45 @@ export function PositionsCard() {
       setError(err instanceof Error ? err.message : 'Failed to fetch positions');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClosePosition = async (positionId: string, symbol: string) => {
+    if (!confirm(`Are you sure you want to close your position in ${symbol}?`)) {
+      return;
+    }
+
+    try {
+      setClosingPosition(positionId);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE}/api/positions/${positionId}/close`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to close position');
+      }
+
+      const result = await response.json();
+      alert(`Position close order submitted successfully!\nOrder ID: ${result.order_id}`);
+
+      // Refresh positions
+      await fetchPositions();
+    } catch (err) {
+      console.error('Error closing position:', err);
+      alert(`Failed to close position: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setClosingPosition(null);
     }
   };
 
@@ -198,6 +239,7 @@ export function PositionsCard() {
               <th className="pb-3 font-medium">P&L</th>
               <th className="pb-3 font-medium">P&L %</th>
               <th className="pb-3 font-medium">Source</th>
+              <th className="pb-3 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700/50">
@@ -237,6 +279,30 @@ export function PositionsCard() {
                   }`}>
                     {position.source}
                   </span>
+                </td>
+                <td className="py-3">
+                  {position.source === 'bot' && (
+                    <button
+                      onClick={() => handleClosePosition(position.id, position.symbol)}
+                      disabled={closingPosition === position.id}
+                      className="px-3 py-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    >
+                      {closingPosition === position.id ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          Closing...
+                        </>
+                      ) : (
+                        <>
+                          <X className="w-3 h-3" />
+                          Close
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {position.source === 'alpaca' && (
+                    <span className="text-xs text-gray-500">N/A</span>
+                  )}
                 </td>
               </tr>
             ))}

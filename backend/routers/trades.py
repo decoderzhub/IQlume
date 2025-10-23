@@ -333,13 +333,19 @@ async def get_portfolio(
         total_value = float(account.portfolio_value or 0)
         day_change = float(account.equity or 0) - float(account.last_equity or 0)
         day_change_percent = (day_change / total_value * 100) if total_value > 0 else 0
+        cash = float(account.cash or 0)
 
         formatted_positions = []
+        total_positions_value = 0.0
+
         for p in positions or []:
+            position_market_value = float(p.market_value or 0)
+            total_positions_value += position_market_value
+
             position_data = {
                 "symbol": p.symbol,
                 "quantity": float(p.qty or 0),
-                "market_value": float(p.market_value or 0),
+                "market_value": position_market_value,
                 "cost_basis": float(p.cost_basis or 0),
                 "unrealized_pl": float(p.unrealized_pl or 0),
                 "unrealized_plpc": float(p.unrealized_plpc or 0),
@@ -349,12 +355,25 @@ async def get_portfolio(
             formatted_positions.append(position_data)
             logger.info(f"📊 Position: {p.symbol} - {float(p.qty or 0)} shares @ ${float(p.current_price or 0):.2f}")
 
+        # Calculate corrected buying power: cash minus positions value
+        # This represents actual available capital for new investments without margin
+        corrected_buying_power = cash - total_positions_value
+        margin_buying_power = float(account.buying_power or 0)
+
+        logger.info(f"💰 Cash: ${cash:.2f}")
+        logger.info(f"📊 Total Positions Value: ${total_positions_value:.2f}")
+        logger.info(f"💵 Corrected Buying Power (Cash - Positions): ${corrected_buying_power:.2f}")
+        logger.info(f"🔢 Margin Buying Power (from Alpaca): ${margin_buying_power:.2f}")
+
         portfolio_data = {
             "total_value": total_value,
             "day_change": day_change,
             "day_change_percent": day_change_percent,
-            "buying_power": float(account.buying_power or 0),
-            "cash": float(account.cash or 0),
+            "buying_power": corrected_buying_power,  # Use corrected calculation
+            "margin_buying_power": margin_buying_power,  # Keep original for reference
+            "available_cash": cash,  # Actual liquid cash
+            "total_positions_value": total_positions_value,  # Total market value of positions
+            "cash": cash,
             "positions": formatted_positions,
             "account_status": str(account.status),
             "equity": float(account.equity or 0),
@@ -493,6 +512,79 @@ async def get_trades(
     except Exception as e:
         logger.error("Error fetching trades", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch trades: {str(e)}")
+
+
+@router.post("/positions/{position_id}/close")
+async def close_position(
+    position_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Close a specific position"""
+    try:
+        logger.info(f"📊 Closing position {position_id} for user {current_user.id}")
+
+        # Fetch position details
+        resp = supabase.table("bot_positions").select("*").eq("id", position_id).eq("user_id", current_user.id).execute()
+
+        if not resp.data or len(resp.data) == 0:
+            raise HTTPException(status_code=404, detail="Position not found")
+
+        position = resp.data[0]
+
+        # Get trading client
+        trading_client = await get_alpaca_trading_client(current_user, supabase)
+
+        # Create market order to close position
+        side = OrderSide.SELL if position["side"] == "long" else OrderSide.BUY
+
+        order_request = MarketOrderRequest(
+            symbol=position["symbol"],
+            qty=float(position["quantity"]),
+            side=side,
+            time_in_force=TimeInForce.DAY,
+        )
+
+        # Submit order
+        alpaca_order = trading_client.submit_order(order_request)
+        logger.info(f"✅ Close order submitted for position {position_id}: Alpaca Order ID {alpaca_order.id}")
+
+        # Mark position as closed in database
+        supabase.table("bot_positions").update({
+            "is_closed": True,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", position_id).execute()
+
+        # Record the trade
+        trade_record = {
+            "id": str(uuid4()),
+            "user_id": current_user.id,
+            "strategy_id": position.get("strategy_id"),
+            "symbol": position["symbol"],
+            "type": "sell" if side == OrderSide.SELL else "buy",
+            "quantity": float(position["quantity"]),
+            "price": float(position.get("current_price", 0)),
+            "status": "pending",
+            "order_type": "market",
+            "time_in_force": "day",
+            "alpaca_order_id": str(alpaca_order.id),
+        }
+
+        supabase.table("trades").insert(trade_record).execute()
+
+        return {
+            "success": True,
+            "message": "Position close order submitted",
+            "order_id": str(alpaca_order.id),
+            "position_id": position_id,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error closing position: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to close position: {str(e)}")
 
 
 @router.post("/execute-trade")

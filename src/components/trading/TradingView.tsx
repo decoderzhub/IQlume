@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, DollarSign, BarChart3, Clock, RefreshCw, AlertCircle, CheckCircle, XCircle, Link } from 'lucide-react';
+import { TrendingUp, DollarSign, BarChart3, Clock, RefreshCw, AlertCircle, CheckCircle, XCircle, Link, Package, X } from 'lucide-react';
 import { getMarketStatus, formatTimeUntil, isCryptoMarketOpen, type MarketStatus } from '../../lib/marketHours';
 import { Card } from '../ui/Card';
 import { OrderEntryForm, OrderData } from './OrderEntryForm';
@@ -9,6 +9,8 @@ import { OrderHistory } from './OrderHistory';
 import { OptionsChain } from './OptionsChain';
 import { OptionsOrderEntry, OptionsOrderData } from './OptionsOrderEntry';
 import { TradingChart } from '../charts/TradingChart';
+import { usePortfolioStats } from '../../hooks/api/usePortfolioStats';
+import { formatCurrency } from '../../lib/utils';
 
 interface MarketData {
   price: number;
@@ -48,6 +50,10 @@ export function TradingView() {
     environment?: string;
     loading: boolean;
   }>({ connected: false, loading: true });
+  const [showPositions, setShowPositions] = useState(true);
+
+  // Get real-time portfolio stats
+  const { portfolio, positions, positionsSummary, loading: portfolioLoading, refetch: refetchPortfolio } = usePortfolioStats(10000);
   const [chartData, setChartData] = useState<any[]>([]);
   const [chartTimeframe, setChartTimeframe] = useState('1d');
 
@@ -392,7 +398,16 @@ export function TradingView() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Buying Power</p>
-              <p className="text-xl font-bold text-green-400">$0.00</p>
+              {portfolioLoading ? (
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                  <p className="text-sm text-gray-400">Loading...</p>
+                </div>
+              ) : (
+                <p className="text-xl font-bold text-green-400">
+                  {formatCurrency(portfolio?.buying_power || 0)}
+                </p>
+              )}
             </div>
             <DollarSign className="w-8 h-8 text-green-400 opacity-50" />
           </div>
@@ -402,7 +417,16 @@ export function TradingView() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Day P&L</p>
-              <p className="text-xl font-bold text-white">$0.00</p>
+              {portfolioLoading ? (
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                  <p className="text-sm text-gray-400">Loading...</p>
+                </div>
+              ) : (
+                <p className={`text-xl font-bold ${(portfolio?.day_change || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {formatCurrency(portfolio?.day_change || 0)}
+                </p>
+              )}
             </div>
             <TrendingUp className="w-8 h-8 text-blue-400 opacity-50" />
           </div>
@@ -411,8 +435,17 @@ export function TradingView() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400">Open Orders</p>
-              <p className="text-xl font-bold text-white">0</p>
+              <p className="text-sm text-gray-400">Unrealized P&L</p>
+              {portfolioLoading ? (
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                  <p className="text-sm text-gray-400">Loading...</p>
+                </div>
+              ) : (
+                <p className={`text-xl font-bold ${(positionsSummary?.total_unrealized_pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {formatCurrency(positionsSummary?.total_unrealized_pnl || 0)}
+                </p>
+              )}
             </div>
             <Clock className="w-8 h-8 text-yellow-400 opacity-50" />
           </div>
@@ -422,7 +455,14 @@ export function TradingView() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Positions</p>
-              <p className="text-xl font-bold text-white">0</p>
+              {portfolioLoading ? (
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                  <p className="text-sm text-gray-400">Loading...</p>
+                </div>
+              ) : (
+                <p className="text-xl font-bold text-white">{positionsSummary?.total_positions || 0}</p>
+              )}
             </div>
             <BarChart3 className="w-8 h-8 text-purple-400 opacity-50" />
           </div>
@@ -636,6 +676,121 @@ export function TradingView() {
 
         </div>
       </div>
+
+      {/* Positions Panel - Full Width */}
+      {positions.length > 0 && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-semibold text-white">Open Positions</h3>
+              <button
+                onClick={() => setShowPositions(!showPositions)}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                {showPositions ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-sm">
+                <span className="text-gray-400">Total Value: </span>
+                <span className="text-white font-semibold">{formatCurrency(positionsSummary?.total_market_value || 0)}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-400">P&L: </span>
+                <span className={`font-semibold ${(positionsSummary?.total_unrealized_pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {formatCurrency(positionsSummary?.total_unrealized_pnl || 0)}
+                </span>
+              </div>
+              <button
+                onClick={refetchPortfolio}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                title="Refresh positions"
+              >
+                <RefreshCw className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+          </div>
+
+          {showPositions && (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-sm text-gray-400 border-b border-gray-700">
+                    <th className="pb-3 font-medium">Symbol</th>
+                    <th className="pb-3 font-medium">Side</th>
+                    <th className="pb-3 font-medium">Quantity</th>
+                    <th className="pb-3 font-medium">Entry</th>
+                    <th className="pb-3 font-medium">Current</th>
+                    <th className="pb-3 font-medium">P&L</th>
+                    <th className="pb-3 font-medium">P&L %</th>
+                    <th className="pb-3 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700/50">
+                  {positions.map((position) => (
+                    <tr key={position.id} className="text-sm hover:bg-gray-800/30 transition-colors">
+                      <td className="py-3 font-medium text-white">
+                        {position.symbol}
+                        {position.is_grid_position && (
+                          <span className="ml-2 text-xs text-purple-400">
+                            Grid L{position.grid_level}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3">
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          position.side === 'long' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {position.side.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="py-3 text-gray-300">{position.quantity.toLocaleString()}</td>
+                      <td className="py-3 text-gray-300">
+                        ${position.entry_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 text-gray-300">
+                        ${position.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className={`py-3 font-medium ${position.unrealized_pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {position.unrealized_pnl >= 0 ? '+' : ''}${Math.abs(position.unrealized_pnl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className={`py-3 font-medium ${position.unrealized_pnl_percent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {position.unrealized_pnl_percent >= 0 ? '+' : ''}{position.unrealized_pnl_percent.toFixed(2)}%
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedSymbol(position.symbol);
+                              setPendingOrder({
+                                symbol: position.symbol,
+                                side: position.side === 'long' ? 'sell' : 'buy',
+                                type: 'market',
+                                quantity: position.quantity,
+                                time_in_force: 'day',
+                              });
+                              setShowPreviewModal(true);
+                            }}
+                            className="px-3 py-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded text-xs font-medium transition-colors"
+                          >
+                            Close
+                          </button>
+                          <button
+                            onClick={() => setSelectedSymbol(position.symbol)}
+                            className="px-3 py-1 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded text-xs font-medium transition-colors"
+                          >
+                            Trade
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Order History - Full Width */}
       <OrderHistory />

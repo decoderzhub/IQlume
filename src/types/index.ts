@@ -49,11 +49,61 @@ export interface CustodialWallet {
 export interface Portfolio {
   total_value: number;
   buying_power: number;
+  margin_buying_power?: number;
+  available_cash?: number;
+  total_positions_value?: number;
   day_change: number;
   day_change_percent: number;
+  cash?: number;
+  equity?: number;
+  last_equity?: number;
+  positions?: PortfolioPosition[];
+  account_status?: string;
+  multiplier?: number;
+  portfolio_value?: number;
   accounts: BrokerageAccount[];
   bank_accounts?: BankAccount[];
   custodial_wallets?: CustodialWallet[];
+}
+
+export interface PortfolioPosition {
+  symbol: string;
+  quantity: number;
+  market_value: number;
+  cost_basis: number;
+  unrealized_pl: number;
+  unrealized_plpc: number;
+  side: string;
+  current_price: number;
+}
+
+export interface Position {
+  id: string;
+  source: 'alpaca' | 'bot';
+  symbol: string;
+  quantity: number;
+  side: string;
+  entry_price: number;
+  current_price: number;
+  market_value: number;
+  cost_basis: number;
+  unrealized_pnl: number;
+  unrealized_pnl_percent: number;
+  asset_class: string;
+  strategy_id?: string | null;
+  is_closed: boolean;
+  grid_level?: number | null;
+  is_grid_position?: boolean;
+}
+
+export interface PositionsSummary {
+  total_positions: number;
+  total_market_value: number;
+  total_cost_basis: number;
+  total_unrealized_pnl: number;
+  avg_unrealized_pnl_percent: number;
+  alpaca_positions_count: number;
+  bot_positions_count: number;
 }
 
 export interface TradingStrategy {
