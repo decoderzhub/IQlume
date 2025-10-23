@@ -82,8 +82,78 @@ class OrderFillMonitor:
             for user_id, user_orders in orders_by_user.items():
                 await self.check_user_orders(user_id, user_orders)
 
+            # Also check for initial buy orders from trades table
+            await self.check_initial_buy_orders()
+
         except Exception as e:
             logger.error(f"❌ Error checking order fills: {e}", exc_info=True)
+
+    async def check_initial_buy_orders(self):
+        """Check pending initial buy orders (market orders) for fills"""
+        try:
+            # Get all strategies with initial_buy_order_submitted=true but initial_buy_filled=false
+            resp = self.supabase.table("trading_strategies").select("*").eq(
+                "is_active", True
+            ).execute()
+
+            if not resp.data:
+                return
+
+            pending_initial_buys = []
+            for strategy in resp.data:
+                telemetry = strategy.get("telemetry_data", {})
+                if isinstance(telemetry, dict):
+                    if telemetry.get("initial_buy_order_submitted") and not telemetry.get("initial_buy_filled"):
+                        pending_initial_buys.append(strategy)
+
+            if not pending_initial_buys:
+                return
+
+            logger.info(f"🔍 Checking {len(pending_initial_buys)} pending initial buy orders")
+
+            # Check each strategy's initial buy order
+            for strategy in pending_initial_buys:
+                try:
+                    strategy_id = strategy["id"]
+                    user_id = strategy["user_id"]
+                    telemetry = strategy.get("telemetry_data", {})
+                    initial_buy_order_id = telemetry.get("initial_buy_alpaca_order_id")
+
+                    if not initial_buy_order_id:
+                        continue
+
+                    # Get trading client for user
+                    from dependencies import get_alpaca_trading_client
+
+                    class MockUser:
+                        def __init__(self, user_id: str):
+                            self.id = user_id
+
+                    user = MockUser(user_id)
+
+                    try:
+                        trading_client = await get_alpaca_trading_client(user, self.supabase)
+                    except Exception as e:
+                        logger.debug(f"Could not get trading client for user {user_id}: {e}")
+                        continue
+
+                    # Check order status with Alpaca
+                    try:
+                        order = trading_client.get_order_by_id(initial_buy_order_id)
+
+                        # Check if order is filled
+                        order_status = str(order.status).lower()
+                        if order_status in ["filled", "done_for_day"]:
+                            logger.info(f"✅ [INITIAL BUY] Order {initial_buy_order_id} filled for strategy {strategy_id}")
+                            await self.check_initial_buy_fill(strategy_id, initial_buy_order_id, user_id)
+                    except Exception as order_error:
+                        logger.debug(f"Could not check order {initial_buy_order_id}: {order_error}")
+
+                except Exception as strategy_error:
+                    logger.error(f"Error checking initial buy for strategy: {strategy_error}")
+
+        except Exception as e:
+            logger.error(f"❌ Error checking initial buy orders: {e}", exc_info=True)
 
     async def check_user_orders(self, user_id: str, orders: List[Dict[str, Any]]):
         """Check orders for a specific user"""
@@ -304,6 +374,61 @@ class OrderFillMonitor:
             "stopped": "cancelled",
         }
         return status_map.get(alpaca_status, "pending")
+
+    async def check_initial_buy_fill(self, strategy_id: str, alpaca_order_id: str, user_id: str):
+        """Check if an initial buy order has filled and update strategy telemetry"""
+        try:
+            # Fetch strategy to get telemetry data
+            resp = self.supabase.table("trading_strategies").select("*").eq(
+                "id", strategy_id
+            ).execute()
+
+            if not resp.data:
+                logger.error(f"❌ Strategy {strategy_id} not found")
+                return
+
+            strategy_data = resp.data[0]
+            telemetry_data = strategy_data.get("telemetry_data", {})
+            if not isinstance(telemetry_data, dict):
+                telemetry_data = {}
+
+            initial_buy_alpaca_order_id = telemetry_data.get("initial_buy_alpaca_order_id")
+
+            # Check if this is the initial buy order
+            if initial_buy_alpaca_order_id == alpaca_order_id:
+                logger.info(f"✅ [INITIAL BUY FILLED] Initial buy order {alpaca_order_id} has filled for strategy {strategy_id}")
+
+                # Update telemetry to mark initial buy as filled
+                telemetry_data["initial_buy_filled"] = True
+                telemetry_data["last_updated"] = datetime.now(timezone.utc).isoformat()
+
+                # Update strategy telemetry in database
+                self.supabase.table("trading_strategies").update({
+                    "telemetry_data": telemetry_data
+                }).eq("id", strategy_id).execute()
+
+                logger.info(f"✅ [INITIAL BUY FILLED] Telemetry updated - grid limit orders can now be placed")
+
+                # Broadcast event via SSE
+                try:
+                    from sse_manager import publish
+                    await publish(user_id, {
+                        "type": "initial_buy_filled",
+                        "strategy_id": strategy_id,
+                        "strategy_name": strategy_data.get("name", "Unknown"),
+                        "order_id": alpaca_order_id,
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    })
+                except Exception as broadcast_error:
+                    logger.debug(f"Could not broadcast SSE: {broadcast_error}")
+
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"❌ Error checking initial buy fill: {e}", exc_info=True)
+            return False
 
     async def trigger_strategy_execution(
         self,

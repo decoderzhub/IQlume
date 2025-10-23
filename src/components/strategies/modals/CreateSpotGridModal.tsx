@@ -144,12 +144,12 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
     fetchMarketPrice();
   }, [symbol]);
 
-  // Calculate initial buy amount based on current price position
+  // Calculate initial buy amount based on number of grid levels below current price
   const calculateInitialBuy = () => {
     if (!lowerPrice || !upperPrice || lowerPrice <= 0 || upperPrice <= 0 || lowerPrice >= upperPrice || numberOfGrids <= 0 || allocatedCapital <= 0 || !realMarketPrice) {
-      return { 
+      return {
         amount: allocatedCapital * 0.1,
-        percentage: 10, 
+        percentage: 10,
         reason: priceLoading ? 'Loading market price...' : !realMarketPrice ? 'Market price not available' : 'Grid range not set - using 10% fallback',
         currentPrice: realMarketPrice || 0,
         gridPosition: 'unknown',
@@ -159,57 +159,49 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
         gridSpacing: 0,
       };
     }
-    
+
     // Use real market price
     const currentPrice = realMarketPrice;
-    
-    // CORE GRID BOT MECHANICS: Calculate position based on where price is in range
-    let price_position_percent = 0;
-    
-    if (currentPrice <= lowerPrice) {
-      // Price at/below bottom of range = need maximum position (100%)
-      price_position_percent = 1.0;
-    } else if (currentPrice >= upperPrice) {
-      // Price at/above top of range = need minimal position (0%)
-      price_position_percent = 0.0;
-    } else {
-      // Price within range - linear interpolation
-      // Bottom of range = 100% position, top of range = 0% position
-      price_position_percent = 1.0 - ((currentPrice - lowerPrice) / (upperPrice - lowerPrice));
-    }
-    
-    // Calculate required position
-    const amount = allocatedCapital * price_position_percent;
-    const percentage = price_position_percent * 100;
-    
-    // Calculate grid metrics for display
-    const capitalPerGrid = allocatedCapital / numberOfGrids;
+
+    // Calculate grid levels
     const gridSpacing = numberOfGrids > 1 ? (upperPrice - lowerPrice) / (numberOfGrids - 1) : 0;
-    const currentGridLevel = gridSpacing > 0 ? Math.floor((currentPrice - lowerPrice) / gridSpacing) : 0;
-    const gridLevelsBelowPrice = Math.max(0, currentGridLevel);
-    
+    const gridLevels: number[] = [];
+    for (let i = 0; i < numberOfGrids; i++) {
+      gridLevels.push(lowerPrice + (gridSpacing * i));
+    }
+
+    // CORRECTED LOGIC: Count how many grid levels are below current price
+    const gridLevelsBelowPrice = gridLevels.filter(level => level < currentPrice).length;
+
+    // Calculate capital per grid
+    const capitalPerGrid = allocatedCapital / numberOfGrids;
+
+    // Initial buy = capital needed for all grids below current price
+    // This ensures we have the asset quantity to support sell orders as price rises
+    const amount = capitalPerGrid * gridLevelsBelowPrice;
+    const percentage = (gridLevelsBelowPrice / numberOfGrids) * 100;
+
     let reason = '';
     let gridPosition = '';
-    
+
     if (currentPrice <= lowerPrice) {
-      // Price at/below bottom - need maximum position to sell as price rises
-      reason = `Price at bottom of range - buy maximum position (${percentage.toFixed(1)}%) to sell as price rises`;
-      gridPosition = 'bottom of range (maximum buy)';
+      // Price at/below bottom - buy all grids (100%)
+      reason = `Price at/below bottom of range - buy full position for all ${numberOfGrids} grids to sell as price rises`;
+      gridPosition = 'bottom of range (buy all grids)';
     } else if (currentPrice >= upperPrice) {
-      // Price at/above top - minimal position, ready to buy as price falls
-      reason = 'Price at top of range - minimal position, ready to buy as price falls';
-      gridPosition = 'top of range (minimal buy)';
+      // Price at/above top - no initial buy needed
+      reason = 'Price at/above top of range - no initial buy needed, will buy as price falls';
+      gridPosition = 'top of range (no initial buy)';
     } else {
-      // Price within range - proportional position
-      const positionInRange = ((currentPrice - lowerPrice) / (upperPrice - lowerPrice)) * 100;
-      reason = `Price ${positionInRange.toFixed(1)}% up the range - need ${percentage.toFixed(1)}% position for optimal grid trading`;
-      gridPosition = `${positionInRange.toFixed(1)}% up the range`;
+      // Price within range - buy for grids below current price
+      reason = `Price within range - buy position for ${gridLevelsBelowPrice} grid levels below current price. This provides the asset quantity needed for sell orders as price rises.`;
+      gridPosition = `${gridLevelsBelowPrice} of ${numberOfGrids} grids below price`;
     }
-    
-    return { 
-      amount, 
-      percentage, 
-      reason, 
+
+    return {
+      amount,
+      percentage,
+      reason,
       currentPrice: currentPrice,
       gridPosition,
       gridLevelsBought: gridLevelsBelowPrice,
@@ -394,27 +386,31 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                 </div>
                 
                 <div className="mt-4 pt-4 border-t border-gray-700">
-                  <h4 className="font-medium text-blue-400 mb-2">Grid Bot Initial Position Logic</h4>
+                  <h4 className="font-medium text-blue-400 mb-2">Grid Bot Initial Buy Logic (Corrected)</h4>
                   <p className="text-sm text-gray-300 mb-2">{initialBuyCalculation.reason}</p>
-                  
+
                   {/* Enhanced calculation breakdown */}
                   <div className="bg-gray-800/50 rounded-lg p-3 mt-3">
-                    <h5 className="text-xs font-medium text-blue-300 mb-2">Calculation Breakdown:</h5>
+                    <h5 className="text-xs font-medium text-blue-300 mb-2">How It Works:</h5>
                     <div className="space-y-1 text-xs text-gray-400">
-                      <p>• Capital per grid: {formatCurrency(allocatedCapital)} ÷ {numberOfGrids} grids = {formatCurrency(initialBuyCalculation.capitalPerGrid || 0)}</p>
-                      <p>• Grid levels below price: {initialBuyCalculation.gridLevelsBought}</p>
-                      <p>• Required position: {initialBuyCalculation.gridLevelsBought} × {formatCurrency(initialBuyCalculation.capitalPerGrid || 0)} = {formatCurrency(initialBuyCalculation.amount)}</p>
-                      <p>• This creates the base position needed for {initialBuyCalculation.gridLevelsBought} grid levels to start selling as price rises</p>
+                      <p>1. Calculate capital per grid: {formatCurrency(allocatedCapital)} ÷ {numberOfGrids} grids = {formatCurrency(initialBuyCalculation.capitalPerGrid || 0)}</p>
+                      <p>2. Count grid levels below current price: {initialBuyCalculation.gridLevelsBought} levels</p>
+                      <p>3. Initial buy amount: {initialBuyCalculation.gridLevelsBought} levels × {formatCurrency(initialBuyCalculation.capitalPerGrid || 0)} = {formatCurrency(initialBuyCalculation.amount)}</p>
+                      <p className="text-green-400 font-medium pt-2">✓ One market buy order will be executed at current price</p>
+                      <p className="text-yellow-400 font-medium">⏳ After the initial buy fills, limit orders will be placed at all grid levels</p>
                     </div>
                   </div>
-                  
+
                   {initialBuyCalculation.currentPrice && (
-                    <div className="space-y-1 text-xs text-gray-400">
-                      <p>Current market price: {formatCurrency(realMarketPrice)}</p>
-                      <p>Grid range: {formatCurrency(lowerPrice)} - {formatCurrency(upperPrice)}</p>
-                      <p>Capital per grid level: {formatCurrency(initialBuyCalculation.capitalPerGrid || 0)}</p>
-                      <p>Grid spacing: {formatCurrency(initialBuyCalculation.gridSpacing || 0)}</p>
-                      <p>Fills {initialBuyCalculation.gridLevelsBought} grid levels below market price</p>
+                    <div className="mt-3 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                      <h5 className="text-xs font-medium text-blue-300 mb-2">Grid Configuration:</h5>
+                      <div className="space-y-1 text-xs text-gray-400">
+                        <p>• Current market price: {formatCurrency(realMarketPrice)}</p>
+                        <p>• Grid range: {formatCurrency(lowerPrice)} - {formatCurrency(upperPrice)}</p>
+                        <p>• Capital per grid: {formatCurrency(initialBuyCalculation.capitalPerGrid || 0)}</p>
+                        <p>• Grid spacing: {formatCurrency(initialBuyCalculation.gridSpacing || 0)}</p>
+                        <p>• Grid levels below price: {initialBuyCalculation.gridLevelsBought} of {numberOfGrids}</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -625,7 +621,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                   <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
                     <h5 className="font-medium text-green-400 mb-2 flex items-center gap-2">
                       <DollarSign className="w-4 h-4" />
-                      Initial Buy Required
+                      Initial Market Buy (One-Time)
                     </h5>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                       <div>
@@ -635,27 +631,30 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-400">Buy %:</span>
+                        <span className="text-gray-400">Grid Levels:</span>
                         <span className="text-blue-400 ml-2 font-bold">
-                          {initialBuyCalculation.percentage.toFixed(1)}%
+                          {initialBuyCalculation.gridLevelsBought} of {numberOfGrids}
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-400">Grid Position:</span>
+                        <span className="text-gray-400">Per Grid:</span>
                         <span className="text-purple-400 ml-2 font-bold">
-                          {initialBuyCalculation.gridLevelsBought}/{numberOfGrids}
+                          {formatCurrency(initialBuyCalculation.capitalPerGrid)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-400">Est. Price:</span>
+                        <span className="text-gray-400">Market Price:</span>
                         <span className="text-white ml-2 font-bold">
                           {formatCurrency(realMarketPrice)}
                         </span>
                       </div>
                     </div>
                     <div className="mt-2 pt-2 border-t border-green-500/20">
-                      <p className="text-xs text-green-300">
+                      <p className="text-xs text-green-300 mb-1">
                         {initialBuyCalculation.reason}
+                      </p>
+                      <p className="text-xs text-yellow-300">
+                        → After this market buy fills, limit buy/sell orders will be placed at all {numberOfGrids} grid levels
                       </p>
                     </div>
                   </div>

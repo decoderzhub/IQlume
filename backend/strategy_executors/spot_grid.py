@@ -375,11 +375,14 @@ class SpotGridExecutor(BaseStrategyExecutor):
             telemetry_data = strategy_data.get("telemetry_data", {})
             if not isinstance(telemetry_data, dict):
                 telemetry_data = {}
-            
+
             initial_buy_order_submitted = telemetry_data.get("initial_buy_order_submitted", False)
+            initial_buy_filled = telemetry_data.get("initial_buy_filled", False)
+            initial_buy_alpaca_order_id = telemetry_data.get("initial_buy_alpaca_order_id")
             
             self.logger.info(f"📊 Grid config: {symbol} | Range: ${price_range_lower}-${price_range_upper} | Grids: {number_of_grids}")
             self.logger.info(f"🎯 Initial buy order submitted: {initial_buy_order_submitted}")
+            self.logger.info(f"🎯 Initial buy order filled: {initial_buy_filled}")
             
             # Get current market price
             current_price = self.get_current_price(symbol)
@@ -397,32 +400,39 @@ class SpotGridExecutor(BaseStrategyExecutor):
             # INITIAL MARKET BUY LOGIC - Execute once per strategy
             if not initial_buy_order_submitted:
                 self.logger.info(f"🚀 [INITIAL BUY] Performing initial market buy for {strategy_name}")
-                
-                # Calculate initial buy based on current price position within grid range
+
+                # Calculate grid levels to determine how many are below current price
+                grid_levels = self.calculate_grid_levels(
+                    price_range_lower,
+                    price_range_upper,
+                    number_of_grids,
+                    grid_mode
+                )
+
+                # Calculate initial buy based on number of grid levels below current price
                 if price_range_lower == 0 or price_range_upper == 0:
                     # If grid range not set, use 10% as fallback
                     initial_amount = allocated_capital * 0.1
+                    num_grids_below = 0
                     self.logger.info(f"💡 Grid range not set, using 10% fallback: ${initial_amount}")
                 else:
-                    # Calculate where current price sits within the grid range (0-100%)
-                    if current_price <= price_range_lower:
-                        # Price below grid - buy 100% (maximum position)
-                        price_position_percent = 1.0
-                    elif current_price >= price_range_upper:
-                        # Price above grid - buy 0% (no initial position)
-                        price_position_percent = 0.0
-                    else:
-                        # Price within grid - calculate proportional position
-                        # If price is at bottom of range = 100% buy, at top = 0% buy
-                        price_position_percent = 1.0 - ((current_price - price_range_lower) / (price_range_upper - price_range_lower))
-                    
-                    initial_amount = allocated_capital * price_position_percent
-                    
-                    self.logger.info(f"💡 Price position analysis:")
+                    # Count how many grid levels are below current price
+                    num_grids_below = len([level for level in grid_levels if level < current_price])
+
+                    # CORRECT LOGIC: Buy enough to cover all grid levels below current price
+                    # Each grid level represents capital_per_grid worth of the asset
+                    capital_per_grid = allocated_capital / number_of_grids
+
+                    # Initial position = quantity needed for all grids below current price
+                    initial_amount = capital_per_grid * num_grids_below
+
+                    self.logger.info(f"💡 Initial buy calculation (corrected):")
                     self.logger.info(f"   Current price: ${current_price:.2f}")
                     self.logger.info(f"   Grid range: ${price_range_lower:.2f} - ${price_range_upper:.2f}")
-                    self.logger.info(f"   Position in range: {price_position_percent:.1%}")
-                    self.logger.info(f"   Initial buy amount: ${initial_amount:.2f}")
+                    self.logger.info(f"   Total grid levels: {number_of_grids}")
+                    self.logger.info(f"   Grid levels below price: {num_grids_below}")
+                    self.logger.info(f"   Capital per grid: ${capital_per_grid:.2f}")
+                    self.logger.info(f"   Initial buy amount: ${initial_amount:.2f} ({num_grids_below} grids × ${capital_per_grid:.2f})")
                 
                 buy_quantity = max(0.001, initial_amount / current_price)
                 self.logger.info(f"💡 Calculated initial buy: ${initial_amount:.2f} = {buy_quantity:.6f} {symbol}")
@@ -480,10 +490,12 @@ class SpotGridExecutor(BaseStrategyExecutor):
                         except Exception as trade_error:
                             self.logger.error(f"❌ [INITIAL BUY] Error recording trade: {trade_error}")
                         
-                        # Mark initial buy as completed
+                        # Mark initial buy as submitted (not yet filled)
                         telemetry_data["initial_buy_order_submitted"] = True
+                        telemetry_data["initial_buy_filled"] = False
+                        telemetry_data["initial_buy_alpaca_order_id"] = order_id
                         telemetry_data["last_updated"] = datetime.now(timezone.utc).isoformat()
-                        
+
                         # Update telemetry in database
                         self.update_strategy_telemetry(strategy_id, telemetry_data)
                         
@@ -526,7 +538,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
                         "reason": f"Invalid initial buy quantity calculated: {buy_quantity}"
                     }
             
-            # REGULAR GRID LOGIC - Only execute after initial buy is completed
+            # REGULAR GRID LOGIC - Only execute after initial buy is FILLED
             if not initial_buy_order_submitted:
                 return {
                     "action": "hold",
@@ -536,7 +548,18 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     "reason": "Waiting for initial buy order to be submitted"
                 }
 
-            self.logger.info(f"🔄 [GRID LOGIC] Initial buy completed, proceeding with regular grid operations")
+            # Check if initial buy has been filled
+            if not initial_buy_filled:
+                self.logger.info(f"⏳ [GRID LOGIC] Initial buy order submitted but not yet filled. Waiting...")
+                return {
+                    "action": "hold",
+                    "symbol": symbol,
+                    "quantity": 0,
+                    "price": current_price,
+                    "reason": f"Waiting for initial buy order {initial_buy_alpaca_order_id} to fill before placing limit orders"
+                }
+
+            self.logger.info(f"🔄 [GRID LOGIC] Initial buy filled, proceeding with grid limit order placement")
 
             # CHECK IF GRID HAS ALREADY BEEN INITIALIZED
             # Grid strategies should only place orders ONCE during initial setup
@@ -697,8 +720,10 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 allocated_capital
             )
             
-            # Ensure initial_buy_order_submitted flag is preserved
+            # Ensure initial_buy flags are preserved
             updated_telemetry["initial_buy_order_submitted"] = telemetry_data.get("initial_buy_order_submitted", True)
+            updated_telemetry["initial_buy_filled"] = telemetry_data.get("initial_buy_filled", True)
+            updated_telemetry["initial_buy_alpaca_order_id"] = telemetry_data.get("initial_buy_alpaca_order_id")
             
             self.update_strategy_telemetry(strategy_id, updated_telemetry)
             

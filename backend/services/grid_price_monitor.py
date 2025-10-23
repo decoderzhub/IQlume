@@ -177,6 +177,22 @@ class GridPriceMonitor:
 
             # Acquire lock to prevent concurrent processing
             async with self.processing_locks[strategy_id]:
+                # Check if initial buy has been filled
+                telemetry_data = strategy_data.get("telemetry_data", {})
+                if not isinstance(telemetry_data, dict):
+                    telemetry_data = {}
+
+                initial_buy_filled = telemetry_data.get("initial_buy_filled", False)
+                initial_buy_order_submitted = telemetry_data.get("initial_buy_order_submitted", False)
+
+                # Only place grid orders if initial buy has been filled
+                if not initial_buy_filled:
+                    if initial_buy_order_submitted:
+                        logger.debug(f"⏳ Strategy {strategy_id}: Waiting for initial buy order to fill before placing limit orders")
+                    else:
+                        logger.debug(f"⏳ Strategy {strategy_id}: Initial buy not yet submitted")
+                    return
+
                 config = strategy_data.get("configuration", {})
                 symbol = config.get("symbol", "").upper().replace("/", "")
                 user_id = strategy_data.get("user_id")
