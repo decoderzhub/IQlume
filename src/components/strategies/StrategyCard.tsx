@@ -291,7 +291,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
   };
   
   return (
-    <Card hoverable className={cn("p-6 h-full relative", (isComingSoon || needsUpgrade) && "opacity-75")}>
+    <Card hoverable className={cn("p-4 h-full relative", (isComingSoon || needsUpgrade) && "opacity-75")}>
       {isComingSoon && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 z-10 rounded-xl">
           <span className="text-white text-xl font-bold bg-blue-600 px-4 py-2 rounded-lg shadow-lg">
@@ -299,7 +299,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           </span>
         </div>
       )}
-      
+
       {needsUpgrade && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 z-10 rounded-xl">
           <div className="text-center">
@@ -311,33 +311,30 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         </div>
       )}
 
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="font-semibold text-white text-lg">{strategy.name}</h3>
-            <div className={`w-3 h-3 rounded-full ${strategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-white text-base">{strategy.name}</h3>
+            <div className={`w-2.5 h-2.5 rounded-full ${strategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
           </div>
           
           {/* Trading Symbol and Current Price */}
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">Trading:</span>
-              <span className="font-bold text-blue-400 text-lg">{tradingSymbol}</span>
-            </div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-gray-500">{tradingSymbol}</span>
             {currentPrice && (
-              <div className="flex items-center gap-1">
-                <span className="text-sm text-gray-400">@</span>
-                <span className="font-semibold text-white">{formatCurrency(currentPrice)}</span>
-                {loading && <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />}
-              </div>
+              <>
+                <span className="text-xs text-gray-600">•</span>
+                <span className="font-medium text-white text-sm">{formatCurrency(currentPrice)}</span>
+                {loading && <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />}
+              </>
             )}
           </div>
           
           {/* Grid Configuration Display */}
           {isGridStrategy && gridConfig && gridConfig.lower && gridConfig.upper && (
-            <div className="mb-4">
+            <div className="mb-3">
               {/* Enhanced Grid Info */}
-              <div className="bg-gray-800/30 rounded-lg p-3 mb-3">
+              <div className="bg-gray-800/30 rounded-lg p-2 mb-2">
                 <div className="flex items-center justify-between text-xs mb-2">
                   <span className="text-gray-400">Grid Mode:</span>
                   <span className="text-white capitalize">{gridConfig.mode}</span>
@@ -424,13 +421,13 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
             </div>
           )}
           
-          <p className="text-sm text-gray-400 mb-3">{strategy.description}</p>
-          
-          <div className="flex items-center gap-2 mb-3">
-            <span className={`px-2 py-1 rounded text-xs font-medium border ${getRiskColor(strategy.risk_level)}`}>
-              {strategy.risk_level} risk
+          <p className="text-xs text-gray-400 mb-2 line-clamp-2">{strategy.description}</p>
+
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${getRiskColor(strategy.risk_level)}`}>
+              {strategy.risk_level}
             </span>
-            <span className="px-2 py-1 rounded text-xs font-medium bg-blue-400/10 text-blue-400 border border-blue-400/20">
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-400/10 text-blue-400 border border-blue-400/20">
               {getStrategyTypeLabel(strategy.type)}
             </span>
           </div>
@@ -439,12 +436,12 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
 
       {/* Real-time Price Chart for Active Strategies */}
       {strategy.is_active && priceHistory.length > 5 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400">Price Movement</span>
-            <span className="text-xs text-gray-500">Last 10 updates</span>
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-gray-400">Price Movement</span>
+            <span className="text-[10px] text-gray-500">Last 10 updates</span>
           </div>
-          <div className="h-24 bg-gray-800/30 rounded-lg p-2">
+          <div className="h-20 bg-gray-800/30 rounded-lg p-2">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={priceHistory}>
                 <defs>
@@ -524,16 +521,16 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       )}
       {/* Performance Metrics */}
       {performance && typeof performance === 'object' && (
-        <div className="space-y-4 mb-6">
+        <div className="space-y-3 mb-4">
           {/* Real-time Telemetry for Active Strategies */}
           {strategy.is_active && telemetryData && typeof telemetryData === 'object' && (
-            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-              <h5 className="text-xs font-medium text-blue-400 mb-2 flex items-center gap-1">
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2">
+              <h5 className="text-[10px] font-medium text-blue-400 mb-1.5 flex items-center gap-1">
                 <Activity className="w-3 h-3" />
                 Live Telemetry
               </h5>
               
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
                 <div>
                   <span className="text-gray-400">P&L:</span>
                   <span className={`ml-2 font-medium ${
@@ -560,47 +557,47 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           )}
           
           {/* Standard Performance Metrics */}
-          <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gray-800/30 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="grid grid-cols-2 gap-2">
+          <div className="bg-gray-800/30 rounded-lg p-2">
+            <div className="flex items-center gap-1 mb-0.5">
               {isPositiveReturn ? (
-                <TrendingUp className="w-4 h-4 text-green-400" />
+                <TrendingUp className="w-3 h-3 text-green-400" />
               ) : (
-                <TrendingDown className="w-4 h-4 text-red-400" />
+                <TrendingDown className="w-3 h-3 text-red-400" />
               )}
-              <span className="text-xs text-gray-400">Total Return</span>
+              <span className="text-[10px] text-gray-400">Total Return</span>
             </div>
-            <p className={`font-semibold ${isPositiveReturn ? 'text-green-400' : 'text-red-400'}`}>
+            <p className={`font-semibold text-sm ${isPositiveReturn ? 'text-green-400' : 'text-red-400'}`}>
               {formatPercent(performance.total_return)}
             </p>
           </div>
 
-          <div className="bg-gray-800/30 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Target className="w-4 h-4 text-blue-400" />
-              <span className="text-xs text-gray-400">Win Rate</span>
+          <div className="bg-gray-800/30 rounded-lg p-2">
+            <div className="flex items-center gap-1 mb-0.5">
+              <Target className="w-3 h-3 text-blue-400" />
+              <span className="text-[10px] text-gray-400">Win Rate</span>
             </div>
-            <p className="font-semibold text-blue-400">
+            <p className="font-semibold text-sm text-blue-400">
               {formatPercent(performance.win_rate || 0)}
             </p>
           </div>
 
-          <div className="bg-gray-800/30 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Shield className="w-4 h-4 text-purple-400" />
-              <span className="text-xs text-gray-400">Max Drawdown</span>
+          <div className="bg-gray-800/30 rounded-lg p-2">
+            <div className="flex items-center gap-1 mb-0.5">
+              <Shield className="w-3 h-3 text-purple-400" />
+              <span className="text-[10px] text-gray-400">Max Drawdown</span>
             </div>
-            <p className="font-semibold text-purple-400">
+            <p className="font-semibold text-sm text-purple-400">
               {formatPercent(performance.max_drawdown || 0)}
             </p>
           </div>
 
-          <div className="bg-gray-800/30 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-4 h-4 text-yellow-400" />
-              <span className="text-xs text-gray-400">Trades</span>
+          <div className="bg-gray-800/30 rounded-lg p-2">
+            <div className="flex items-center gap-1 mb-0.5">
+              <Clock className="w-3 h-3 text-yellow-400" />
+              <span className="text-[10px] text-gray-400">Trades</span>
             </div>
-            <p className="font-semibold text-yellow-400">
+            <p className="font-semibold text-sm text-yellow-400">
               {(performance.total_trades || 0)}
             </p>
           </div>
@@ -609,33 +606,33 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       )}
 
       {/* Capital Requirements */}
-      <div className="mb-6">
-        <p className="text-sm text-gray-400 mb-1">Minimum Capital</p>
-        <p className="font-semibold text-white">{formatCurrency(strategy.min_capital)}</p>
+      <div className="mb-3">
+        <p className="text-[10px] text-gray-400 mb-0.5">Minimum Capital</p>
+        <p className="font-semibold text-sm text-white">{formatCurrency(strategy.min_capital)}</p>
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-2">
+      <div className="flex gap-1.5">
         <Button
           variant="primary"
           size="sm"
           onClick={onToggle}
           disabled={isComingSoon || needsUpgrade}
-          className={`flex-1 transition-all duration-200 ${
-            strategy.is_active 
-              ? 'bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600/90 hover:to-red-700/90 text-white shadow-md hover:shadow-red-500/15' 
+          className={`flex-1 transition-all duration-200 h-8 ${
+            strategy.is_active
+              ? 'bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600/90 hover:to-red-700/90 text-white shadow-md hover:shadow-red-500/15'
               : 'bg-gradient-to-r from-green-600/80 to-green-700/80 hover:from-green-600/90 hover:to-green-700/90 text-white shadow-md hover:shadow-green-500/15'
           }`}
         >
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-1.5">
             {strategy.is_active ? (
               <>
-                <Pause className="w-4 h-4" />
+                <Pause className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">Pause</span>
               </>
             ) : (
               <>
-                <Play className="w-4 h-4" />
+                <Play className="w-3.5 h-3.5" />
                 <span className="text-xs font-medium">Start</span>
               </>
             )}
@@ -649,11 +646,12 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
             onClick={handleExecuteStrategy}
             disabled={isExecuting}
             title="Execute one iteration of this strategy"
+            className="h-8 px-2"
           >
             {isExecuting ? (
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Play className="w-4 h-4" />
+              <Play className="w-3.5 h-3.5" />
             )}
           </Button>
         )}
@@ -663,8 +661,9 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           size="sm"
           disabled={isComingSoon || needsUpgrade}
           onClick={onViewDetails}
+          className="h-8 px-2"
         >
-          <Settings className="w-4 h-4" />
+          <Settings className="w-3.5 h-3.5" />
         </Button>
 
         <Button
@@ -672,8 +671,9 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           variant="ghost"
           size="sm"
           onClick={onBacktest}
+          className="h-8 px-2"
         >
-          <BarChart3 className="w-4 h-4" />
+          <BarChart3 className="w-3.5 h-3.5" />
         </Button>
       </div>
     </Card>
