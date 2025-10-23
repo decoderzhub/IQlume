@@ -272,8 +272,15 @@ async def update_strategy(
 
                 # Get trading clients
                 trading_client = await get_alpaca_trading_client(current_user, supabase)
-                stock_client = get_alpaca_stock_data_client()
-                crypto_client = get_alpaca_crypto_data_client()
+                stock_client = await get_alpaca_stock_data_client(current_user, supabase)
+                crypto_client = await get_alpaca_crypto_data_client(current_user, supabase)
+
+                # Validate clients were initialized
+                if not trading_client:
+                    logger.error(f"❌ Failed to initialize trading client for user {current_user.id}")
+                    raise HTTPException(status_code=500, detail="Failed to initialize trading client. Please check your Alpaca credentials.")
+
+                logger.info(f"✅ All Alpaca clients initialized successfully for user {current_user.id}")
 
                 # Get strategy executor from factory
                 executor = StrategyExecutorFactory.create_executor(
@@ -353,9 +360,16 @@ async def execute_strategy(
         
         # Get trading clients
         trading_client = await get_alpaca_trading_client(current_user, supabase)
-        stock_client = get_alpaca_stock_data_client()
-        crypto_client = get_alpaca_crypto_data_client()
-        
+        stock_client = await get_alpaca_stock_data_client(current_user, supabase)
+        crypto_client = await get_alpaca_crypto_data_client(current_user, supabase)
+
+        # Validate clients were initialized
+        if not trading_client:
+            logger.error(f"❌ Failed to initialize trading client for user {current_user.id}")
+            raise HTTPException(status_code=500, detail="Failed to initialize trading client. Please check your Alpaca credentials.")
+
+        logger.info(f"✅ All Alpaca clients initialized successfully for user {current_user.id}")
+
         # Get strategy executor from factory
         executor = StrategyExecutorFactory.create_executor(
             strategy_data["type"],
