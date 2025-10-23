@@ -99,7 +99,7 @@ export function WatchlistPanel() {
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const symbolsQuery = symbols.join(',');
 
-      const response = await fetch(`${API_BASE}/api/market-data/quotes?symbols=${symbolsQuery}`, {
+      const response = await fetch(`${API_BASE}/api/market-data/live-prices?symbols=${symbolsQuery}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -110,13 +110,14 @@ export function WatchlistPanel() {
       const data = await response.json();
       const newItems = new Map<string, WatchlistItem>();
 
-      data.forEach((item: any) => {
-        newItems.set(item.symbol, {
-          symbol: item.symbol,
-          price: item.price || 0,
-          change: item.change || 0,
-          changePercent: item.change_percent || 0,
-          volume: item.volume || 0,
+      // The API returns { SYMBOL: { price, change, change_percent, volume, ... }, ... }
+      Object.entries(data).forEach(([symbol, priceData]: [string, any]) => {
+        newItems.set(symbol, {
+          symbol: symbol,
+          price: priceData.price || 0,
+          change: priceData.change || 0,
+          changePercent: priceData.change_percent || 0,
+          volume: priceData.volume || 0,
         });
       });
 
