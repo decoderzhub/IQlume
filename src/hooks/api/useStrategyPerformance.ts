@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TradingStrategy } from '../../types';
+import { marketDataManager } from '../../services/MarketDataManager';
 
 interface StrategyPerformanceData {
   strategy: TradingStrategy;
@@ -31,6 +32,7 @@ export function useStrategyPerformance(userId?: string) {
   const [strategiesData, setStrategiesData] = useState<StrategyPerformanceData[]>([]);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const strategiesRef = useRef<TradingStrategy[]>([]);
 
   const calculateAnnualizedReturn = (
     totalReturn: number,
@@ -111,6 +113,8 @@ export function useStrategyPerformance(userId?: string) {
       }
 
       console.log(`[useStrategyPerformance] ✅ Found ${strategies.length} active strategies`);
+
+      strategiesRef.current = strategies;
 
       const performanceData: StrategyPerformanceData[] = await Promise.all(
         strategies.map(async (strategy) => {
@@ -238,13 +242,87 @@ export function useStrategyPerformance(userId?: string) {
     mountedRef.current = true;
     fetchStrategyPerformance();
 
-    const interval = setInterval(fetchStrategyPerformance, 60000);
+    const realtimeChannel = supabase
+      .channel('strategy_performance_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trading_strategies',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          console.log('[useStrategyPerformance] Strategy changed, refetching');
+          fetchStrategyPerformance();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trades',
+        },
+        () => {
+          console.log('[useStrategyPerformance] Trade changed, refetching');
+          fetchStrategyPerformance();
+        }
+      )
+      .subscribe();
 
     return () => {
       mountedRef.current = false;
-      clearInterval(interval);
+      realtimeChannel.unsubscribe();
     };
   }, [userId]);
+
+  useEffect(() => {
+    if (strategiesRef.current.length === 0) return;
+
+    const symbols = strategiesRef.current
+      .map(s => s.symbol)
+      .filter((symbol): symbol is string => !!symbol);
+
+    if (symbols.length === 0) return;
+
+    console.log('[useStrategyPerformance] Subscribing to market data for symbols:', symbols);
+
+    const unsubscribers = symbols.map(symbol => {
+      return marketDataManager.subscribe(symbol, (marketData) => {
+        if (!mountedRef.current) return;
+
+        setStrategiesData(prev => {
+          return prev.map(strategyData => {
+            if (strategyData.strategy.symbol === symbol) {
+              const currentPrice = marketData.price;
+              const totalInvestment = strategyData.totalInvestment;
+              const startPrice = strategyData.startPrice;
+              const priceChange = currentPrice - startPrice;
+              const holdingProfit = (priceChange / startPrice) * totalInvestment;
+              const gridProfit = strategyData.gridProfit;
+              const totalProfit = gridProfit + holdingProfit;
+              const currentValue = totalInvestment + totalProfit;
+
+              return {
+                ...strategyData,
+                currentPrice,
+                currentValue,
+                currentProfit: totalProfit,
+                currentProfitPercent: (totalProfit / totalInvestment) * 100,
+                holdingProfit,
+              };
+            }
+            return strategyData;
+          });
+        });
+      });
+    });
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [strategiesRef.current.map(s => s.symbol).join(',')]);
 
   return {
     strategiesData,

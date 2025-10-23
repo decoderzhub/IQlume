@@ -1,4 +1,4 @@
-import { useAPI } from '../useAPI';
+import { useMarketData as useMarketDataCentralized, useMarketDataBatch } from '../useMarketData';
 import { apiClient } from '../../lib/api-client';
 
 export interface MarketPrice {
@@ -18,25 +18,41 @@ export interface SymbolSearchResult {
 }
 
 export function useMarketPrice(symbol?: string) {
-  return useAPI<MarketPrice>(
-    symbol ? `/market_data/price/${symbol}` : null,
-    {
-      refetchInterval: 5000,
-      cacheTime: 3000,
-    }
-  );
+  const { data, loading, error, refetch } = useMarketDataCentralized(symbol || null);
+
+  return {
+    data: data ? {
+      symbol: data.symbol,
+      price: data.price,
+      change: data.change,
+      change_percent: data.change_percent,
+      volume: data.volume,
+      timestamp: new Date(data.timestamp).toISOString(),
+    } : null,
+    isLoading: loading,
+    error,
+    refetch,
+  };
 }
 
 export function useMarketPrices(symbols?: string[]) {
-  const symbolsQuery = symbols?.join(',');
+  const { data, loading, error, refetch } = useMarketDataBatch(symbols || []);
 
-  return useAPI<MarketPrice[]>(
-    symbolsQuery ? `/market_data/prices?symbols=${symbolsQuery}` : null,
-    {
-      refetchInterval: 5000,
-      cacheTime: 3000,
-    }
-  );
+  const formattedData = Array.from(data.values()).map(marketData => ({
+    symbol: marketData.symbol,
+    price: marketData.price,
+    change: marketData.change,
+    change_percent: marketData.change_percent,
+    volume: marketData.volume,
+    timestamp: new Date(marketData.timestamp).toISOString(),
+  }));
+
+  return {
+    data: formattedData,
+    isLoading: loading,
+    error,
+    refetch,
+  };
 }
 
 export async function searchSymbols(query: string): Promise<SymbolSearchResult[]> {

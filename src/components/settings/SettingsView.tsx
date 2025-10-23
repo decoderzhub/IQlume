@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  User, 
-  Key, 
-  Bell, 
-  Palette, 
-  LogOut, 
-  Save, 
-  Eye, 
+import {
+  User,
+  Key,
+  Bell,
+  Palette,
+  LogOut,
+  Save,
+  Eye,
   EyeOff,
   Shield,
   CreditCard,
@@ -23,6 +23,7 @@ import { Button } from '../ui/Button';
 import { useStore } from '../../store/useStore';
 import { auth } from '../../lib/supabase';
 import { formatDate } from '../../lib/utils';
+import { MarketDataDebugPanel } from '../debug/MarketDataDebugPanel';
 
 export function SettingsView() {
   const { user, setUser, isDeveloperMode, setIsDeveloperMode, getEffectiveSubscriptionTier } = useStore();
@@ -368,17 +369,21 @@ export function SettingsView() {
         </Card>
       </div>
 
+      {isDeveloperMode && (
+        <MarketDataDebugPanel />
+      )}
+
       {/* Action Buttons */}
       <div className="flex gap-4 pt-6 border-t border-gray-800">
         <Button onClick={handleSaveSettings} className="flex-1 sm:flex-none">
           <Save className="w-4 h-4 mr-2" />
           Save Settings
         </Button>
-        
+
         <div className="flex-1" />
-        
-        <Button 
-          variant="outline" 
+
+        <Button
+          variant="outline"
           onClick={handleSignOut}
           className="text-red-400 border-red-500/20 hover:bg-red-500/10"
         >

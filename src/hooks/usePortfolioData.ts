@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../store/useStore';
+import { marketDataManager } from '../services/MarketDataManager';
 
 interface MarketData {
   [symbol: string]: {
@@ -130,47 +131,70 @@ export function usePortfolioData() {
     }
   };
 
-  const fetchMarketData = async () => {
+  const subscribeToMarketData = () => {
     if (!user) return;
 
-    setLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
+    const symbols = ['AAPL', 'MSFT', 'BTC', 'ETH'];
+    console.log('[usePortfolioData] Subscribing to market data via centralized manager');
 
-      if (!session?.access_token) return;
+    const unsubscribers = symbols.map(symbol => {
+      const cached = marketDataManager.getCached(symbol);
+      if (cached && mountedRef.current) {
+        const marketDataEntry = {
+          price: cached.price,
+          change: cached.change,
+          change_percent: cached.change_percent,
+          high: cached.high,
+          low: cached.low,
+          open: cached.open,
+        };
 
-      const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const symbols = ['AAPL', 'MSFT', 'BTC', 'ETH'].join(',');
+        setMarketData(prev => ({ ...prev, [symbol]: marketDataEntry }));
 
-      const response = await fetch(`${baseURL}/api/market-data/live-prices?symbols=${symbols}`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-
-        if (mountedRef.current) {
-          setMarketData(data);
-
-          const newHistoricalData: Record<string, HistoricalDataPoint[]> = {};
-          Object.entries(data).forEach(([symbol, quote]: [string, any]) => {
-            if (!historicalData[symbol]) {
-              newHistoricalData[symbol] = generateMockHistoricalData(quote.price, symbol);
-            }
-          });
-
-          setHistoricalData((prev) => ({ ...prev, ...newHistoricalData }));
+        if (!historicalData[symbol]) {
+          setHistoricalData(prev => ({
+            ...prev,
+            [symbol]: generateMockHistoricalData(cached.price, symbol),
+          }));
         }
       }
-    } catch (error) {
-      console.error('Error fetching market data:', error);
-    } finally {
-      if (mountedRef.current) {
+
+      return marketDataManager.subscribe(symbol, (data) => {
+        if (!mountedRef.current) return;
+
+        const marketDataEntry = {
+          price: data.price,
+          change: data.change,
+          change_percent: data.change_percent,
+          high: data.high,
+          low: data.low,
+          open: data.open,
+        };
+
+        setMarketData(prev => ({ ...prev, [symbol]: marketDataEntry }));
+
+        const now = new Date();
+        setHistoricalData(prev => {
+          const existing = prev[symbol] || [];
+          const newPoint: HistoricalDataPoint = {
+            time: now.getTime(),
+            timeLabel: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            price: data.price,
+            value: data.price,
+          };
+          return {
+            ...prev,
+            [symbol]: [...existing.slice(-49), newPoint],
+          };
+        });
+
         setLoading(false);
-      }
-    }
+      });
+    });
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
   };
 
   useEffect(() => {
@@ -184,45 +208,23 @@ export function usePortfolioData() {
 
   useEffect(() => {
     mountedRef.current = true;
-    fetchMarketData();
-
-    intervalRef.current = setInterval(fetchMarketData, 30000);
+    const cleanup = subscribeToMarketData();
 
     return () => {
       mountedRef.current = false;
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      cleanup?.();
     };
   }, [user]);
-
-  useEffect(() => {
-    if (marketData && mountedRef.current) {
-      const now = new Date();
-      const updatedHistoricalData = { ...historicalData };
-
-      Object.entries(marketData).forEach(([symbol, quote]: [string, any]) => {
-        if (updatedHistoricalData[symbol]) {
-          const newPoint: HistoricalDataPoint = {
-            time: now.getTime(),
-            timeLabel: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            price: quote.price,
-            value: quote.price,
-          };
-          updatedHistoricalData[symbol] = [...updatedHistoricalData[symbol].slice(-49), newPoint];
-        }
-      });
-
-      setHistoricalData(updatedHistoricalData);
-    }
-  }, [marketData]);
 
   return {
     marketData,
     historicalData,
     loading,
     accountsLoading,
-    refetchMarketData: fetchMarketData,
+    refetchMarketData: () => {
+      const symbols = ['AAPL', 'MSFT', 'BTC', 'ETH'];
+      marketDataManager.fetchOnce(symbols);
+    },
     refetchAccounts: loadBrokerageAccounts,
   };
 }

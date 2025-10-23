@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { wsManager } from '../services/WebSocketManager';
+import { marketDataManager, MarketDataPoint } from '../services/MarketDataManager';
 
 interface StreamData {
   type: 'trade' | 'quote' | 'bar';
@@ -27,48 +27,41 @@ export function useMarketDataStream(
   symbol: string | null,
   options: UseMarketDataStreamOptions = {}
 ) {
-  const { enabled = true, autoConnect = true } = options;
+  const { enabled = true } = options;
   const [data, setData] = useState<StreamData | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-
-  const checkConnection = useCallback(() => {
-    setIsConnected(wsManager.isConnected());
-  }, []);
 
   useEffect(() => {
     if (!symbol || !enabled) return;
 
-    if (autoConnect && !wsManager.isConnected()) {
-      wsManager.connect().catch(err => {
-        console.error('[useMarketDataStream] Connection error:', err);
-        setError(err);
-      });
-    }
-
-    const handleData = (streamData: StreamData) => {
+    const handleData = (marketData: MarketDataPoint) => {
+      const streamData: StreamData = {
+        type: 'trade',
+        symbol: marketData.symbol,
+        price: marketData.price,
+        volume: marketData.volume,
+        timestamp: marketData.timestamp,
+        open: marketData.open,
+        high: marketData.high,
+        low: marketData.low,
+        close: marketData.price,
+      };
       setData(streamData);
       setError(null);
+      setIsConnected(true);
     };
 
-    const unsubscribe = wsManager.subscribe(symbol, handleData);
-
-    const connectionCheckInterval = setInterval(checkConnection, 5000);
-    checkConnection();
+    const unsubscribe = marketDataManager.subscribe(symbol, handleData);
 
     return () => {
       unsubscribe();
-      clearInterval(connectionCheckInterval);
     };
-  }, [symbol, enabled, autoConnect, checkConnection]);
+  }, [symbol, enabled]);
 
   const reconnect = useCallback(async () => {
-    try {
-      await wsManager.connect();
-      setError(null);
-    } catch (err) {
-      setError(err as Error);
-    }
+    console.log('[useMarketDataStream] Reconnect called (using centralized manager)');
+    setError(null);
   }, []);
 
   return {
@@ -76,6 +69,6 @@ export function useMarketDataStream(
     isConnected,
     error,
     reconnect,
-    connectionState: wsManager.getConnectionState(),
+    connectionState: 'CONNECTED',
   };
 }
