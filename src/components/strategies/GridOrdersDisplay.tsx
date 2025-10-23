@@ -56,19 +56,25 @@ export function GridOrdersDisplay({
   // Fetch grid orders from Supabase
   const fetchGridOrders = async () => {
     try {
+      console.log('[GridOrdersDisplay] Fetching grid orders for strategy:', strategyId);
       const { data, error } = await supabase
         .from('grid_orders')
         .select('*')
         .eq('strategy_id', strategyId)
-        .in('status', ['pending', 'partially_filled'])
+        .in('status', ['pending', 'partially_filled', 'filled'])
         .order('grid_level', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[GridOrdersDisplay] Supabase error:', error);
+        throw error;
+      }
 
+      console.log('[GridOrdersDisplay] Fetched grid orders:', data?.length || 0, 'orders');
+      console.log('[GridOrdersDisplay] Orders data:', data);
       setGridOrders(data || []);
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Error fetching grid orders:', error);
+      console.error('[GridOrdersDisplay] Error fetching grid orders:', error);
     } finally {
       setLoading(false);
     }
@@ -137,9 +143,9 @@ export function GridOrdersDisplay({
     return ((targetPrice - currentPrice) / currentPrice) * 100;
   };
 
-  // Get order at specific grid level
-  const getOrderAtLevel = (level: number, side: 'buy' | 'sell') => {
-    return gridOrders.find(order => order.grid_level === level && order.side === side);
+  // Get order at specific grid level (regardless of side for new layout)
+  const getOrderAtLevel = (level: number) => {
+    return gridOrders.find(order => order.grid_level === level);
   };
 
   // Calculate current price position in range (0-100%)
@@ -213,14 +219,14 @@ export function GridOrdersDisplay({
         <div className="relative h-16 mb-8">
           {/* Background bar */}
           <div className="absolute top-1/2 left-0 right-0 h-2 -translate-y-1/2 bg-gray-700 rounded-full overflow-hidden">
-            {/* Green zone (buy zone) */}
+            {/* Red zone (buy zone - below current price) */}
             <div
-              className="absolute left-0 h-full bg-gradient-to-r from-green-500 to-green-600"
+              className="absolute left-0 h-full bg-gradient-to-r from-red-500 to-red-600"
               style={{ width: `${Math.min(pricePosition, 100)}%` }}
             />
-            {/* Red zone (sell zone) */}
+            {/* Green zone (sell zone - above current price) */}
             <div
-              className="absolute right-0 h-full bg-gradient-to-r from-red-600 to-red-500"
+              className="absolute right-0 h-full bg-gradient-to-r from-green-600 to-green-500"
               style={{ width: `${Math.max(0, 100 - pricePosition)}%` }}
             />
           </div>
@@ -242,12 +248,12 @@ export function GridOrdersDisplay({
         {/* Range labels */}
         <div className="flex justify-between text-sm">
           <div className="text-left">
-            <div className="text-gray-400 mb-1">Buy price</div>
-            <div className="text-green-400 font-bold">{formatCurrency(lowerPrice)}</div>
+            <div className="text-gray-400 mb-1">Lower Range</div>
+            <div className="text-red-400 font-bold">{formatCurrency(lowerPrice)}</div>
           </div>
           <div className="text-right">
-            <div className="text-gray-400 mb-1">Sell price</div>
-            <div className="text-red-400 font-bold">{formatCurrency(upperPrice)}</div>
+            <div className="text-gray-400 mb-1">Upper Range</div>
+            <div className="text-green-400 font-bold">{formatCurrency(upperPrice)}</div>
           </div>
         </div>
       </Card>
@@ -272,23 +278,28 @@ export function GridOrdersDisplay({
                   Grid Level
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Buy Price
+                  Price
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  How far to fill
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Sell Price
+                  Distance
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {gridLevels.map((level, index) => {
-                const buyOrder = getOrderAtLevel(index, 'buy');
-                const sellOrder = getOrderAtLevel(index, 'sell');
-                const buyDistance = calculateDistance(level);
-                const sellDistance = calculateDistance(level);
-                const isNearPrice = Math.abs(buyDistance) < 2;
+              {/* Reverse the grid levels to show highest price at top */}
+              {[...gridLevels].reverse().map((level, reverseIndex) => {
+                const index = gridLevels.length - 1 - reverseIndex;
+                const order = getOrderAtLevel(index);
+                const distance = calculateDistance(level);
+                const isAbovePrice = level > currentPrice;
+                const isBelowPrice = level < currentPrice;
+                const isNearPrice = Math.abs(distance) < 2;
+
+                // Determine if this should be a sell order (above price) or buy order (below price)
+                const shouldBeSell = isAbovePrice;
+                const shouldBeBuy = isBelowPrice;
+                const isSellOrder = order?.side === 'sell';
+                const isBuyOrder = order?.side === 'buy';
 
                 return (
                   <tr
@@ -303,17 +314,17 @@ export function GridOrdersDisplay({
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <div className="flex gap-1">
-                          {buyOrder && (
+                          {order && isSellOrder && shouldBeSell && (
                             <span className="inline-flex items-center justify-center w-7 h-7 bg-green-500 text-white text-xs font-bold rounded">
                               {index + 1}
                             </span>
                           )}
-                          {sellOrder && (
+                          {order && isBuyOrder && shouldBeBuy && (
                             <span className="inline-flex items-center justify-center w-7 h-7 bg-red-500 text-white text-xs font-bold rounded">
                               {index + 1}
                             </span>
                           )}
-                          {!buyOrder && !sellOrder && (
+                          {!order && (
                             <span className="inline-flex items-center justify-center w-7 h-7 bg-gray-700 text-gray-400 text-xs font-bold rounded">
                               {index + 1}
                             </span>
@@ -322,57 +333,58 @@ export function GridOrdersDisplay({
                         {isNearPrice && (
                           <span className="text-xs text-blue-400 font-medium">← Current</span>
                         )}
+                        {shouldBeSell && (
+                          <span className="text-xs text-green-500 font-medium">SELL</span>
+                        )}
+                        {shouldBeBuy && (
+                          <span className="text-xs text-red-500 font-medium">BUY</span>
+                        )}
                       </div>
                     </td>
 
-                    {/* Buy Price */}
+                    {/* Price & Quantity */}
                     <td className="px-4 py-4 text-right">
-                      {buyOrder ? (
+                      {order ? (
                         <div>
-                          <div className="text-white font-medium">{formatCurrency(level)}</div>
+                          <div className={`font-medium ${
+                            isSellOrder && shouldBeSell ? 'text-green-400' :
+                            isBuyOrder && shouldBeBuy ? 'text-red-400' :
+                            'text-white'
+                          }`}>
+                            {formatCurrency(level)}
+                          </div>
                           <div className="text-xs text-gray-400">
-                            {buyOrder.quantity.toFixed(6)} {symbol}
+                            {order.quantity.toFixed(6)} {symbol}
                           </div>
                         </div>
                       ) : (
-                        <span className="text-gray-600">—</span>
+                        <div>
+                          <div className="text-gray-500 font-medium">{formatCurrency(level)}</div>
+                          <div className="text-xs text-gray-600">No order</div>
+                        </div>
                       )}
                     </td>
 
                     {/* Distance to Fill */}
                     <td className="px-4 py-4 text-center">
-                      {buyOrder && (
-                        <div className="inline-flex items-center gap-1 px-3 py-1 bg-green-500/20 rounded-full">
-                          <TrendingDown className="w-3 h-3 text-green-400" />
-                          <span className="text-green-400 font-medium text-sm">
-                            {buyDistance.toFixed(2)}%
-                          </span>
-                        </div>
-                      )}
-                      {sellOrder && (
+                      {order && isBuyOrder && shouldBeBuy && (
                         <div className="inline-flex items-center gap-1 px-3 py-1 bg-red-500/20 rounded-full">
-                          <TrendingUp className="w-3 h-3 text-red-400" />
+                          <TrendingDown className="w-3 h-3 text-red-400" />
                           <span className="text-red-400 font-medium text-sm">
-                            +{sellDistance.toFixed(2)}%
+                            {distance.toFixed(2)}%
                           </span>
                         </div>
                       )}
-                      {!buyOrder && !sellOrder && (
-                        <span className="text-gray-600 text-sm">—</span>
-                      )}
-                    </td>
-
-                    {/* Sell Price */}
-                    <td className="px-4 py-4 text-right">
-                      {sellOrder ? (
-                        <div>
-                          <div className="text-white font-medium">{formatCurrency(level)}</div>
-                          <div className="text-xs text-gray-400">
-                            {sellOrder.quantity.toFixed(6)} {symbol}
-                          </div>
+                      {order && isSellOrder && shouldBeSell && (
+                        <div className="inline-flex items-center gap-1 px-3 py-1 bg-green-500/20 rounded-full">
+                          <TrendingUp className="w-3 h-3 text-green-400" />
+                          <span className="text-green-400 font-medium text-sm">
+                            +{Math.abs(distance).toFixed(2)}%
+                          </span>
                         </div>
-                      ) : (
-                        <span className="text-gray-600">—</span>
+                      )}
+                      {!order && (
+                        <span className="text-gray-600 text-sm">—</span>
                       )}
                     </td>
                   </tr>
@@ -388,14 +400,14 @@ export function GridOrdersDisplay({
             <div>
               <div className="text-gray-400 mb-1">Buy Orders</div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded" />
+                <div className="w-3 h-3 bg-red-500 rounded" />
                 <span className="text-white font-bold text-lg">{buyOrders.length}</span>
               </div>
             </div>
             <div>
               <div className="text-gray-400 mb-1">Sell Orders</div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded" />
+                <div className="w-3 h-3 bg-green-500 rounded" />
                 <span className="text-white font-bold text-lg">{sellOrders.length}</span>
               </div>
             </div>
