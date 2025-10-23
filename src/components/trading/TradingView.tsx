@@ -48,6 +48,8 @@ export function TradingView() {
     environment?: string;
     loading: boolean;
   }>({ connected: false, loading: true });
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartTimeframe, setChartTimeframe] = useState('1d');
 
   const currentPrice = marketData?.price || 0;
 
@@ -134,9 +136,63 @@ export function TradingView() {
     }
   }, []);
 
+  const fetchChartData = useCallback(async (symbol: string, timeframe: string) => {
+    if (!symbol) {
+      setChartData([]);
+      return;
+    }
+
+    try {
+      const { supabase } = await import('../../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const timeframeMap: Record<string, string> = {
+        '1m': '1Min',
+        '5m': '5Min',
+        '15m': '15Min',
+        '30m': '15Min',
+        '1h': '1Hour',
+        '4h': '1Hour',
+        '1d': '1Day',
+        '1w': '1Day',
+      };
+
+      const apiTimeframe = timeframeMap[timeframe] || '1Day';
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE}/api/market-data/${symbol}/historical?timeframe=${apiTimeframe}&limit=100`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch chart data');
+      }
+
+      const data = await response.json();
+      const formattedData = data.map((bar: any) => ({
+        time: new Date(bar.timestamp).getTime(),
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+        volume: bar.volume,
+      }));
+      setChartData(formattedData);
+    } catch (error) {
+      console.error('Error fetching chart data:', error);
+      setChartData([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (selectedSymbol) {
       fetchMarketData(selectedSymbol);
+      fetchChartData(selectedSymbol, chartTimeframe);
 
       const interval = setInterval(() => {
         fetchMarketData(selectedSymbol);
@@ -145,8 +201,16 @@ export function TradingView() {
       return () => clearInterval(interval);
     } else {
       setMarketData(null);
+      setChartData([]);
     }
-  }, [selectedSymbol, fetchMarketData]);
+  }, [selectedSymbol, fetchMarketData, fetchChartData, chartTimeframe]);
+
+  const handleChartTimeframeChange = (timeframe: string) => {
+    setChartTimeframe(timeframe);
+    if (selectedSymbol) {
+      fetchChartData(selectedSymbol, timeframe);
+    }
+  };
 
   // Update market status every minute
   useEffect(() => {
@@ -520,10 +584,12 @@ export function TradingView() {
             <div>
               <TradingChart
                 symbol={selectedSymbol}
-                data={[]}
+                data={chartData}
                 chartType="candlestick"
                 height={400}
                 showVolume={true}
+                currentTimeframe={chartTimeframe}
+                onTimeframeChange={handleChartTimeframeChange}
               />
             </div>
           ) : (

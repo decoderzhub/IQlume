@@ -103,8 +103,20 @@ export function AssetDetailPage({ symbol, onBack, onTrade }: AssetDetailPageProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
+      const timeframeMap: Record<string, string> = {
+        '1m': '1Min',
+        '5m': '5Min',
+        '15m': '15Min',
+        '30m': '15Min',
+        '1h': '1Hour',
+        '4h': '1Hour',
+        '1d': '1Day',
+        '1w': '1Day',
+      };
+
+      const apiTimeframe = timeframeMap[timeframe] || '1Day';
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${API_BASE}/api/market-data/bars/${symbol}?timeframe=${timeframe}&limit=100`, {
+      const response = await fetch(`${API_BASE}/api/market-data/${symbol}/historical?timeframe=${apiTimeframe}&limit=100`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -113,7 +125,15 @@ export function AssetDetailPage({ symbol, onBack, onTrade }: AssetDetailPageProp
       if (!response.ok) throw new Error('Failed to fetch chart data');
 
       const data = await response.json();
-      setChartData(data);
+      const formattedData = data.map((bar: any) => ({
+        time: new Date(bar.timestamp).getTime(),
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+        volume: bar.volume,
+      }));
+      setChartData(formattedData);
     } catch (error) {
       console.error('Error fetching chart data:', error);
       setChartData([]);
