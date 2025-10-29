@@ -67,6 +67,7 @@ class PositionExitMonitor:
             ).eq("is_closed", False).execute()
 
             if not resp.data:
+                logger.debug("💤 No open positions - system is idle")
                 return
 
             # Filter positions with TP or SL configured
