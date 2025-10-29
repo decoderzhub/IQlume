@@ -13,6 +13,7 @@ from alpaca.trading.client import TradingClient
 from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
 from alpaca.common.exceptions import APIError as AlpacaAPIError
 from supabase import Client
+from services.risk_validator import RiskValidator
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class BaseStrategyExecutor(ABC):
         self.crypto_client = crypto_client
         self.supabase = supabase
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.risk_validator = RiskValidator(supabase)
     
     @abstractmethod
     async def execute(self, strategy_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -323,3 +325,64 @@ class BaseStrategyExecutor(ABC):
         except Exception as e:
             self.logger.error(f"❌ Error creating position with TP/SL: {e}", exc_info=True)
             return None
+
+    async def validate_trade_risk(
+        self,
+        user_id: str,
+        strategy_id: str,
+        symbol: str,
+        side: str,
+        quantity: float,
+        price: float
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Validate trade against risk management rules before execution.
+
+        Returns:
+            Tuple of (is_valid, error_message)
+            - (True, None) if trade passes all risk checks
+            - (False, error_message) if trade fails any risk check
+        """
+        try:
+            # Get account information
+            account = self.trading_client.get_account()
+            account_balance = float(account.equity)
+            buying_power = float(account.buying_power)
+
+            # Validate with risk validator
+            is_valid, error_msg = await self.risk_validator.validate_trade(
+                user_id=user_id,
+                strategy_id=strategy_id,
+                symbol=symbol,
+                side=side,
+                quantity=quantity,
+                price=price,
+                account_balance=account_balance,
+                buying_power=buying_power
+            )
+
+            if not is_valid:
+                self.logger.warning(f"❌ Risk validation failed: {error_msg}")
+                # Record risk event
+                try:
+                    self.supabase.table("bot_risk_events").insert({
+                        "user_id": user_id,
+                        "strategy_id": strategy_id,
+                        "event_type": "trade_rejected",
+                        "severity": "warning",
+                        "description": f"Trade rejected by risk validator: {error_msg}",
+                        "symbol": symbol,
+                        "proposed_quantity": quantity,
+                        "proposed_price": price,
+                        "account_balance": account_balance,
+                        "buying_power": buying_power
+                    }).execute()
+                except Exception as log_error:
+                    self.logger.error(f"Failed to log risk event: {log_error}")
+
+            return is_valid, error_msg
+
+        except Exception as e:
+            self.logger.error(f"❌ Error in risk validation: {e}", exc_info=True)
+            # Fail closed - reject trade if validation fails
+            return False, f"Risk validation system error: {str(e)}"

@@ -137,7 +137,110 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": "2025-01-15T12:00:00Z"}
+    """Basic health check endpoint for deployment monitoring"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": "1.0.0"
+    }
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with service status information"""
+    try:
+        from datetime import datetime, timezone
+
+        health_data = {
+            "status": "healthy",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "version": "1.0.0",
+            "services": {},
+            "system": {}
+        }
+
+        # Check scheduler status
+        try:
+            scheduler_status = await trading_scheduler.get_scheduler_status()
+            health_data["services"]["scheduler"] = {
+                "status": "running" if scheduler_status.get("scheduler_running") else "stopped",
+                "active_strategies": scheduler_status.get("active_strategies", 0),
+                "total_jobs": scheduler_status.get("total_jobs", 0)
+            }
+        except Exception as e:
+            health_data["services"]["scheduler"] = {"status": "error", "error": str(e)}
+
+        # Check order fill monitor
+        try:
+            health_data["services"]["order_fill_monitor"] = {
+                "status": "running" if order_fill_monitor.is_running else "stopped",
+                "check_interval": order_fill_monitor.check_interval,
+                "error_count": order_fill_monitor.error_count
+            }
+        except Exception as e:
+            health_data["services"]["order_fill_monitor"] = {"status": "error", "error": str(e)}
+
+        # Check trade sync service
+        try:
+            health_data["services"]["trade_sync"] = {
+                "status": "running" if trade_sync_service.is_running else "stopped",
+                "sync_interval": trade_sync_service.sync_interval,
+                "error_count": trade_sync_service.error_count
+            }
+        except Exception as e:
+            health_data["services"]["trade_sync"] = {"status": "error", "error": str(e)}
+
+        # Check grid price monitor
+        try:
+            if hasattr(app.state, 'grid_price_monitor'):
+                health_data["services"]["grid_monitor"] = {
+                    "status": "running" if app.state.grid_price_monitor.is_running else "stopped",
+                    "check_interval": app.state.grid_price_monitor.check_interval,
+                    "error_count": app.state.grid_price_monitor.error_count
+                }
+            else:
+                health_data["services"]["grid_monitor"] = {"status": "not_initialized"}
+        except Exception as e:
+            health_data["services"]["grid_monitor"] = {"status": "error", "error": str(e)}
+
+        # Check position exit monitor
+        try:
+            if hasattr(app.state, 'position_exit_monitor'):
+                health_data["services"]["position_exit_monitor"] = {
+                    "status": "running" if app.state.position_exit_monitor.is_running else "stopped",
+                    "check_interval": app.state.position_exit_monitor.check_interval,
+                    "error_count": app.state.position_exit_monitor.error_count
+                }
+            else:
+                health_data["services"]["position_exit_monitor"] = {"status": "not_initialized"}
+        except Exception as e:
+            health_data["services"]["position_exit_monitor"] = {"status": "error", "error": str(e)}
+
+        # Check database connectivity
+        try:
+            supabase = get_supabase_client()
+            test_query = supabase.table("trading_strategies").select("id").limit(1).execute()
+            health_data["services"]["database"] = {"status": "connected"}
+        except Exception as e:
+            health_data["services"]["database"] = {"status": "error", "error": str(e)}
+            health_data["status"] = "degraded"
+
+        # System information
+        import psutil
+        try:
+            health_data["system"]["memory_percent"] = psutil.virtual_memory().percent
+            health_data["system"]["cpu_percent"] = psutil.cpu_percent(interval=0.1)
+        except:
+            pass  # psutil not available in all environments
+
+        return health_data
+
+    except Exception as e:
+        logger.error(f"Error in detailed health check: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "error": str(e)
+        }
 
 # Broadcast function for SSE updates
 async def broadcast_trading_update(user_id: str, update_data: dict):
