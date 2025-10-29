@@ -608,3 +608,75 @@ async def get_backtest_results(
             status_code=500,
             detail=f"Failed to fetch backtest results: {str(e)}"
         )
+
+@router.get("/scheduler/status")
+async def get_scheduler_status(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user=Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Get the current status of the trading scheduler and active strategy jobs"""
+    try:
+        logger.info(f"📊 Fetching scheduler status for user {current_user.id}")
+
+        # Import scheduler from main app state
+        from main import trading_scheduler
+
+        if not trading_scheduler:
+            return {
+                "scheduler_running": False,
+                "active_strategies": 0,
+                "total_jobs": 0,
+                "jobs": [],
+                "error": "Scheduler not initialized"
+            }
+
+        # Get scheduler status
+        is_running = trading_scheduler.scheduler.running
+        all_jobs = trading_scheduler.scheduler.get_jobs()
+
+        # Filter to strategy jobs only (exclude system jobs)
+        strategy_jobs = [
+            job for job in all_jobs
+            if job.id.startswith("strategy_")
+        ]
+
+        # Get user's active strategies from database
+        strategies_resp = supabase.table("trading_strategies").select(
+            "id, name, type, is_active"
+        ).eq("user_id", current_user.id).eq("is_active", True).execute()
+
+        user_active_strategies = {s["id"]: s for s in strategies_resp.data} if strategies_resp.data else {}
+
+        # Build job details
+        job_details = []
+        for job in strategy_jobs:
+            strategy_id = job.id.replace("strategy_", "")
+
+            # Check if this strategy belongs to current user
+            if strategy_id in user_active_strategies:
+                strategy = user_active_strategies[strategy_id]
+                job_details.append({
+                    "job_id": job.id,
+                    "strategy_id": strategy_id,
+                    "strategy_name": strategy["name"],
+                    "strategy_type": strategy["type"],
+                    "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
+                    "interval_seconds": trading_scheduler.active_jobs.get(job.id, {}).get("interval_seconds"),
+                })
+
+        return {
+            "scheduler_running": is_running,
+            "active_strategies": len(user_active_strategies),
+            "scheduled_jobs": len(job_details),
+            "total_scheduler_jobs": len(all_jobs),
+            "jobs": job_details,
+            "next_reload": trading_scheduler.scheduler.get_job("reload_strategies").next_run_time.isoformat() if trading_scheduler.scheduler.get_job("reload_strategies") else None
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error fetching scheduler status: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch scheduler status: {str(e)}"
+        )
