@@ -15,6 +15,7 @@ from dependencies import (
 from strategy_executors.factory import StrategyExecutorFactory
 from services.market_data_service import market_data_service
 from services.grid_price_monitor import GridPriceMonitor
+from services.position_exit_monitor import PositionExitMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class TradingScheduler:
         self.active_jobs: Dict[str, Any] = {}
         self.supabase = get_supabase_client()
         self.grid_price_monitor = None
+        self.position_exit_monitor = None
 
     async def start(self):
         """Start the scheduler and load active strategies"""
@@ -39,6 +41,11 @@ class TradingScheduler:
         logger.info("🔍 Starting Grid Price Monitor...")
         self.grid_price_monitor = GridPriceMonitor(self.supabase)
         asyncio.create_task(self.grid_price_monitor.start())
+
+        # Start Position Exit Monitor for TP/SL automation
+        logger.info("🎯 Starting Position Exit Monitor for TP/SL automation...")
+        self.position_exit_monitor = PositionExitMonitor(self.supabase)
+        asyncio.create_task(self.position_exit_monitor.start())
 
         await self.load_active_strategies()
 
@@ -75,6 +82,10 @@ class TradingScheduler:
         # Stop Grid Price Monitor
         if self.grid_price_monitor:
             await self.grid_price_monitor.stop()
+
+        # Stop Position Exit Monitor
+        if self.position_exit_monitor:
+            await self.position_exit_monitor.stop()
 
         self.scheduler.shutdown()
         

@@ -170,20 +170,156 @@ class BaseStrategyExecutor(ABC):
         return None
     
     def update_strategy_telemetry(
-        self, 
-        strategy_id: str, 
+        self,
+        strategy_id: str,
         telemetry_data: Dict[str, Any]
     ) -> None:
         """Update strategy telemetry data in database"""
         try:
             telemetry_data['last_updated'] = datetime.now(timezone.utc).isoformat()
-            
+
             self.supabase.table("trading_strategies").update({
                 "telemetry_data": telemetry_data,
                 "last_execution": datetime.now(timezone.utc).isoformat(),
                 "execution_count": telemetry_data.get('execution_count', 0) + 1,
             }).eq("id", strategy_id).execute()
-            
+
             self.logger.info(f"✅ Updated telemetry for strategy {strategy_id}")
         except Exception as e:
             self.logger.error(f"❌ Error updating telemetry for strategy {strategy_id}: {e}")
+
+    def calculate_take_profit_price(
+        self,
+        entry_price: float,
+        take_profit_percent: float,
+        side: str = "long"
+    ) -> float:
+        """Calculate take profit price based on entry and percentage"""
+        if side == "long":
+            return entry_price * (1 + take_profit_percent / 100)
+        else:  # short
+            return entry_price * (1 - take_profit_percent / 100)
+
+    def calculate_stop_loss_price(
+        self,
+        entry_price: float,
+        stop_loss_percent: float,
+        side: str = "long"
+    ) -> float:
+        """Calculate stop loss price based on entry and percentage"""
+        if side == "long":
+            return entry_price * (1 - stop_loss_percent / 100)
+        else:  # short
+            return entry_price * (1 + stop_loss_percent / 100)
+
+    def calculate_trailing_stop_price(
+        self,
+        current_price: float,
+        trailing_distance_percent: float,
+        side: str = "long"
+    ) -> float:
+        """Calculate initial trailing stop price"""
+        if side == "long":
+            return current_price * (1 - trailing_distance_percent / 100)
+        else:  # short
+            return current_price * (1 + trailing_distance_percent / 100)
+
+    def create_position_with_tp_sl(
+        self,
+        strategy_id: str,
+        user_id: str,
+        symbol: str,
+        quantity: float,
+        entry_price: float,
+        side: str,
+        strategy_data: Dict[str, Any],
+        alpaca_order_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Create a position record with take profit and stop loss configured"""
+        try:
+            # Extract TP/SL configuration from strategy
+            stop_loss_percent = float(strategy_data.get("stop_loss_percent", 0))
+            take_profit_levels = strategy_data.get("take_profit_levels", [])
+            trailing_stop_percent = float(strategy_data.get("trailing_stop_loss_percent", 0))
+            stop_loss_type = strategy_data.get("stop_loss_type", "fixed")
+
+            # Calculate prices
+            take_profit_price = None
+            stop_loss_price = None
+            trailing_stop_price = None
+
+            # Set primary take profit if configured
+            if take_profit_levels and len(take_profit_levels) > 0:
+                first_level = take_profit_levels[0]
+                tp_percent = float(first_level.get("percent", 0))
+                if tp_percent > 0:
+                    take_profit_price = self.calculate_take_profit_price(
+                        entry_price, tp_percent, side
+                    )
+
+            # Set stop loss based on type
+            if stop_loss_percent > 0:
+                if stop_loss_type == "trailing" or trailing_stop_percent > 0:
+                    trailing_stop_price = self.calculate_trailing_stop_price(
+                        entry_price,
+                        trailing_stop_percent or stop_loss_percent,
+                        side
+                    )
+                else:
+                    stop_loss_price = self.calculate_stop_loss_price(
+                        entry_price, stop_loss_percent, side
+                    )
+
+            # Prepare take profit levels for storage
+            tp_levels_jsonb = []
+            for level in take_profit_levels:
+                tp_levels_jsonb.append({
+                    "percent": float(level.get("percent", 0)),
+                    "quantity_percent": float(level.get("quantity_percent", 100)),
+                    "price": self.calculate_take_profit_price(
+                        entry_price,
+                        float(level.get("percent", 0)),
+                        side
+                    ),
+                    "status": "pending"
+                })
+
+            # Create position record
+            position_data = {
+                "strategy_id": strategy_id,
+                "user_id": user_id,
+                "symbol": symbol,
+                "quantity": quantity,
+                "entry_price": entry_price,
+                "current_price": entry_price,
+                "side": side,
+                "is_closed": False,
+                "opened_at": datetime.now(timezone.utc).isoformat(),
+                "alpaca_order_id": alpaca_order_id,
+                "take_profit_price": take_profit_price,
+                "stop_loss_price": stop_loss_price,
+                "trailing_stop_price": trailing_stop_price,
+                "highest_price_reached": entry_price,
+                "lowest_price_reached": entry_price,
+                "take_profit_levels": tp_levels_jsonb,
+                "unrealized_pnl": 0,
+                "unrealized_pnl_percent": 0,
+                "realized_pnl": 0
+            }
+
+            resp = self.supabase.table("bot_positions").insert(position_data).execute()
+
+            if resp.data:
+                self.logger.info(
+                    f"✅ Position created: {symbol} | "
+                    f"Entry: ${entry_price:.2f} | "
+                    f"TP: ${take_profit_price:.2f if take_profit_price else 'None'} | "
+                    f"SL: ${stop_loss_price:.2f if stop_loss_price else 'None'}"
+                )
+                return resp.data[0]
+
+            return None
+
+        except Exception as e:
+            self.logger.error(f"❌ Error creating position with TP/SL: {e}", exc_info=True)
+            return None
