@@ -7,6 +7,7 @@ places orders at appropriate grid levels based on current price position.
 
 import asyncio
 import logging
+import os
 from typing import Dict, Any, List, Optional, Set
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
@@ -26,7 +27,11 @@ class GridPriceMonitor:
     def __init__(self, supabase: Client):
         self.supabase = supabase
         self.is_running = False
-        self.check_interval = 30  # Check every 30 seconds
+        self.check_interval = int(os.getenv('GRID_MONITOR_INTERVAL', '180'))
+        self.idle_sleep_duration = int(os.getenv('IDLE_SLEEP_DURATION', '300'))
+        self.error_count = 0
+        self.error_threshold_pause = int(os.getenv('ERROR_THRESHOLD_PAUSE', '5'))
+        self.error_pause_duration = int(os.getenv('ERROR_PAUSE_DURATION', '300'))
         self.price_cache: Dict[str, Dict[str, Any]] = {}
         self.active_strategies: Dict[str, Dict[str, Any]] = {}
         self.processing_locks: Dict[str, asyncio.Lock] = {}
@@ -40,10 +45,18 @@ class GridPriceMonitor:
         while self.is_running:
             try:
                 await self.monitor_cycle()
+                self.error_count = 0  # Reset on success
                 await asyncio.sleep(self.check_interval)
             except Exception as e:
-                logger.error(f"❌ Error in grid price monitor loop: {e}", exc_info=True)
-                await asyncio.sleep(self.check_interval)
+                self.error_count += 1
+                logger.error(f"❌ Error in grid price monitor loop (error #{self.error_count}): {e}", exc_info=True)
+
+                if self.error_count >= self.error_threshold_pause:
+                    logger.error(f"🛑 Grid monitor pausing for {self.error_pause_duration}s due to errors")
+                    await asyncio.sleep(self.error_pause_duration)
+                    self.error_count = 0
+                else:
+                    await asyncio.sleep(self.check_interval)
 
     async def stop(self):
         """Stop the grid price monitoring loop"""

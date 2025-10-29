@@ -64,6 +64,22 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(order_fill_monitor.start())
     logger.info("🔍 Order fill monitor started (event-based grid trading)")
 
+    # Start Grid Price Monitor (single instance, NOT started in scheduler)
+    from services.grid_price_monitor import GridPriceMonitor
+    grid_price_monitor = GridPriceMonitor(supabase)
+    asyncio.create_task(grid_price_monitor.start())
+    logger.info("📈 Grid price monitor started")
+
+    # Start Position Exit Monitor for TP/SL automation (single instance)
+    from services.position_exit_monitor import PositionExitMonitor
+    position_exit_monitor = PositionExitMonitor(supabase)
+    asyncio.create_task(position_exit_monitor.start())
+    logger.info("🎯 Position exit monitor started (TP/SL automation)")
+
+    # Store service references for shutdown
+    app.state.grid_price_monitor = grid_price_monitor
+    app.state.position_exit_monitor = position_exit_monitor
+
     # Start autonomous trading scheduler
     asyncio.create_task(trading_scheduler.start())
     logger.info("🚀 Autonomous trading scheduler started")
@@ -77,6 +93,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("🛑 Shutting down brokernomex backend...")
     await order_fill_monitor.stop()
+    await app.state.grid_price_monitor.stop()
+    await app.state.position_exit_monitor.stop()
     await trading_scheduler.stop()
     await trade_sync_service.stop()
 

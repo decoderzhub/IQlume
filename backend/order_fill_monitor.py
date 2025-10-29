@@ -8,8 +8,9 @@ grid trading instead of time-based periodic checks.
 
 import asyncio
 import logging
+import os
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import GetOrdersRequest
 from alpaca.trading.enums import OrderStatus, QueryOrderStatus
@@ -24,21 +25,43 @@ class OrderFillMonitor:
     def __init__(self, supabase: Client):
         self.supabase = supabase
         self.is_running = False
-        self.check_interval = 10  # Check every 10 seconds for faster order updates
+        # Use environment variable or safe default (120 seconds)
+        self.check_interval = int(os.getenv('ORDER_FILL_CHECK_INTERVAL', '120'))
+        self.idle_sleep_duration = int(os.getenv('IDLE_SLEEP_DURATION', '300'))
+        self.error_count = 0
+        self.error_threshold_warning = int(os.getenv('ERROR_THRESHOLD_WARNING', '3'))
+        self.error_threshold_pause = int(os.getenv('ERROR_THRESHOLD_PAUSE', '5'))
+        self.error_pause_duration = int(os.getenv('ERROR_PAUSE_DURATION', '300'))
+        self.max_query_days_back = int(os.getenv('MAX_QUERY_DAYS_BACK', '7'))
 
     async def start(self):
         """Start the order fill monitoring loop"""
         logger.info("🔍 Starting order fill monitor for grid orders...")
-        logger.info("📡 Will check grid order status with Alpaca every 10 seconds")
+        logger.info(f"📡 Will check grid order status every {self.check_interval} seconds")
         self.is_running = True
 
         while self.is_running:
             try:
                 await self.check_order_fills()
+                # Reset error counter on success
+                self.error_count = 0
                 await asyncio.sleep(self.check_interval)
             except Exception as e:
-                logger.error(f"❌ Error in order fill monitor loop: {e}", exc_info=True)
-                await asyncio.sleep(self.check_interval)
+                self.error_count += 1
+                logger.error(f"❌ Error in order fill monitor loop (error #{self.error_count}): {e}", exc_info=True)
+
+                # Circuit breaker logic
+                if self.error_count >= self.error_threshold_pause:
+                    logger.error(f"🛑 Order fill monitor pausing for {self.error_pause_duration}s due to {self.error_count} consecutive errors")
+                    await asyncio.sleep(self.error_pause_duration)
+                    self.error_count = 0  # Reset after pause
+                elif self.error_count >= self.error_threshold_warning:
+                    # Double sleep interval temporarily
+                    sleep_duration = self.check_interval * 2
+                    logger.warning(f"⚠️ Doubling sleep interval to {sleep_duration}s due to errors")
+                    await asyncio.sleep(sleep_duration)
+                else:
+                    await asyncio.sleep(self.check_interval)
 
     async def stop(self):
         """Stop the order fill monitoring loop"""
@@ -55,6 +78,7 @@ class OrderFillMonitor:
             ).in_("status", ["pending", "partially_filled"]).eq("is_stale", False).execute()
 
             if not resp.data:
+                logger.debug("💤 No pending orders found - system is idle")
                 return
 
             # Filter out orders older than 7 days (double-check in case index isn't used)

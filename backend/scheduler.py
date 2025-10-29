@@ -37,15 +37,8 @@ class TradingScheduler:
             logger.info("📊 Initializing market data service...")
             asyncio.create_task(self.initialize_market_data())
 
-        # Start Grid Price Monitor
-        logger.info("🔍 Starting Grid Price Monitor...")
-        self.grid_price_monitor = GridPriceMonitor(self.supabase)
-        asyncio.create_task(self.grid_price_monitor.start())
-
-        # Start Position Exit Monitor for TP/SL automation
-        logger.info("🎯 Starting Position Exit Monitor for TP/SL automation...")
-        self.position_exit_monitor = PositionExitMonitor(self.supabase)
-        asyncio.create_task(self.position_exit_monitor.start())
+        # NOTE: Grid Price Monitor and Position Exit Monitor are started in main.py
+        # to prevent duplicate service instances that caused backend crashes
 
         await self.load_active_strategies()
 
@@ -79,13 +72,7 @@ class TradingScheduler:
         """Stop the scheduler"""
         logger.info("🛑 Stopping trading scheduler...")
 
-        # Stop Grid Price Monitor
-        if self.grid_price_monitor:
-            await self.grid_price_monitor.stop()
-
-        # Stop Position Exit Monitor
-        if self.position_exit_monitor:
-            await self.position_exit_monitor.stop()
+        # Grid Price Monitor and Position Exit Monitor stopped in main.py
 
         self.scheduler.shutdown()
         

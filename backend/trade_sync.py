@@ -5,6 +5,7 @@ This service periodically checks pending trades and updates their status based o
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
 from dependencies import (
@@ -22,21 +23,32 @@ class TradeSyncService:
     def __init__(self):
         self.supabase = get_supabase_client()
         self.is_running = False
+        self.sync_interval = int(os.getenv('TRADE_SYNC_INTERVAL', '180'))
+        self.error_count = 0
+        self.error_threshold_pause = int(os.getenv('ERROR_THRESHOLD_PAUSE', '5'))
+        self.error_pause_duration = int(os.getenv('ERROR_PAUSE_DURATION', '300'))
         
     async def start(self):
         """Start the trade sync service"""
         self.is_running = True
         logger.info("🔄 Starting trade sync service for manual orders...")
-        logger.info("📡 Will sync pending orders with Alpaca every 30 seconds")
+        logger.info(f"📡 Will sync pending orders with Alpaca every {self.sync_interval} seconds")
 
         while self.is_running:
             try:
                 await self.sync_pending_trades()
-                # Run every 30 seconds for faster order status updates
-                await asyncio.sleep(30)
+                self.error_count = 0  # Reset on success
+                await asyncio.sleep(self.sync_interval)
             except Exception as e:
-                logger.error(f"❌ Error in trade sync loop: {e}")
-                await asyncio.sleep(30)  # Wait 30 seconds before retrying
+                self.error_count += 1
+                logger.error(f"❌ Error in trade sync loop (error #{self.error_count}): {e}", exc_info=True)
+
+                if self.error_count >= self.error_threshold_pause:
+                    logger.error(f"🛑 Trade sync pausing for {self.error_pause_duration}s due to errors")
+                    await asyncio.sleep(self.error_pause_duration)
+                    self.error_count = 0
+                else:
+                    await asyncio.sleep(self.sync_interval)
     
     async def stop(self):
         """Stop the trade sync service"""

@@ -7,6 +7,7 @@ Executes exit orders automatically when conditions are met.
 
 import asyncio
 import logging
+import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
@@ -24,21 +25,33 @@ class PositionExitMonitor:
     def __init__(self, supabase: Client):
         self.supabase = supabase
         self.is_running = False
-        self.check_interval = 10  # Check every 10 seconds
+        self.check_interval = int(os.getenv('EXIT_MONITOR_INTERVAL', '90'))
+        self.idle_sleep_duration = int(os.getenv('IDLE_SLEEP_DURATION', '300'))
+        self.error_count = 0
+        self.error_threshold_pause = int(os.getenv('ERROR_THRESHOLD_PAUSE', '5'))
+        self.error_pause_duration = int(os.getenv('ERROR_PAUSE_DURATION', '300'))
 
     async def start(self):
         """Start the position exit monitoring loop"""
         logger.info("🎯 Starting position exit monitor for TP/SL automation...")
-        logger.info("📊 Will check all open positions every 10 seconds")
+        logger.info(f"📊 Will check all open positions every {self.check_interval} seconds")
         self.is_running = True
 
         while self.is_running:
             try:
                 await self.check_all_positions()
+                self.error_count = 0  # Reset on success
                 await asyncio.sleep(self.check_interval)
             except Exception as e:
-                logger.error(f"❌ Error in position exit monitor loop: {e}", exc_info=True)
-                await asyncio.sleep(self.check_interval)
+                self.error_count += 1
+                logger.error(f"❌ Error in position exit monitor loop (error #{self.error_count}): {e}", exc_info=True)
+
+                if self.error_count >= self.error_threshold_pause:
+                    logger.error(f"🛑 Position exit monitor pausing for {self.error_pause_duration}s due to errors")
+                    await asyncio.sleep(self.error_pause_duration)
+                    self.error_count = 0
+                else:
+                    await asyncio.sleep(self.check_interval)
 
     async def stop(self):
         """Stop the position exit monitoring loop"""
