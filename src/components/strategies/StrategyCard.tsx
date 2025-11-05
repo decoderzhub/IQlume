@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Play, 
-  Pause, 
-  Settings, 
-  BarChart3, 
-  TrendingUp, 
+import {
+  Play,
+  Pause,
+  Settings,
+  BarChart3,
+  TrendingUp,
   TrendingDown,
   Clock,
   Target,
@@ -13,7 +13,8 @@ import {
   Activity,
   ArrowUp,
   ArrowDown,
-  Minus
+  Minus,
+  Stethoscope
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Card } from '../ui/Card';
@@ -31,9 +32,10 @@ interface StrategyCardProps {
   onViewDetails: () => void;
   onBacktest: () => void;
   onExecute?: () => Promise<void>;
+  onDiagnose?: () => void;
 }
 
-export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, onExecute }: StrategyCardProps) {
+export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, onExecute, onDiagnose }: StrategyCardProps) {
   const { user, getEffectiveSubscriptionTier } = useStore();
   const [isExecuting, setIsExecuting] = React.useState(false);
   const [currentPrice, setCurrentPrice] = React.useState<number | null>(null);
@@ -675,6 +677,18 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         >
           <BarChart3 className="w-3.5 h-3.5" />
         </Button>
+
+        {isGridStrategy && onDiagnose && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDiagnose}
+            className="h-8 px-2"
+            title="Run Diagnostics"
+          >
+            <Stethoscope className="w-3.5 h-3.5" />
+          </Button>
+        )}
       </div>
     </Card>
   );

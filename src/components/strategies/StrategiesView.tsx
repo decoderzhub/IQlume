@@ -7,6 +7,7 @@ import { StrategyCard } from './StrategyCard';
 import { CreateStrategyModal } from './CreateStrategyModal';
 import { StrategyDetailsModal } from './StrategyDetailsModal';
 import { BacktestModal } from './BacktestModal';
+import { GridBotDiagnostics } from './GridBotDiagnostics';
 import { TradingStrategy } from '../../types';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
@@ -62,6 +63,7 @@ export function StrategiesView() {
   const [selectedStrategy, setSelectedStrategy] = useState<TradingStrategy | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showBacktestModal, setShowBacktestModal] = useState(false);
+  const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
   const [strategies, setStrategies] = useState<TradingStrategy[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useStore();
@@ -231,6 +233,11 @@ export function StrategiesView() {
   const handleBacktest = (strategy: TradingStrategy) => {
     setSelectedStrategy(strategy);
     setShowBacktestModal(true);
+  };
+
+  const handleDiagnose = (strategy: TradingStrategy) => {
+    setSelectedStrategy(strategy);
+    setShowDiagnosticsModal(true);
   };
 
   const handleCreateStrategy = async (strategyData: Omit<TradingStrategy, 'id'>) => {
@@ -515,6 +522,7 @@ export function StrategiesView() {
                         onViewDetails={() => handleViewDetails(strategy)}
                         onBacktest={() => handleBacktest(strategy)}
                         onExecute={handleExecuteStrategy}
+                        onDiagnose={() => handleDiagnose(strategy)}
                       />
                     </motion.div>
                   ))}
@@ -603,44 +611,13 @@ export function StrategiesView() {
         <BacktestModal
           strategy={selectedStrategy}
           onClose={() => setShowBacktestModal(false)}
-          onSave={(updatedStrategy) => {
-            // Optimistically update local state
-            setStrategies(prev => prev.map(s => 
-              s.id === updatedStrategy.id ? updatedStrategy : s
-            ));
-            
-            const updateStrategyInDB = async () => {
-              if (!user) return;
-              
-              try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session?.access_token) {
-                  throw new Error('No valid session found. Please log in again.');
-                }
+        />
+      )}
 
-                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/strategies/${updatedStrategy.id}`, {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                  },
-                  body: JSON.stringify(updatedStrategy),
-                });
-
-                if (!response.ok) {
-                  const errorText = await response.text();
-                  throw new Error(`Failed to save strategy changes after backtest: ${response.status} ${errorText}`);
-                } else {
-                  console.log('Strategy updated successfully after backtest');
-                }
-              } catch (error) {
-                console.error('Unexpected error updating strategy after backtest:', error);
-                alert('An unexpected error occurred while saving the strategy');
-              }
-            };            
-            updateStrategyInDB();
-            setShowBacktestModal(false);
-          }}
+      {showDiagnosticsModal && selectedStrategy && (
+        <GridBotDiagnostics
+          strategyId={selectedStrategy.id}
+          onClose={() => setShowDiagnosticsModal(false)}
         />
       )}
         </>

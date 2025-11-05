@@ -80,7 +80,14 @@ async def create_strategy(
         should_auto_execute = strategy_data.auto_start or (created_strategy.type in ["spot_grid", "futures_grid", "reverse_grid", "infinity_grid"])
 
         if should_auto_execute:
-            logger.info(f"🚀 Auto-start enabled for {created_strategy.name}, executing immediately")
+            logger.info(f"🚀 Auto-start enabled for {created_strategy.name}, activating and executing immediately")
+
+            # CRITICAL FIX: Set is_active to True when auto_start is enabled
+            supabase.table("trading_strategies").update({
+                "is_active": True
+            }).eq("id", created_strategy.id).execute()
+
+            logger.info(f"✅ Strategy {created_strategy.id} activated (is_active=true)")
 
         # Immediately execute the strategy after creation if auto_start is enabled
         if should_auto_execute:
