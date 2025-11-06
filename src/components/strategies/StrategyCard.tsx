@@ -95,7 +95,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 30);
 
-        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/historical?symbol=${tradingSymbol}&timeframe=1Day&start=${startDate.toISOString()}&end=${endDate.toISOString()}&limit=100`;
+        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/${tradingSymbol}/historical?timeframe=1Day&start=${startDate.toISOString()}&end=${endDate.toISOString()}&limit=100`;
         console.log('Fetching from:', apiUrl);
 
         const historicalResponse = await fetch(apiUrl, {
@@ -107,11 +107,14 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         if (historicalResponse.ok) {
           const historicalData = await historicalResponse.json();
           console.log(`📊 Received historical data:`, historicalData);
-          console.log(`📊 Number of bars: ${historicalData.bars?.length || 0}`);
 
-          if (historicalData.bars && historicalData.bars.length > 0) {
+          // API returns array directly, not wrapped in {bars: [...]}
+          const bars = Array.isArray(historicalData) ? historicalData : (historicalData.bars || []);
+          console.log(`📊 Number of bars: ${bars.length}`);
+
+          if (bars && bars.length > 0) {
             // Convert to lightweight-charts format (use date string for daily bars)
-            const formattedData: CandlestickData<Time>[] = historicalData.bars.map((bar: any) => {
+            const formattedData: CandlestickData<Time>[] = bars.map((bar: any) => {
               const timestamp = new Date(bar.timestamp).getTime() / 1000;
               return {
                 time: timestamp as Time,
@@ -126,7 +129,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
             setCandleData(formattedData);
 
             // Set current price from latest bar
-            const latestBar = historicalData.bars[historicalData.bars.length - 1];
+            const latestBar = bars[bars.length - 1];
             setCurrentPrice(latestBar.close);
             console.log(`Current price from latest bar: $${latestBar.close}`);
           } else {
