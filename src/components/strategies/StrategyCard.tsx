@@ -16,7 +16,7 @@ import {
   Minus,
   Stethoscope
 } from 'lucide-react';
-import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import { CandlestickData, Time } from 'lightweight-charts';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TradingStrategy } from '../../types';
@@ -25,6 +25,7 @@ import { cn } from '../../lib/utils';
 import { INITIAL_LAUNCH_STRATEGY_TYPES, STRATEGY_TIERS, SubscriptionTier } from '../../lib/constants';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
+import { StrategyCandlestickChart } from '../charts/StrategyCandlestickChart';
 
 interface StrategyCardProps {
   strategy: TradingStrategy;
@@ -39,8 +40,10 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
   const { user, getEffectiveSubscriptionTier } = useStore();
   const [isExecuting, setIsExecuting] = React.useState(false);
   const [currentPrice, setCurrentPrice] = React.useState<number | null>(null);
-  const [priceHistory, setPriceHistory] = React.useState<Array<{ time: number; price: number }>>([]);
+  const [candleData, setCandleData] = React.useState<CandlestickData<Time>[]>([]);
+  const [strategyTrades, setStrategyTrades] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [chartLoading, setChartLoading] = React.useState(false);
   const [telemetryData, setTelemetryData] = React.useState<any>(null);
   
   // Check if strategy is implemented
@@ -72,94 +75,88 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     takeProfitLevels: strategy.take_profit_levels || [],
   } : null;
 
-  // Fetch real-time price data for active strategies
+  // Fetch historical candlestick data and trades for active strategies
   React.useEffect(() => {
     if (!strategy.is_active || !tradingSymbol || tradingSymbol === 'N/A' || !user) return;
-    
-    const fetchPriceData = async () => {
+
+    const fetchChartData = async () => {
       try {
-        setLoading(true);
-        console.log(`📈 Fetching live price for ${tradingSymbol}...`);
+        setChartLoading(true);
+        console.log(`📈 Fetching candlestick data for ${tradingSymbol}...`);
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (!session?.access_token) return;
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/live-prices?symbols=${tradingSymbol}`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
+        // Fetch historical bars (last 7 days, 1 hour timeframe for better detail)
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
 
-        if (response.ok) {
-          const data = await response.json();
-          const symbolData = data[tradingSymbol.toUpperCase()];
-          console.log(`💲 Live price for ${tradingSymbol}:`, symbolData?.price || 'No price data');
-          
-          if (symbolData && typeof symbolData.price === 'number' && symbolData.price > 0) {
-            setCurrentPrice(symbolData.price);
-            
-            // Add to price history
-            const now = Date.now();
-            setPriceHistory(prev => {
-              const newHistory = [...prev, { time: now, price: symbolData.price }];
-              // Keep only last 20 points
-              return newHistory.slice(-20);
-            });
-          } else if (symbolData && (symbolData.bid_price || symbolData.ask_price)) {
-            // Fallback to bid/ask if price is not available
-            const fallbackPrice = symbolData.ask_price || symbolData.bid_price || 0;
-            if (fallbackPrice > 0) {
-              setCurrentPrice(fallbackPrice);
-              const now = Date.now();
-              setPriceHistory(prev => {
-                const newHistory = [...prev, { time: now, price: fallbackPrice }];
-                return newHistory.slice(-20);
-              });
-            }
-          } else {
-            console.warn(`⚠️ No valid price data for ${tradingSymbol}, using fallback`);
-            // For demo purposes, set realistic prices
-            if (tradingSymbol.toUpperCase() === 'BTC') {
-              setCurrentPrice(52000 + Math.random() * 8000); // $52K-$60K range
-            } else if (tradingSymbol.toUpperCase() === 'AAPL') {
-              setCurrentPrice(240 + Math.random() * 20); // $240-$260 range
-            }
+        const historicalResponse = await fetch(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/historical?symbol=${tradingSymbol}&timeframe=1Hour&start=${startDate.toISOString()}&end=${endDate.toISOString()}&limit=200`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
           }
-        } else {
-          const errorText = await response.text();
-          console.error(`❌ Failed to fetch market data for ${tradingSymbol}:`, response.status, errorText);
-          // Set fallback prices for demo
-          if (tradingSymbol.toUpperCase() === 'BTC') {
-            setCurrentPrice(52000 + Math.random() * 8000);
-          } else if (tradingSymbol.toUpperCase() === 'AAPL') {
-            setCurrentPrice(240 + Math.random() * 20);
+        );
+
+        if (historicalResponse.ok) {
+          const historicalData = await historicalResponse.json();
+          console.log(`📊 Received ${historicalData.bars?.length || 0} bars for ${tradingSymbol}`);
+
+          if (historicalData.bars && historicalData.bars.length > 0) {
+            // Convert to lightweight-charts format
+            const formattedData: CandlestickData<Time>[] = historicalData.bars.map((bar: any) => ({
+              time: (new Date(bar.timestamp).getTime() / 1000) as Time,
+              open: bar.open,
+              high: bar.high,
+              low: bar.low,
+              close: bar.close,
+            }));
+
+            setCandleData(formattedData);
+
+            // Set current price from latest bar
+            const latestBar = historicalData.bars[historicalData.bars.length - 1];
+            setCurrentPrice(latestBar.close);
           }
         }
-        
+
+        // Fetch strategy trades
+        const tradesResponse = await fetch(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/trades?strategy_id=${strategy.id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          }
+        );
+
+        if (tradesResponse.ok) {
+          const tradesData = await tradesResponse.json();
+          console.log(`📈 Received ${tradesData.length || 0} trades for strategy`);
+          setStrategyTrades(tradesData || []);
+        }
+
         // Extract telemetry data from strategy if available
         if (strategy.telemetry_data) {
           setTelemetryData(strategy.telemetry_data);
         }
       } catch (error) {
-        console.error(`Error fetching price data for ${tradingSymbol}:`, error);
-        // Set fallback prices for demo
-        if (tradingSymbol.toUpperCase() === 'BTC') {
-          setCurrentPrice(52000 + Math.random() * 8000);
-        } else if (tradingSymbol.toUpperCase() === 'AAPL') {
-          setCurrentPrice(240 + Math.random() * 20);
-        }
+        console.error(`Error fetching chart data for ${tradingSymbol}:`, error);
       } finally {
-        setLoading(false);
+        setChartLoading(false);
       }
     };
 
     // Initial fetch
-    fetchPriceData();
-    
-    // Update every 15 seconds for active strategies
-    const interval = setInterval(fetchPriceData, 15000);
+    fetchChartData();
+
+    // Update every 60 seconds for active strategies
+    const interval = setInterval(fetchChartData, 60000);
     return () => clearInterval(interval);
-  }, [strategy.is_active, tradingSymbol, user]);
+  }, [strategy.is_active, strategy.id, tradingSymbol, user]);
 
   // Determine price position relative to grid
   const getPricePosition = () => {
@@ -436,59 +433,28 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         </div>
       </div>
 
-      {/* Real-time Price Chart for Active Strategies */}
-      {strategy.is_active && priceHistory.length > 5 && (
+      {/* Candlestick Chart for Active Strategies */}
+      {strategy.is_active && (
         <div className="mb-4">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-gray-400">Price Movement</span>
-            <span className="text-[10px] text-gray-500">Last 10 updates</span>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-gray-400">Price Chart (7 Days)</span>
+            <span className="text-[10px] text-gray-500">{tradingSymbol}</span>
           </div>
-          <div className="h-20 bg-gray-800/30 rounded-lg p-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={priceHistory}>
-                <defs>
-                  <linearGradient id={`gradient-${strategy.id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="time" hide />
-                <YAxis domain={['dataMin - 1', 'dataMax + 1']} hide />
-                <Area
-                  type="monotone"
-                  dataKey="price"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  fill={`url(#gradient-${strategy.id})`}
-                  dot={false}
-                />
-                {/* Grid level lines for grid strategies */}
-                {isGridStrategy && gridConfig && gridConfig.lower && gridConfig.upper && (
-                  <>
-                    {/* Grid boundary lines */}
-                    <defs>
-                      <pattern id={`lowerLine-${strategy.id}`} patternUnits="userSpaceOnUse" width="4" height="4">
-                        <path d="M 0,4 l 4,0" stroke="#10b981" strokeWidth="1" strokeDasharray="2,2"/>
-                      </pattern>
-                      <pattern id={`upperLine-${strategy.id}`} patternUnits="userSpaceOnUse" width="4" height="4">
-                        <path d="M 0,4 l 4,0" stroke="#ef4444" strokeWidth="1" strokeDasharray="2,2"/>
-                      </pattern>
-                      <pattern id={`stopLossLine-${strategy.id}`} patternUnits="userSpaceOnUse" width="6" height="6">
-                        <path d="M 0,6 l 6,0" stroke="#dc2626" strokeWidth="2" strokeDasharray="3,3"/>
-                      </pattern>
-                      <pattern id={`takeProfitLine-${strategy.id}`} patternUnits="userSpaceOnUse" width="6" height="6">
-                        <path d="M 0,6 l 6,0" stroke="#059669" strokeWidth="2" strokeDasharray="3,3"/>
-                      </pattern>
-                    </defs>
-                  </>
-                )}
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          
+
+          <StrategyCandlestickChart
+            symbol={tradingSymbol}
+            candleData={candleData}
+            trades={strategyTrades}
+            gridLevels={isGridStrategy && gridConfig ? {
+              lower: gridConfig.lower,
+              upper: gridConfig.upper,
+            } : undefined}
+            loading={chartLoading}
+          />
+
           {/* Grid level indicators */}
           {isGridStrategy && gridConfig && gridConfig.lower && gridConfig.upper && (
-            <div className="space-y-1 mt-2">
+            <div className="space-y-1 mt-3">
               <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1">
                 <div className="w-2 h-0.5 bg-green-400"></div>
