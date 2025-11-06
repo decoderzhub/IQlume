@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -11,10 +11,11 @@ import {
   Menu,
   X,
   LogOut,
-  LineChart
+  LineChart,
+  Shield
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { auth } from '../../lib/supabase';
+import { auth, supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 
 const navigation = [
@@ -29,10 +30,41 @@ const navigation = [
 ];
 
 export function Sidebar() {
-  const { sidebarOpen, setSidebarOpen, activeView, setActiveView, setUser } = useStore();
+  const { sidebarOpen, setSidebarOpen, activeView, setActiveView, setUser, user } = useStore();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user?.email) return;
+
+      try {
+        const { data, error } = await supabase.rpc('is_admin', { user_email: user.email });
+        if (!error && data) {
+          setIsAdmin(true);
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      }
+    };
+
+    checkAdminStatus();
+  }, [user]);
 
   const handleSignOut = async () => {
     try {
+      // Log logout activity before signing out
+      if (user?.id) {
+        try {
+          await supabase.rpc('log_user_activity', {
+            p_user_id: user.id,
+            p_activity_type: 'logout',
+            p_metadata: {}
+          });
+        } catch (logError) {
+          console.error('Failed to log logout activity:', logError);
+        }
+      }
+
       await auth.signOut();
       setUser(null);
     } catch (error) {
@@ -233,10 +265,50 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* Sign Out Button */}
-        <div className="p-4 border-t border-gray-800">
+        {/* Admin & Sign Out Buttons */}
+        <div className="p-4 border-t border-gray-800 space-y-2">
+          {isAdmin && (
+            <motion.button
+              whileHover={{
+                x: sidebarOpen ? 4 : 0,
+                scale: sidebarOpen ? 1 : 1.1
+              }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setActiveView('admin' as any)}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200',
+                activeView === 'admin'
+                  ? 'bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-purple-400 border border-purple-500/30'
+                  : 'text-purple-400 hover:text-purple-300 hover:bg-purple-500/10'
+              )}
+              title={!sidebarOpen ? 'Admin' : undefined}
+            >
+              <Shield className="w-5 h-5 flex-shrink-0" />
+              <AnimatePresence>
+                {sidebarOpen && (
+                  <motion.span
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{
+                      opacity: 1,
+                      width: "auto",
+                      transition: { delay: 0.1, duration: 0.2 }
+                    }}
+                    exit={{
+                      opacity: 0,
+                      width: 0,
+                      transition: { duration: 0.1 }
+                    }}
+                    className="font-medium whitespace-nowrap overflow-hidden"
+                  >
+                    Admin
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.button>
+          )}
+
           <motion.button
-            whileHover={{ 
+            whileHover={{
               x: sidebarOpen ? 4 : 0,
               scale: sidebarOpen ? 1 : 1.1
             }}
@@ -248,15 +320,15 @@ export function Sidebar() {
             <LogOut className="w-5 h-5 flex-shrink-0" />
             <AnimatePresence>
               {sidebarOpen && (
-                <motion.span 
+                <motion.span
                   initial={{ opacity: 0, width: 0 }}
-                  animate={{ 
-                    opacity: 1, 
+                  animate={{
+                    opacity: 1,
                     width: "auto",
                     transition: { delay: 0.1, duration: 0.2 }
                   }}
-                  exit={{ 
-                    opacity: 0, 
+                  exit={{
+                    opacity: 0,
                     width: 0,
                     transition: { duration: 0.1 }
                   }}

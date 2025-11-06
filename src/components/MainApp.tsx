@@ -9,6 +9,7 @@ import { SettingsView } from './settings/SettingsView';
 import { AnalyticsView } from './analytics/AnalyticsView';
 import { TradingView } from './trading/TradingView';
 import { ErrorNotification } from './ui/ErrorNotification';
+import { AdminDashboard } from './admin/AdminDashboard';
 
 import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
@@ -90,6 +91,8 @@ export function MainApp() {
         return <AnalyticsView />;
       case 'settings':
         return <SettingsView />;
+      case 'admin':
+        return <AdminDashboard />;
       default:
         return <Dashboard />;
     }

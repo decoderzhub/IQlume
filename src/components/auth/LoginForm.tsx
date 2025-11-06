@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { auth } from '../../lib/supabase';
+import { auth, supabase } from '../../lib/supabase';
 import { useStore } from '../../store/useStore';
 
 interface LoginFormProps {
@@ -22,12 +22,12 @@ export function LoginForm({ onBack }: LoginFormProps) {
     setLoading(true);
 
     try {
-      const { data, error } = isLogin 
+      const { data, error } = isLogin
         ? await auth.signIn(email, password)
         : await auth.signUp(email, password);
 
       if (error) throw error;
-      
+
       if (data.user) {
         setUser({
           id: data.user.id,
@@ -36,6 +36,19 @@ export function LoginForm({ onBack }: LoginFormProps) {
           created_at: data.user.created_at,
           is_verified: data.user.email_confirmed_at !== null,
         });
+
+        // Log user activity for admin dashboard
+        if (isLogin) {
+          try {
+            await supabase.rpc('log_user_activity', {
+              p_user_id: data.user.id,
+              p_activity_type: 'login',
+              p_metadata: {}
+            });
+          } catch (logError) {
+            console.error('Failed to log user activity:', logError);
+          }
+        }
       }
     } catch (error) {
       console.error('Auth error:', error);
