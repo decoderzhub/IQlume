@@ -139,11 +139,27 @@ async def place_order(
         alpaca_order = trading_client.submit_order(order_request)
 
         logger.info(f"✅ Order submitted successfully. Alpaca Order ID: {alpaca_order.id}")
-        logger.info(f"📊 Order status: {alpaca_order.status}")
+        logger.info(f"📊 Initial order status: {alpaca_order.status}")
+
+        # For market orders, wait briefly and check if it filled immediately
+        if order_type.lower() == "market":
+            import time
+            time.sleep(1.5)  # Wait 1.5 seconds for market order to fill
+            try:
+                # Fetch updated order status
+                updated_order = trading_client.get_order_by_id(alpaca_order.id)
+                if updated_order.status != alpaca_order.status:
+                    logger.info(f"📊 Order status updated: {alpaca_order.status} → {updated_order.status}")
+                    alpaca_order = updated_order
+            except Exception as status_check_error:
+                logger.warning(f"⚠️ Could not check updated order status: {status_check_error}")
 
         # Determine appropriate price for database record
-        # For limit/stop orders, use those prices; for market orders use a placeholder that meets DB constraint
-        db_price = float(limit_price or stop_price or 0.01)  # Use 0.01 as minimum to satisfy price > 0 constraint
+        # For limit/stop orders, use those prices; for market orders use filled price or placeholder
+        if alpaca_order.filled_avg_price and float(alpaca_order.filled_avg_price) > 0:
+            db_price = float(alpaca_order.filled_avg_price)
+        else:
+            db_price = float(limit_price or stop_price or 0.01)  # Use 0.01 as minimum to satisfy price > 0 constraint
 
         # Determine order status based on Alpaca response and market conditions
         # Map Alpaca status to our database status
