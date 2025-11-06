@@ -105,7 +105,7 @@ async def create_strategy(
                 crypto_client = await get_alpaca_crypto_data_client(current_user, supabase)
 
                 # Get strategy executor from factory
-                executor = StrategyExecutorFactory.create_executor(
+                executor = f.create_executor(
                     created_strategy.type,
                     trading_client,
                     stock_client,
