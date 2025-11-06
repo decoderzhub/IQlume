@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, IChartApi, ISeriesApi, CandlestickData, Time } from 'lightweight-charts';
+import { createChart, IChartApi, ISeriesApi, CandlestickData, Time, UTCTimestamp } from 'lightweight-charts';
 
 interface Trade {
   price: number;
+  filled_avg_price?: number;
   quantity: number;
   type: 'buy' | 'sell';
   created_at: string;
@@ -33,7 +34,7 @@ export function StrategyCandlestickChart({
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // Create chart
+    // Create chart with EST timezone
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { color: '#1a1a1a' },
@@ -44,14 +45,35 @@ export function StrategyCandlestickChart({
         horzLines: { color: '#2B2B43' },
       },
       width: chartContainerRef.current.clientWidth,
-      height: 200,
+      height: 250,
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
         borderColor: '#2B2B43',
+        tickMarkFormatter: (time: UTCTimestamp) => {
+          const date = new Date((time as number) * 1000);
+          return date.toLocaleString('en-US', {
+            timeZone: 'America/New_York',
+            month: 'short',
+            day: 'numeric'
+          });
+        },
       },
       rightPriceScale: {
         borderColor: '#2B2B43',
+      },
+      localization: {
+        timeFormatter: (time: UTCTimestamp) => {
+          const date = new Date((time as number) * 1000);
+          return date.toLocaleString('en-US', {
+            timeZone: 'America/New_York',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+          });
+        },
       },
     });
 
@@ -99,16 +121,27 @@ export function StrategyCandlestickChart({
 
   // Add trade markers
   useEffect(() => {
-    if (!candlestickSeriesRef.current || !trades || trades.length === 0) return;
+    if (!candlestickSeriesRef.current || !trades || trades.length === 0) {
+      console.log('No trades to display on chart');
+      return;
+    }
 
-    const markers = trades.map(trade => ({
-      time: (new Date(trade.created_at).getTime() / 1000) as Time,
-      position: trade.type === 'buy' ? 'belowBar' : 'aboveBar' as const,
-      color: trade.type === 'buy' ? '#26a69a' : '#ef5350',
-      shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown' as const,
-      text: `${trade.type.toUpperCase()} @ ${trade.price.toFixed(2)}`,
-    }));
+    console.log(`Adding ${trades.length} trade markers to chart:`, trades);
 
+    const markers = trades
+      .filter(trade => trade.created_at)
+      .map(trade => {
+        const tradePrice = trade.filled_avg_price || trade.price;
+        return {
+          time: (new Date(trade.created_at).getTime() / 1000) as Time,
+          position: trade.type === 'buy' ? 'belowBar' : 'aboveBar' as const,
+          color: trade.type === 'buy' ? '#26a69a' : '#ef5350',
+          shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown' as const,
+          text: `${trade.type.toUpperCase()} ${trade.quantity} @ $${tradePrice.toFixed(2)}`,
+        };
+      });
+
+    console.log('Formatted markers:', markers);
     candlestickSeriesRef.current.setMarkers(markers);
   }, [trades]);
 
@@ -140,7 +173,7 @@ export function StrategyCandlestickChart({
 
   if (loading) {
     return (
-      <div className="h-[200px] bg-gray-800/30 rounded-lg flex items-center justify-center">
+      <div className="h-[250px] bg-gray-800/30 rounded-lg flex items-center justify-center">
         <div className="text-gray-400 text-sm">Loading chart data...</div>
       </div>
     );
@@ -148,8 +181,11 @@ export function StrategyCandlestickChart({
 
   if (!candleData || candleData.length === 0) {
     return (
-      <div className="h-[200px] bg-gray-800/30 rounded-lg flex items-center justify-center">
-        <div className="text-gray-400 text-sm">No market data available for {symbol}</div>
+      <div className="h-[250px] bg-gray-800/30 rounded-lg flex items-center justify-center">
+        <div className="text-gray-400 text-sm flex flex-col items-center gap-2">
+          <div>No market data available for {symbol}</div>
+          <div className="text-xs text-gray-500">Chart will load when market data is fetched</div>
+        </div>
       </div>
     );
   }

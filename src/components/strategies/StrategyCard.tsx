@@ -85,58 +85,75 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         console.log(`📈 Fetching candlestick data for ${tradingSymbol}...`);
         const { data: { session } } = await supabase.auth.getSession();
 
-        if (!session?.access_token) return;
+        if (!session?.access_token) {
+          console.log('No session token available');
+          return;
+        }
 
-        // Fetch historical bars (last 7 days, 1 hour timeframe for better detail)
+        // Fetch historical bars (last 30 days, daily timeframe to show full trading days)
         const endDate = new Date();
         const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 7);
+        startDate.setDate(startDate.getDate() - 30);
 
-        const historicalResponse = await fetch(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/historical?symbol=${tradingSymbol}&timeframe=1Hour&start=${startDate.toISOString()}&end=${endDate.toISOString()}&limit=200`,
-          {
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-          }
-        );
+        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/historical?symbol=${tradingSymbol}&timeframe=1Day&start=${startDate.toISOString()}&end=${endDate.toISOString()}&limit=100`;
+        console.log('Fetching from:', apiUrl);
+
+        const historicalResponse = await fetch(apiUrl, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
 
         if (historicalResponse.ok) {
           const historicalData = await historicalResponse.json();
-          console.log(`📊 Received ${historicalData.bars?.length || 0} bars for ${tradingSymbol}`);
+          console.log(`📊 Received historical data:`, historicalData);
+          console.log(`📊 Number of bars: ${historicalData.bars?.length || 0}`);
 
           if (historicalData.bars && historicalData.bars.length > 0) {
-            // Convert to lightweight-charts format
-            const formattedData: CandlestickData<Time>[] = historicalData.bars.map((bar: any) => ({
-              time: (new Date(bar.timestamp).getTime() / 1000) as Time,
-              open: bar.open,
-              high: bar.high,
-              low: bar.low,
-              close: bar.close,
-            }));
+            // Convert to lightweight-charts format (use date string for daily bars)
+            const formattedData: CandlestickData<Time>[] = historicalData.bars.map((bar: any) => {
+              const timestamp = new Date(bar.timestamp).getTime() / 1000;
+              return {
+                time: timestamp as Time,
+                open: parseFloat(bar.open),
+                high: parseFloat(bar.high),
+                low: parseFloat(bar.low),
+                close: parseFloat(bar.close),
+              };
+            });
 
+            console.log('Formatted candle data:', formattedData.slice(0, 3));
             setCandleData(formattedData);
 
             // Set current price from latest bar
             const latestBar = historicalData.bars[historicalData.bars.length - 1];
             setCurrentPrice(latestBar.close);
+            console.log(`Current price from latest bar: $${latestBar.close}`);
+          } else {
+            console.warn('No bars in historical data');
           }
+        } else {
+          const errorText = await historicalResponse.text();
+          console.error(`Failed to fetch historical data: ${historicalResponse.status}`, errorText);
         }
 
         // Fetch strategy trades
-        const tradesResponse = await fetch(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/trades?strategy_id=${strategy.id}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-          }
-        );
+        const tradesUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/trades?strategy_id=${strategy.id}`;
+        console.log('Fetching trades from:', tradesUrl);
+
+        const tradesResponse = await fetch(tradesUrl, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
 
         if (tradesResponse.ok) {
           const tradesData = await tradesResponse.json();
-          console.log(`📈 Received ${tradesData.length || 0} trades for strategy`);
+          console.log(`📈 Received ${tradesData.length || 0} trades for strategy:`, tradesData);
           setStrategyTrades(tradesData || []);
+        } else {
+          const errorText = await tradesResponse.text();
+          console.error(`Failed to fetch trades: ${tradesResponse.status}`, errorText);
         }
 
         // Extract telemetry data from strategy if available
