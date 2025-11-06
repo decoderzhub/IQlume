@@ -61,7 +61,7 @@ export async function searchSymbols(query: string): Promise<SymbolSearchResult[]
   }
 
   try {
-    return await apiClient.get<SymbolSearchResult[]>('/market_data/search', {
+    return await apiClient.get<SymbolSearchResult[]>('/api/market-data/search', {
       params: { q: query },
     });
   } catch (error) {
@@ -72,7 +72,7 @@ export async function searchSymbols(query: string): Promise<SymbolSearchResult[]
 
 export function useSymbolSearch(query?: string) {
   return useAPI<SymbolSearchResult[]>(
-    query && query.length > 0 ? `/market_data/search?q=${query}` : null,
+    query && query.length > 0 ? `/api/market-data/search?q=${query}` : null,
     {
       cacheTime: 600000,
     }
@@ -110,7 +110,7 @@ export function useOptionsChain(symbol?: string, expiration?: string) {
     : '';
 
   return useAPI<OptionsChain>(
-    symbol ? `/market_data/options/${symbol}${queryString}` : null,
+    symbol ? `/api/market-data/options/${symbol}${queryString}` : null,
     {
       refetchInterval: 30000,
       cacheTime: 60000,
