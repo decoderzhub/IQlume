@@ -425,7 +425,7 @@ function EndpointHealthTab({ endpoints, onCheckHealth, loading }: { endpoints: E
                   )}
                   <div>
                     <p className="text-white font-medium">{endpoint.endpoint_name}</p>
-                    <p className="text-gray-400 text-xs">{endpoint.endpoint_url}</p>
+                    <p className="text-gray-300 text-xs">{endpoint.endpoint_url}</p>
                   </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -437,12 +437,12 @@ function EndpointHealthTab({ endpoints, onCheckHealth, loading }: { endpoints: E
                 </span>
               </div>
               <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-2 text-gray-400">
+                <div className="flex items-center gap-2 text-white">
                   <Server className="w-4 h-4" />
                   <span>{endpoint.response_time_ms || 0}ms</span>
                 </div>
                 {endpoint.last_checked_at && (
-                  <span className="text-gray-500 text-xs">
+                  <span className="text-gray-300 text-xs">
                     {format(new Date(endpoint.last_checked_at), 'h:mm:ss a')}
                   </span>
                 )}
