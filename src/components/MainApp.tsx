@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sidebar } from './layout/Sidebar';
 import { Header } from './layout/Header';
 import { Dashboard } from './dashboard/Dashboard';
@@ -10,6 +10,7 @@ import { AnalyticsView } from './analytics/AnalyticsView';
 import { TradingView } from './trading/TradingView';
 import { ErrorNotification } from './ui/ErrorNotification';
 import { AdminDashboard } from './admin/AdminDashboard';
+import { EnvironmentSwitchModal } from './trading/EnvironmentSwitchModal';
 
 import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
@@ -29,6 +30,9 @@ export function MainApp() {
     globalError,
     setGlobalError
   } = useStore();
+
+  const [showEnvironmentModal, setShowEnvironmentModal] = useState(false);
+  const [targetEnvironment, setTargetEnvironment] = useState<'paper' | 'live'>('paper');
 
   // Enable real-time updates for autonomous trading
   const { isConnected } = useRealTimeUpdates();
@@ -73,6 +77,35 @@ export function MainApp() {
     loadAccounts();
   }, [user, brokerageAccounts.length, setBrokerageAccounts, updatePortfolioFromAccounts]);
 
+  const handleShowEnvironmentModal = (environment: 'paper' | 'live') => {
+    setTargetEnvironment(environment);
+    setShowEnvironmentModal(true);
+  };
+
+  const handleConfirmEnvironmentSwitch = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await supabase
+        .from('trading_environment_preferences')
+        .upsert({
+          user_id: session.user.id,
+          current_environment: targetEnvironment,
+          default_environment: targetEnvironment,
+          show_confirmation_on_switch: true,
+        });
+
+      setShowEnvironmentModal(false);
+    } catch (error) {
+      console.error('Error updating environment:', error);
+    }
+  };
+
+  const handleCancelEnvironmentSwitch = () => {
+    setShowEnvironmentModal(false);
+  };
+
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
@@ -101,7 +134,7 @@ export function MainApp() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900/20 to-purple-900/20">
       <Sidebar />
-      <Header isConnected={isConnected} />
+      <Header isConnected={isConnected} onShowEnvironmentModal={handleShowEnvironmentModal} />
       <ErrorNotification
         error={globalError}
         onDismiss={() => setGlobalError(null)}
@@ -120,6 +153,13 @@ export function MainApp() {
       )}>
         {renderView()}
       </main>
+
+      <EnvironmentSwitchModal
+        isOpen={showEnvironmentModal}
+        targetEnvironment={targetEnvironment}
+        onConfirm={handleConfirmEnvironmentSwitch}
+        onCancel={handleCancelEnvironmentSwitch}
+      />
     </div>
   );
 }

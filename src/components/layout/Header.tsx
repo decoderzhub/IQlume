@@ -9,9 +9,10 @@ import { EnvironmentToggle } from '../trading/EnvironmentToggle';
 
 interface HeaderProps {
   isConnected: boolean;
+  onShowEnvironmentModal: (environment: 'paper' | 'live') => void;
 }
 
-export function Header({ isConnected }: HeaderProps) {
+export function Header({ isConnected, onShowEnvironmentModal }: HeaderProps) {
   const { user, setUser, sidebarOpen, setSidebarOpen, activeView } = useStore();
   const showEnvironmentToggle = ['trading', 'dashboard'].includes(activeView);
 
@@ -46,7 +47,7 @@ export function Header({ isConnected }: HeaderProps) {
           {/* Environment Toggle - Show on trading and dashboard views */}
           {showEnvironmentToggle && (
             <div className="hidden md:block">
-              <EnvironmentToggle />
+              <EnvironmentToggle onShowModal={onShowEnvironmentModal} />
             </div>
           )}
 
