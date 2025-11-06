@@ -336,6 +336,9 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
             <h3 className="font-semibold text-white text-base">{strategy.name}</h3>
             <div className={`w-2.5 h-2.5 rounded-full ${strategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
           </div>
+          <div className="mb-2">
+            <span className="text-[10px] text-gray-500 font-mono">ID: {strategy.id?.slice(0, 8)}</span>
+          </div>
           
           {/* Trading Symbol and Current Price */}
           <div className="flex items-center gap-2 mb-2">

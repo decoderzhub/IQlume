@@ -100,6 +100,7 @@ export function TradingStrategies() {
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${strategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
                 </div>
                 <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-500 font-mono">ID: {strategy.id?.slice(0, 8)}</span>
                   {(strategy.base_symbol || strategy.configuration?.symbol) && (
                     <span className="text-xs text-blue-400 font-medium">
                       {strategy.base_symbol || strategy.configuration?.symbol}
