@@ -209,7 +209,7 @@ export function AdminDashboard() {
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-blue-500 text-blue-500'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
+                  : 'border-transparent text-white hover:text-gray-300'
               }`}
             >
               <Icon className="w-4 h-4" />
