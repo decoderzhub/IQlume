@@ -75,18 +75,28 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     takeProfitLevels: strategy.take_profit_levels || [],
   } : null;
 
+  // Debug candleData changes
+  React.useEffect(() => {
+    console.log(`🔍 [StrategyCard] CandleData changed for ${tradingSymbol}:`, candleData.length, 'bars');
+  }, [candleData, tradingSymbol]);
+
   // Fetch historical candlestick data and trades for all strategies (both active and inactive)
   React.useEffect(() => {
-    if (!tradingSymbol || tradingSymbol === 'N/A' || !user) return;
+    if (!tradingSymbol || tradingSymbol === 'N/A' || !user) {
+      console.log(`⏭️ [StrategyCard] Skipping fetch - tradingSymbol: ${tradingSymbol}, user: ${!!user}`);
+      return;
+    }
 
     const fetchChartData = async () => {
       try {
         setChartLoading(true);
-        console.log(`📈 Fetching candlestick data for ${tradingSymbol}...`);
+        console.log(`📈 [StrategyCard] Fetching candlestick data for ${tradingSymbol}...`);
+        console.log(`📈 [StrategyCard] Strategy ID: ${strategy.id}, Type: ${strategy.type}`);
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session?.access_token) {
-          console.log('No session token available');
+          console.error('❌ [StrategyCard] No session token available');
+          setChartLoading(false);
           return;
         }
 
@@ -100,7 +110,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         const endStr = endDate.toISOString().split('T')[0];
 
         const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/${tradingSymbol}/historical?timeframe=1Day&start=${startStr}&end=${endStr}&limit=100`;
-        console.log('Fetching from:', apiUrl);
+        console.log('📊 [StrategyCard] Fetching from:', apiUrl);
 
         const historicalResponse = await fetch(apiUrl, {
           headers: {
@@ -108,13 +118,15 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           },
         });
 
+        console.log(`📊 [StrategyCard] Response status: ${historicalResponse.status}`);
+
         if (historicalResponse.ok) {
           const historicalData = await historicalResponse.json();
-          console.log(`📊 Received historical data:`, historicalData);
+          console.log(`📊 [StrategyCard] Received historical data:`, historicalData);
 
           // The /{symbol}/historical endpoint returns a direct array of bars
           const bars = Array.isArray(historicalData) ? historicalData : [];
-          console.log(`📊 Number of bars: ${bars.length}`);
+          console.log(`📊 [StrategyCard] Number of bars: ${bars.length}`);
 
           if (bars && bars.length > 0) {
             // Convert to lightweight-charts format (use date string for daily bars)
@@ -129,19 +141,22 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               };
             });
 
-            console.log('Formatted candle data:', formattedData.slice(0, 3));
+            console.log('📊 [StrategyCard] Formatted candle data (first 3):', formattedData.slice(0, 3));
+            console.log('📊 [StrategyCard] Setting candleData state with', formattedData.length, 'bars');
             setCandleData(formattedData);
 
             // Set current price from latest bar
             const latestBar = bars[bars.length - 1];
             setCurrentPrice(latestBar.close);
-            console.log(`Current price from latest bar: $${latestBar.close}`);
+            console.log(`📊 [StrategyCard] Current price from latest bar: $${latestBar.close}`);
           } else {
-            console.warn('No bars in historical data');
+            console.warn('⚠️ [StrategyCard] No bars in historical data - chart will show empty state');
+            setCandleData([]);
           }
         } else {
           const errorText = await historicalResponse.text();
-          console.error(`Failed to fetch historical data: ${historicalResponse.status}`, errorText);
+          console.error(`❌ [StrategyCard] Failed to fetch historical data: ${historicalResponse.status}`, errorText);
+          setCandleData([]);
         }
 
         // Fetch strategy trades
@@ -168,8 +183,10 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           setTelemetryData(strategy.telemetry_data);
         }
       } catch (error) {
-        console.error(`Error fetching chart data for ${tradingSymbol}:`, error);
+        console.error(`❌ [StrategyCard] Error fetching chart data for ${tradingSymbol}:`, error);
+        setCandleData([]);
       } finally {
+        console.log(`📊 [StrategyCard] Finished loading chart data for ${tradingSymbol}`);
         setChartLoading(false);
       }
     };
