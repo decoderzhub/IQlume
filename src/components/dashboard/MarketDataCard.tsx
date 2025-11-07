@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Info, Activity } from 'lucide-react';
-import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Card } from '../ui/Card';
 import { formatCurrency } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { TradingChart } from '../charts/TradingChart';
+import { getMarketStatus } from '../../lib/marketHours';
+import { useStore } from '../../store/useStore';
 
 interface StrategyPerformanceData {
   strategy: {
@@ -60,10 +62,72 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
     historicalData,
   } = strategyData;
 
+  const { user } = useStore();
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [loadingChart, setLoadingChart] = useState(false);
+  const marketStatus = getMarketStatus();
+
   React.useEffect(() => {
     console.log('[MarketDataCard] Rendering strategy:', strategy.name, 'ID:', strategy.id);
     console.log('[MarketDataCard] Current profit:', currentProfit, 'Total investment:', totalInvestment);
   }, [strategy.id, strategy.name, currentProfit, totalInvestment]);
+
+  // Fetch historical chart data
+  useEffect(() => {
+    const fetchChartData = async () => {
+      if (!strategy.base_symbol || !user) return;
+
+      try {
+        setLoadingChart(true);
+        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+        // Get data for the last 7 days
+        const end = new Date();
+        const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const startStr = start.toISOString().split('T')[0];
+        const endStr = end.toISOString().split('T')[0];
+
+        const { data: { session } } = await import('../../lib/supabase').then(m => m.supabase.auth.getSession());
+        if (!session) return;
+
+        const response = await fetch(
+          `${API_BASE}/api/market-data/${strategy.base_symbol}/historical?timeframe=1Hour&start=${startStr}&end=${endStr}&limit=200`,
+          {
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+          }
+        );
+
+        if (!response.ok) {
+          console.error('[MarketDataCard] Failed to fetch chart data');
+          return;
+        }
+
+        const data = await response.json();
+        const bars = data[strategy.base_symbol] || [];
+
+        if (bars.length > 0) {
+          const formattedData = bars.map((bar: any) => ({
+            time: new Date(bar.timestamp).getTime() / 1000,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+            volume: bar.volume || 0,
+          }));
+          setChartData(formattedData);
+          console.log('[MarketDataCard] Loaded', formattedData.length, 'chart bars for', strategy.base_symbol);
+        } else {
+          console.warn('[MarketDataCard] No historical data available for', strategy.base_symbol);
+        }
+      } catch (error) {
+        console.error('[MarketDataCard] Error fetching chart data:', error);
+      } finally {
+        setLoadingChart(false);
+      }
+    };
+
+    fetchChartData();
+  }, [strategy.base_symbol, strategy.id, user]);
 
   // Get symbol from multiple possible locations
   // Priority: base_symbol > configuration.symbol > type
@@ -230,41 +294,41 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
         </div>
       )}
 
-      {historicalData && historicalData.length > 0 && (
-        <div className="h-48 mb-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={historicalData}>
-              <defs>
-                <linearGradient id={`gradient-${strategy.id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={isProfit ? "#10b981" : "#ef4444"} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={isProfit ? "#10b981" : "#ef4444"} stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="timeLabel"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: '#d1d5db' }}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                domain={['dataMin - 10', 'dataMax + 10']}
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: '#d1d5db' }}
-                tickFormatter={(value) => formatCurrency(value)}
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke={isProfit ? "#10b981" : "#ef4444"}
-                strokeWidth={2}
-                fill={`url(#gradient-${strategy.id})`}
-                dot={false}
-                activeDot={{ r: 4, fill: isProfit ? '#10b981' : '#ef4444', strokeWidth: 2, stroke: '#ffffff' }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+      {/* Price Chart - Show when we have data */}
+      {chartData.length > 0 && (
+        <div className="mb-4">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm text-gray-400">Price History (Last 7 Days)</span>
+            {!marketStatus.isOpen && (
+              <span className="text-xs text-yellow-500">Market Closed - Historical Data</span>
+            )}
+          </div>
+          <TradingChart
+            symbol={strategy.base_symbol || symbol}
+            data={chartData}
+            chartType="line"
+            height={250}
+            showVolume={false}
+            showGrid={true}
+          />
+        </div>
+      )}
+
+      {/* Loading state */}
+      {loadingChart && chartData.length === 0 && (
+        <div className="h-48 mb-4 flex items-center justify-center bg-gray-800/30 rounded-lg">
+          <div className="text-gray-400 text-sm">Loading chart data...</div>
+        </div>
+      )}
+
+      {/* No data state */}
+      {!loadingChart && chartData.length === 0 && strategy.base_symbol && (
+        <div className="h-48 mb-4 flex items-center justify-center bg-gray-800/30 rounded-lg border border-gray-700">
+          <div className="text-center">
+            <Activity className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+            <div className="text-gray-400 text-sm">No chart data available for {strategy.base_symbol}</div>
+            <div className="text-gray-500 text-xs mt-1">Historical data will load when available</div>
+          </div>
         </div>
       )}
     </Card>

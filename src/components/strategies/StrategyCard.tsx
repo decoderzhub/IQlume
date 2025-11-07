@@ -95,7 +95,11 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 30);
 
-        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/${tradingSymbol}/historical?timeframe=1Day&start=${startDate.toISOString()}&end=${endDate.toISOString()}&limit=100`;
+        // Format dates as YYYY-MM-DD (backend expects date-only format)
+        const startStr = startDate.toISOString().split('T')[0];
+        const endStr = endDate.toISOString().split('T')[0];
+
+        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/${tradingSymbol}/historical?timeframe=1Day&start=${startStr}&end=${endStr}&limit=100`;
         console.log('Fetching from:', apiUrl);
 
         const historicalResponse = await fetch(apiUrl, {
@@ -108,8 +112,8 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           const historicalData = await historicalResponse.json();
           console.log(`📊 Received historical data:`, historicalData);
 
-          // API returns array directly, not wrapped in {bars: [...]}
-          const bars = Array.isArray(historicalData) ? historicalData : (historicalData.bars || []);
+          // The /{symbol}/historical endpoint returns a direct array of bars
+          const bars = Array.isArray(historicalData) ? historicalData : [];
           console.log(`📊 Number of bars: ${bars.length}`);
 
           if (bars && bars.length > 0) {

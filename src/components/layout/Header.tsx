@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, User, LogOut, Menu } from 'lucide-react';
+import { Bell, User, LogOut, Menu, Clock } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useStore } from '../../store/useStore';
 import { auth } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 import { EnvironmentToggle } from '../trading/EnvironmentToggle';
 import { getMarketStatus } from '../../lib/marketHours';
+import { getTimezoneAbbreviation, formatTimeOnly } from '../../lib/timezone';
 
 interface HeaderProps {
   isConnected: boolean;
@@ -14,7 +15,7 @@ interface HeaderProps {
 }
 
 export function Header({ isConnected, onShowEnvironmentModal }: HeaderProps) {
-  const { user, setUser, sidebarOpen, setSidebarOpen, activeView } = useStore();
+  const { user, setUser, sidebarOpen, setSidebarOpen, activeView, userTimezone } = useStore();
   const showEnvironmentToggle = ['trading', 'dashboard'].includes(activeView);
   const [marketStatus, setMarketStatus] = useState(getMarketStatus());
 
@@ -61,6 +62,14 @@ export function Header({ isConnected, onShowEnvironmentModal }: HeaderProps) {
               <EnvironmentToggle onShowModal={onShowEnvironmentModal} />
             </div>
           )}
+
+          {/* Timezone Display */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700" title={`Your timezone: ${userTimezone}`}>
+            <Clock className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-xs font-medium text-gray-300">
+              {getTimezoneAbbreviation(userTimezone)}
+            </span>
+          </div>
 
           {/* Market Status Indicator */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700">
