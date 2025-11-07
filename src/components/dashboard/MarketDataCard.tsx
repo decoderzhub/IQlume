@@ -82,13 +82,20 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-teal-500 to-green-500 rounded-full flex items-center justify-center">
           <Activity className="w-5 h-5 text-white" />
         </div>
-        <div>
-          <h3 className="text-lg font-semibold text-white">
-            {strategy.name}
-            {symbol && symbol !== strategy.type.toUpperCase() && (
-              <span className="ml-2 text-blue-400">({symbol})</span>
+        <div className="flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-white">
+              {strategy.name}
+              {symbol && symbol !== strategy.type.toUpperCase() && (
+                <span className="ml-2 text-blue-400">({symbol})</span>
+              )}
+            </h3>
+            {strategy.id && (
+              <span className="text-xs text-gray-400 font-mono">
+                ID: {strategy.id.slice(0, 8)}
+              </span>
             )}
-          </h3>
+          </div>
           <p className="text-sm text-gray-400">
             Active for {timeActive} {strategy.created_at && `(Created ${new Date(strategy.created_at).toLocaleDateString()})`}
           </p>
