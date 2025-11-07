@@ -93,14 +93,16 @@ export function TradingStrategies() {
           >
             <div className="flex items-start justify-between mb-2">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-medium text-white text-sm truncate">
-                    {strategy.name}
-                  </h4>
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${strategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-white text-sm truncate">
+                      {strategy.name}
+                    </h4>
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${strategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
+                  </div>
+                  <span className="text-xs text-white font-mono">ID: {strategy.id?.slice(0, 8)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-500 font-mono">ID: {strategy.id?.slice(0, 8)}</span>
                   {(strategy.base_symbol || strategy.configuration?.symbol) && (
                     <span className="text-xs text-blue-400 font-medium">
                       {strategy.base_symbol || strategy.configuration?.symbol}
