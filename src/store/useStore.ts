@@ -8,19 +8,20 @@ interface AppState {
   isAuthenticated: boolean;
   loading: boolean;
   isDeveloperMode: boolean;
-  
+  userTimezone: string;
+
   // Portfolio state
   portfolio: Portfolio | null;
   brokerageAccounts: BrokerageAccount[];
   bankAccounts: BankAccount[];
   custodialWallets: CustodialWallet[];
   selectedAccount: string | null;
-  
+
   // Trading state
   strategies: TradingStrategy[];
   activeStrategy: TradingStrategy | null;
   trades: Trade[];
-  
+
   // UI state
   sidebarOpen: boolean;
   activeView: 'dashboard' | 'strategies' | 'ai-chat' | 'trades' | 'accounts' | 'analytics' | 'settings';
@@ -28,6 +29,7 @@ interface AppState {
 
   // Actions
   setUser: (user: User | null) => void;
+  setUserTimezone: (timezone: string) => void;
   setPortfolio: (portfolio: Portfolio) => void;
   setBrokerageAccounts: (accounts: BrokerageAccount[]) => void;
   setBankAccounts: (accounts: BankAccount[]) => void;
@@ -51,6 +53,7 @@ export const useStore = create<AppState>((set) => ({
   isAuthenticated: false,
   loading: false,
   isDeveloperMode: typeof window !== 'undefined' ? localStorage.getItem('brokernomex_developer_mode') === 'true' : false,
+  userTimezone: 'America/New_York', // Default to EST
   portfolio: null,
   brokerageAccounts: [],
   bankAccounts: [],
@@ -65,6 +68,7 @@ export const useStore = create<AppState>((set) => ({
 
   // Actions
   setUser: (user) => set({ user, isAuthenticated: !!user }),
+  setUserTimezone: (timezone) => set({ userTimezone: timezone }),
   setPortfolio: (portfolio) => set({ portfolio }),
   setBrokerageAccounts: (accounts) => set({ brokerageAccounts: accounts }, false, 'setBrokerageAccounts'),
   setBankAccounts: (accounts) => set({ bankAccounts: accounts }, false, 'setBankAccounts'),

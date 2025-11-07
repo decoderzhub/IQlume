@@ -16,6 +16,7 @@ import { StrategiesView } from './strategies/StrategiesView';
 import { AccountsView } from './accounts/AccountsView';
 import { TradesView } from './trades/TradesView';
 import { useRealTimeUpdates } from '../hooks/useRealTimeUpdates';
+import { useUserTimezone } from '../hooks/useUserTimezone';
 import { supabase } from '../lib/supabase';
 import { BrokerageAccount } from '../types';
 
@@ -36,6 +37,9 @@ export function MainApp() {
 
   // Enable real-time updates for autonomous trading
   const { isConnected } = useRealTimeUpdates();
+
+  // Load user's timezone on app startup
+  useUserTimezone();
 
   // Load brokerage accounts from database on app initialization
   useEffect(() => {

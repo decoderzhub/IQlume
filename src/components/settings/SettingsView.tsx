@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   User,
@@ -16,14 +16,16 @@ import {
   Mail,
   Settings as SettingsIcon,
   Code,
-  Crown
+  Crown,
+  Clock
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { useStore } from '../../store/useStore';
-import { auth } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { formatDate } from '../../lib/utils';
 import { MarketDataDebugPanel } from '../debug/MarketDataDebugPanel';
+import { COMMON_TIMEZONES, getBrowserTimezone, isValidTimezone } from '../../lib/timezone';
 
 export function SettingsView() {
   const { user, setUser, isDeveloperMode, setIsDeveloperMode, getEffectiveSubscriptionTier } = useStore();
@@ -38,19 +40,76 @@ export function SettingsView() {
   const [theme, setTheme] = useState('dark');
   const [language, setLanguage] = useState('en');
   const [currency, setCurrency] = useState('USD');
+  const [timezone, setTimezone] = useState<string>('America/New_York');
+  const [saving, setSaving] = useState(false);
+
+  // Load user's timezone from profile
+  useEffect(() => {
+    const loadUserTimezone = async () => {
+      if (!user?.id) return;
+
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('timezone')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (data?.timezone) {
+        setTimezone(data.timezone);
+      } else {
+        // Try to detect user's browser timezone
+        const browserTz = getBrowserTimezone();
+        if (isValidTimezone(browserTz)) {
+          setTimezone(browserTz);
+        }
+      }
+    };
+
+    loadUserTimezone();
+  }, [user?.id]);
 
   const handleSignOut = async () => {
     try {
-      await auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
-  const handleSaveSettings = () => {
-    // In a real app, this would save to the backend
-    alert('Settings saved successfully!');
+  const handleSaveSettings = async () => {
+    if (!user?.id) return;
+
+    try {
+      setSaving(true);
+
+      // Validate timezone
+      if (!isValidTimezone(timezone)) {
+        alert('Invalid timezone selected');
+        return;
+      }
+
+      // Update user profile with timezone
+      const { error } = await supabase
+        .from('user_profiles')
+        .upsert({
+          user_id: user.id,
+          timezone,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      alert('Settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert('Failed to save settings. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const subscriptionTiers = {
@@ -353,17 +412,24 @@ export function SettingsView() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Time Zone</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                <Clock className="w-4 h-4 inline mr-2" />
+                Time Zone
+              </label>
               <select
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-                defaultValue="America/New_York"
               >
-                <option value="America/New_York">Eastern Time (ET)</option>
-                <option value="America/Chicago">Central Time (CT)</option>
-                <option value="America/Denver">Mountain Time (MT)</option>
-                <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                <option value="UTC">UTC</option>
+                {COMMON_TIMEZONES.map((tz) => (
+                  <option key={tz.timezone} value={tz.timezone}>
+                    {tz.displayName} ({tz.offset})
+                  </option>
+                ))}
               </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Critical for accurate market hours and trade timing. US markets operate on Eastern Time.
+              </p>
             </div>
           </div>
         </Card>
@@ -375,9 +441,9 @@ export function SettingsView() {
 
       {/* Action Buttons */}
       <div className="flex gap-4 pt-6 border-t border-gray-800">
-        <Button onClick={handleSaveSettings} className="flex-1 sm:flex-none">
+        <Button onClick={handleSaveSettings} disabled={saving} className="flex-1 sm:flex-none">
           <Save className="w-4 h-4 mr-2" />
-          Save Settings
+          {saving ? 'Saving...' : 'Save Settings'}
         </Button>
 
         <div className="flex-1" />

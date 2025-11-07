@@ -1,4 +1,5 @@
 import { type ClassValue, clsx } from 'clsx';
+import { formatInTimezone, formatDateShort } from './timezone';
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -18,13 +19,14 @@ export function formatPercent(value: number): string {
   }).format(value / 100);
 }
 
-export function formatDate(date: string): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(date));
+/**
+ * Format date with timezone support
+ * @param date - Date string or Date object
+ * @param timezone - Optional timezone (defaults to EST)
+ */
+export function formatDate(date: string | Date, timezone?: string): string {
+  const tz = timezone || 'America/New_York';
+  return formatDateShort(date, tz);
 }
 
 // Market data utilities
