@@ -256,7 +256,7 @@ export class MarketDataManager {
 
     try {
       const symbolsQuery = symbols.join(',');
-      const data = await apiClient.get<{ [symbol: string]: any }>(`/market_data/prices?symbols=${symbolsQuery}`);
+      const data = await apiClient.get<{ [symbol: string]: any }>(`/api/market-data/live-prices?symbols=${symbolsQuery}`);
 
       this.errorCount = 0;
       this.lastFetchTime = Date.now();
@@ -318,7 +318,7 @@ export class MarketDataManager {
   async fetchOnce(symbols: string[]): Promise<Map<string, MarketDataPoint>> {
     try {
       const symbolsQuery = symbols.join(',');
-      const data = await apiClient.get<{ [symbol: string]: any }>(`/market_data/prices?symbols=${symbolsQuery}`);
+      const data = await apiClient.get<{ [symbol: string]: any }>(`/api/market-data/live-prices?symbols=${symbolsQuery}`);
 
       const result = new Map<string, MarketDataPoint>();
 

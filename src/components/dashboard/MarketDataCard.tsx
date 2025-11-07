@@ -103,7 +103,8 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
         }
 
         const data = await response.json();
-        const bars = data[strategy.base_symbol] || [];
+        // The /{symbol}/historical endpoint returns a direct array of bars
+        const bars = Array.isArray(data) ? data : [];
 
         if (bars.length > 0) {
           const formattedData = bars.map((bar: any) => ({
