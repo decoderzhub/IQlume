@@ -50,7 +50,7 @@ export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashbo
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
           <span className="text-green-400">Live</span>
           <span className="text-gray-400">
-            {new Date(telemetry.last_updated).toLocaleTimeString()}
+            {telemetry.last_updated ? new Date(telemetry.last_updated).toLocaleTimeString() : 'N/A'}
           </span>
         </div>
       </div>
@@ -82,10 +82,10 @@ export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashbo
             <span className="text-xs text-gray-400">Current P&L</span>
           </div>
           <p className={`font-bold text-lg ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-            {isProfit ? '+' : ''}{formatCurrency(telemetry.current_profit_loss_usd)}
+            {isProfit ? '+' : ''}{formatCurrency(telemetry.current_profit_loss_usd || 0)}
           </p>
           <p className={`text-xs ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-            {isProfit ? '+' : ''}{telemetry.current_profit_loss_percent.toFixed(2)}%
+            {isProfit ? '+' : ''}{(telemetry.current_profit_loss_percent || 0).toFixed(2)}%
           </p>
         </Card>
 
@@ -96,7 +96,7 @@ export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashbo
             <span className="text-xs text-gray-400">Active Grids</span>
           </div>
           <p className="font-bold text-white text-lg">
-            {telemetry.active_grid_levels}
+            {telemetry.active_grid_levels || 0}
           </p>
           <p className="text-xs text-gray-400">
             of {strategy.configuration?.number_of_grids || 0} total
@@ -110,7 +110,7 @@ export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashbo
             <span className="text-xs text-gray-400">Utilization</span>
           </div>
           <p className="font-bold text-white text-lg">
-            {telemetry.grid_utilization_percent.toFixed(1)}%
+            {(telemetry.grid_utilization_percent || 0).toFixed(1)}%
           </p>
           <p className="text-xs text-gray-400">
             Capital deployed
@@ -125,25 +125,25 @@ export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashbo
           <div>
             <span className="text-gray-400">Lower Limit:</span>
             <span className="text-green-400 ml-2 font-medium">
-              {formatCurrency(telemetry.lower_price_limit)}
+              {formatCurrency(telemetry.lower_price_limit || 0)}
             </span>
           </div>
           <div>
             <span className="text-gray-400">Upper Limit:</span>
             <span className="text-red-400 ml-2 font-medium">
-              {formatCurrency(telemetry.upper_price_limit)}
+              {formatCurrency(telemetry.upper_price_limit || 0)}
             </span>
           </div>
           <div>
             <span className="text-gray-400">Grid Spacing:</span>
             <span className="text-white ml-2 font-medium">
-              {formatCurrency(telemetry.grid_spacing_interval)}
+              {formatCurrency(telemetry.grid_spacing_interval || 0)}
             </span>
           </div>
           <div>
             <span className="text-gray-400">Fill Rate:</span>
             <span className="text-blue-400 ml-2 font-medium">
-              {telemetry.fill_rate_percent.toFixed(1)}%
+              {(telemetry.fill_rate_percent || 0).toFixed(1)}%
             </span>
           </div>
         </div>
@@ -170,7 +170,7 @@ export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashbo
                   <span className="text-sm font-medium text-red-400">Stop Loss</span>
                 </div>
                 <p className="text-red-400 font-bold">
-                  {formatCurrency(telemetry.stop_loss_price)}
+                  {formatCurrency(telemetry.stop_loss_price || 0)}
                 </p>
                 {telemetry.stop_loss_distance_percent !== undefined && (
                   <p className={`text-xs ${stopLossRisk ? 'text-red-300' : 'text-gray-400'}`}>
@@ -193,7 +193,7 @@ export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashbo
                   <span className="text-sm font-medium text-green-400">Next Take Profit</span>
                 </div>
                 <p className="text-green-400 font-bold">
-                  {formatCurrency(telemetry.next_take_profit_price)}
+                  {formatCurrency(telemetry.next_take_profit_price || 0)}
                 </p>
                 {telemetry.take_profit_progress_percent !== undefined && (
                   <p className={`text-xs ${takeProfitNear ? 'text-green-300' : 'text-gray-400'}`}>
@@ -216,11 +216,11 @@ export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashbo
         
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <p className="text-2xl font-bold text-blue-400">{telemetry.active_orders_count}</p>
+            <p className="text-2xl font-bold text-blue-400">{telemetry.active_orders_count || 0}</p>
             <p className="text-xs text-gray-400">Active Orders</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-green-400">{telemetry.fill_rate_percent.toFixed(0)}%</p>
+            <p className="text-2xl font-bold text-green-400">{(telemetry.fill_rate_percent || 0).toFixed(0)}%</p>
             <p className="text-xs text-gray-400">Fill Rate</p>
           </div>
           <div>
