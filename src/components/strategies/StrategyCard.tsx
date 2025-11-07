@@ -171,8 +171,12 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
 
         if (tradesResponse.ok) {
           const tradesData = await tradesResponse.json();
-          console.log(`📈 Received ${tradesData.length || 0} trades for strategy:`, tradesData);
-          setStrategyTrades(tradesData || []);
+          console.log(`📈 Received trades response for strategy:`, tradesData);
+
+          // Backend returns {trades: [], stats: {}} - extract the trades array
+          const tradesArray = Array.isArray(tradesData) ? tradesData : (tradesData.trades || []);
+          console.log(`📈 Extracted ${tradesArray.length} trades from response`);
+          setStrategyTrades(tradesArray);
         } else {
           const errorText = await tradesResponse.text();
           console.error(`Failed to fetch trades: ${tradesResponse.status}`, errorText);
