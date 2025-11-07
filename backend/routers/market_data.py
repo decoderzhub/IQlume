@@ -12,7 +12,7 @@ from alpaca.data.requests import (
     CryptoBarsRequest,
     StockSnapshotRequest,
 )
-from alpaca.data.timeframe import TimeFrame
+from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from alpaca.data.enums import DataFeed
 from alpaca.common.exceptions import APIError as AlpacaAPIError
 
@@ -384,9 +384,11 @@ async def get_bars_data(
     # timeframe mapping
     tf = {
         "1Min": TimeFrame.Minute,
-        "5Min": TimeFrame(5, "Min"),
-        "15Min": TimeFrame(15, "Min"),
+        "5Min": TimeFrame(5, TimeFrameUnit.Minute),
+        "15Min": TimeFrame(15, TimeFrameUnit.Minute),
+        "30Min": TimeFrame(30, TimeFrameUnit.Minute),
         "1Hour": TimeFrame.Hour,
+        "4Hour": TimeFrame(4, TimeFrameUnit.Hour),
         "1Day": TimeFrame.Day,
     }.get(timeframe, TimeFrame.Day)
 
