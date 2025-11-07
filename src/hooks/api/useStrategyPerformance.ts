@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TradingStrategy } from '../../types';
 import { marketDataManager } from '../../services/MarketDataManager';
+import { getMarketStatus } from '../../lib/marketHours';
 
 interface StrategyPerformanceData {
   strategy: TradingStrategy;
@@ -277,51 +278,145 @@ export function useStrategyPerformance(userId?: string) {
     };
   }, [userId]);
 
-  useEffect(() => {
+  // Fetch latest prices for strategies - respects market hours
+  const fetchLatestPrices = async () => {
     if (strategiesRef.current.length === 0) return;
 
     const symbols = strategiesRef.current
-      .map(s => s.symbol)
+      .map(s => s.base_symbol || s.symbol || (s.configuration as any)?.symbol)
       .filter((symbol): symbol is string => !!symbol);
 
     if (symbols.length === 0) return;
 
-    console.log('[useStrategyPerformance] Subscribing to market data for symbols:', symbols);
+    const marketStatus = getMarketStatus();
+    console.log(`[useStrategyPerformance] Market is ${marketStatus.isOpen ? 'OPEN' : 'CLOSED'}`);
 
-    const unsubscribers = symbols.map(symbol => {
-      return marketDataManager.subscribe(symbol, (marketData) => {
-        if (!mountedRef.current) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+      // Fetch prices for all symbols
+      const pricePromises = symbols.map(async (symbol) => {
+        try {
+          const response = await fetch(`${API_BASE}/api/market-data/symbol/${symbol}`, {
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+          });
+
+          if (!response.ok) return null;
+          const data = await response.json();
+          return { symbol, price: data.current_price || data.price };
+        } catch (error) {
+          console.error(`[useStrategyPerformance] Error fetching price for ${symbol}:`, error);
+          return null;
+        }
+      });
+
+      const prices = await Promise.all(pricePromises);
+      const priceMap = new Map(prices.filter(p => p !== null).map(p => [p!.symbol, p!.price]));
+
+      if (mountedRef.current && priceMap.size > 0) {
         setStrategiesData(prev => {
           return prev.map(strategyData => {
-            if (strategyData.strategy.symbol === symbol) {
-              const currentPrice = marketData.price;
-              const totalInvestment = strategyData.totalInvestment;
-              const startPrice = strategyData.startPrice;
-              const priceChange = currentPrice - startPrice;
-              const holdingProfit = (priceChange / startPrice) * totalInvestment;
-              const gridProfit = strategyData.gridProfit;
-              const totalProfit = gridProfit + holdingProfit;
-              const currentValue = totalInvestment + totalProfit;
+            const symbol = strategyData.strategy.base_symbol ||
+                          strategyData.strategy.symbol ||
+                          (strategyData.strategy.configuration as any)?.symbol;
+            const currentPrice = priceMap.get(symbol);
 
-              return {
-                ...strategyData,
-                currentPrice,
-                currentValue,
-                currentProfit: totalProfit,
-                currentProfitPercent: (totalProfit / totalInvestment) * 100,
-                holdingProfit,
-              };
-            }
-            return strategyData;
+            if (!currentPrice || !symbol) return strategyData;
+
+            const totalInvestment = strategyData.totalInvestment;
+            const startPrice = strategyData.startPrice;
+            const priceChange = currentPrice - startPrice;
+            const holdingProfit = (priceChange / startPrice) * totalInvestment;
+            const gridProfit = strategyData.gridProfit;
+            const totalProfit = gridProfit + holdingProfit;
+            const currentValue = totalInvestment + totalProfit;
+
+            return {
+              ...strategyData,
+              currentPrice,
+              currentValue,
+              currentProfit: totalProfit,
+              currentProfitPercent: (totalProfit / totalInvestment) * 100,
+              holdingProfit,
+            };
+          });
+        });
+      }
+    } catch (error) {
+      console.error('[useStrategyPerformance] Error fetching latest prices:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (strategiesRef.current.length === 0) return;
+
+    const symbols = strategiesRef.current
+      .map(s => s.base_symbol || s.symbol || (s.configuration as any)?.symbol)
+      .filter((symbol): symbol is string => !!symbol);
+
+    if (symbols.length === 0) return;
+
+    // Initial price fetch
+    fetchLatestPrices();
+
+    const marketStatus = getMarketStatus();
+
+    // During market hours: subscribe to live updates
+    // After hours: poll every 30 seconds for latest closing prices
+    if (marketStatus.isOpen) {
+      console.log('[useStrategyPerformance] Market OPEN - Subscribing to live market data for:', symbols);
+
+      const unsubscribers = symbols.map(symbol => {
+        return marketDataManager.subscribe(symbol, (marketData) => {
+          if (!mountedRef.current) return;
+
+          setStrategiesData(prev => {
+            return prev.map(strategyData => {
+              const strategySymbol = strategyData.strategy.base_symbol ||
+                                    strategyData.strategy.symbol ||
+                                    (strategyData.strategy.configuration as any)?.symbol;
+
+              if (strategySymbol === symbol) {
+                const currentPrice = marketData.price;
+                const totalInvestment = strategyData.totalInvestment;
+                const startPrice = strategyData.startPrice;
+                const priceChange = currentPrice - startPrice;
+                const holdingProfit = (priceChange / startPrice) * totalInvestment;
+                const gridProfit = strategyData.gridProfit;
+                const totalProfit = gridProfit + holdingProfit;
+                const currentValue = totalInvestment + totalProfit;
+
+                return {
+                  ...strategyData,
+                  currentPrice,
+                  currentValue,
+                  currentProfit: totalProfit,
+                  currentProfitPercent: (totalProfit / totalInvestment) * 100,
+                  holdingProfit,
+                };
+              }
+              return strategyData;
+            });
           });
         });
       });
-    });
 
-    return () => {
-      unsubscribers.forEach(unsub => unsub());
-    };
+      return () => {
+        unsubscribers.forEach(unsub => unsub());
+      };
+    } else {
+      console.log('[useStrategyPerformance] Market CLOSED - Using latest closing prices');
+
+      // Poll for updated prices every 30 seconds when market is closed
+      const pollInterval = setInterval(fetchLatestPrices, 30000);
+
+      return () => {
+        clearInterval(pollInterval);
+      };
+    }
   }, [strategiesRef.current.map(s => s.symbol).join(',')]);
 
   return {
