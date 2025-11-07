@@ -91,7 +91,7 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
               )}
             </h3>
             {strategy.id && (
-              <span className="text-xs text-gray-400 font-mono">
+              <span className="text-xs text-white font-mono">
                 ID: {strategy.id.slice(0, 8)}
               </span>
             )}
