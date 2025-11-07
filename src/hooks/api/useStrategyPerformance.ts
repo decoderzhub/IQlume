@@ -49,37 +49,75 @@ export function useStrategyPerformance(userId?: string) {
     return annualizedReturn;
   };
 
-  const generateHistoricalData = (
-    currentValue: number,
-    profitLoss: number,
-    startDate: string
+  const fetchHistoricalData = async (
+    symbol: string,
+    startDate: string,
+    investmentAmount: number
   ) => {
-    const points = 50;
-    const data = [];
-    const initialValue = currentValue - profitLoss;
-    const now = Date.now();
-    const startTime = new Date(startDate).getTime();
-    const timeRange = now - startTime;
-    const intervalMs = timeRange / points;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return [];
 
-    for (let i = 0; i < points; i++) {
-      const progress = i / (points - 1);
-      const value = initialValue + profitLoss * progress * (0.7 + Math.random() * 0.6);
-      const time = startTime + intervalMs * i;
-      const date = new Date(time);
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const start = new Date(startDate);
+      const end = new Date();
 
-      data.push({
-        time,
-        timeLabel: date.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        price: value,
-        value: value,
+      // Determine appropriate timeframe based on how long ago the strategy was created
+      const daysSinceStart = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      let timeframe = '1Hour';
+
+      if (daysSinceStart > 30) {
+        timeframe = '1Day';
+      } else if (daysSinceStart > 7) {
+        timeframe = '4Hour';
+      } else if (daysSinceStart > 1) {
+        timeframe = '1Hour';
+      } else {
+        timeframe = '15Min';
+      }
+
+      const startStr = start.toISOString().split('T')[0];
+      const endStr = end.toISOString().split('T')[0];
+
+      const response = await fetch(
+        `${API_BASE}/api/market-data/${symbol}/historical?timeframe=${timeframe}&start=${startStr}&end=${endStr}&limit=100`,
+        {
+          headers: { 'Authorization': `Bearer ${session.access_token}` },
+        }
+      );
+
+      if (!response.ok) {
+        console.error(`[useStrategyPerformance] Failed to fetch historical data for ${symbol}`);
+        return [];
+      }
+
+      const data = await response.json();
+      const bars = data.bars?.[symbol] || [];
+
+      if (bars.length === 0) {
+        console.warn(`[useStrategyPerformance] No historical data for ${symbol}`);
+        return [];
+      }
+
+      // Convert bars to chart data format
+      return bars.map((bar: any) => {
+        const time = new Date(bar.timestamp).getTime();
+        const date = new Date(bar.timestamp);
+
+        return {
+          time,
+          timeLabel: date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          price: bar.close,
+          value: bar.close,
+        };
       });
+    } catch (error) {
+      console.error('[useStrategyPerformance] Error fetching historical data:', error);
+      return [];
     }
-
-    return data;
   };
 
   const fetchStrategyPerformance = async () => {
@@ -195,11 +233,11 @@ export function useStrategyPerformance(userId?: string) {
           const lastTrade = executedTrades[0];
           const currentPrice = lastTrade?.filled_avg_price || lastTrade?.price || startPrice;
 
-          const historicalData = generateHistoricalData(
-            currentValue,
-            totalProfit,
-            strategy.created_at || new Date().toISOString()
-          );
+          // Fetch real historical market data for the symbol
+          const symbol = strategy.base_symbol || strategy.symbol || (config as any)?.symbol;
+          const historicalData = symbol
+            ? await fetchHistoricalData(symbol, strategy.created_at || new Date().toISOString(), investmentAmount)
+            : [];
 
           return {
             strategy,
