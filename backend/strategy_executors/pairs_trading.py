@@ -92,11 +92,17 @@ class PairsTradingExecutor(BaseStrategyExecutor):
                 if should_exit:
                     orders = []
 
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto_a = self.normalize_crypto_symbol(symbol_a) is not None
+                    is_crypto_b = self.normalize_crypto_symbol(symbol_b) is not None
+                    time_in_force_a = TimeInForce.GTC if is_crypto_a else TimeInForce.DAY
+                    time_in_force_b = TimeInForce.GTC if is_crypto_b else TimeInForce.DAY
+
                     if position_a:
                         qty_a = abs(float(position_a.qty))
                         side_a = OrderSide.SELL if float(position_a.qty) > 0 else OrderSide.BUY
                         order_a = self.trading_client.submit_order(
-                            MarketOrderRequest(symbol=symbol_a, qty=qty_a, side=side_a, time_in_force=TimeInForce.DAY)
+                            MarketOrderRequest(symbol=symbol_a, qty=qty_a, side=side_a, time_in_force=time_in_force_a)
                         )
                         orders.append(f"{symbol_a}: {side_a.value} {qty_a}")
 
@@ -104,7 +110,7 @@ class PairsTradingExecutor(BaseStrategyExecutor):
                         qty_b = abs(float(position_b.qty))
                         side_b = OrderSide.SELL if float(position_b.qty) > 0 else OrderSide.BUY
                         order_b = self.trading_client.submit_order(
-                            MarketOrderRequest(symbol=symbol_b, qty=qty_b, side=side_b, time_in_force=TimeInForce.DAY)
+                            MarketOrderRequest(symbol=symbol_b, qty=qty_b, side=side_b, time_in_force=time_in_force_b)
                         )
                         orders.append(f"{symbol_b}: {side_b.value} {qty_b}")
 
@@ -135,11 +141,17 @@ class PairsTradingExecutor(BaseStrategyExecutor):
                     qty_a = capital_per_leg / price_a
                     qty_b = capital_per_leg / price_b
 
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto_a = self.normalize_crypto_symbol(symbol_a) is not None
+                    is_crypto_b = self.normalize_crypto_symbol(symbol_b) is not None
+                    time_in_force_a = TimeInForce.GTC if is_crypto_a else TimeInForce.DAY
+                    time_in_force_b = TimeInForce.GTC if is_crypto_b else TimeInForce.DAY
+
                     order_a = self.trading_client.submit_order(
-                        MarketOrderRequest(symbol=symbol_a, qty=qty_a, side=OrderSide.SELL, time_in_force=TimeInForce.DAY)
+                        MarketOrderRequest(symbol=symbol_a, qty=qty_a, side=OrderSide.SELL, time_in_force=time_in_force_a)
                     )
                     order_b = self.trading_client.submit_order(
-                        MarketOrderRequest(symbol=symbol_b, qty=qty_b, side=OrderSide.BUY, time_in_force=TimeInForce.DAY)
+                        MarketOrderRequest(symbol=symbol_b, qty=qty_b, side=OrderSide.BUY, time_in_force=time_in_force_b)
                     )
 
                     self.logger.info(f"✅ Pair trade opened: SHORT {symbol_a} / LONG {symbol_b}")
@@ -157,11 +169,17 @@ class PairsTradingExecutor(BaseStrategyExecutor):
                     qty_a = capital_per_leg / price_a
                     qty_b = capital_per_leg / price_b
 
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto_a = self.normalize_crypto_symbol(symbol_a) is not None
+                    is_crypto_b = self.normalize_crypto_symbol(symbol_b) is not None
+                    time_in_force_a = TimeInForce.GTC if is_crypto_a else TimeInForce.DAY
+                    time_in_force_b = TimeInForce.GTC if is_crypto_b else TimeInForce.DAY
+
                     order_a = self.trading_client.submit_order(
-                        MarketOrderRequest(symbol=symbol_a, qty=qty_a, side=OrderSide.BUY, time_in_force=TimeInForce.DAY)
+                        MarketOrderRequest(symbol=symbol_a, qty=qty_a, side=OrderSide.BUY, time_in_force=time_in_force_a)
                     )
                     order_b = self.trading_client.submit_order(
-                        MarketOrderRequest(symbol=symbol_b, qty=qty_b, side=OrderSide.SELL, time_in_force=TimeInForce.DAY)
+                        MarketOrderRequest(symbol=symbol_b, qty=qty_b, side=OrderSide.SELL, time_in_force=time_in_force_b)
                     )
 
                     self.logger.info(f"✅ Pair trade opened: LONG {symbol_a} / SHORT {symbol_b}")

@@ -90,11 +90,15 @@ class MomentumBreakoutExecutor(BaseStrategyExecutor):
                 self.logger.info(f"📍 Current position: {current_qty} @ ${entry_price:.2f} | P&L: {unrealized_pnl_percent:.2f}%")
 
                 if unrealized_pnl_percent >= take_profit_percent:
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto = self.normalize_crypto_symbol(symbol) is not None
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
                     order_request = MarketOrderRequest(
                         symbol=symbol,
                         qty=current_qty,
                         side=OrderSide.SELL,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=time_in_force
                     )
 
                     order = self.trading_client.submit_order(order_request)
@@ -110,11 +114,15 @@ class MomentumBreakoutExecutor(BaseStrategyExecutor):
                     }
 
                 elif unrealized_pnl_percent <= -stop_loss_percent:
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto = self.normalize_crypto_symbol(symbol) is not None
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
                     order_request = MarketOrderRequest(
                         symbol=symbol,
                         qty=current_qty,
                         side=OrderSide.SELL,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=time_in_force
                     )
 
                     order = self.trading_client.submit_order(order_request)
@@ -148,11 +156,15 @@ class MomentumBreakoutExecutor(BaseStrategyExecutor):
                 if is_breakout and has_momentum and has_volume:
                     buy_quantity = allocated_capital / current_price
 
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto = self.normalize_crypto_symbol(symbol) is not None
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
                     order_request = MarketOrderRequest(
                         symbol=symbol,
                         qty=buy_quantity,
                         side=OrderSide.BUY,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=time_in_force
                     )
 
                     order = self.trading_client.submit_order(order_request)

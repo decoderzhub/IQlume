@@ -93,11 +93,15 @@ class ScalpingExecutor(BaseStrategyExecutor):
                 trend_reversed = (current_qty > 0 and short_ma < long_ma) or (current_qty < 0 and short_ma > long_ma)
 
                 if hit_profit_target or hit_stop_loss or trend_reversed:
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto = self.normalize_crypto_symbol(symbol) is not None
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
                     order_request = MarketOrderRequest(
                         symbol=symbol,
                         qty=abs(current_qty),
                         side=OrderSide.SELL if current_qty > 0 else OrderSide.BUY,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=time_in_force
                     )
 
                     order = self.trading_client.submit_order(order_request)
@@ -136,11 +140,15 @@ class ScalpingExecutor(BaseStrategyExecutor):
                 if bullish_signal and sufficient_volatility:
                     buy_quantity = allocated_capital / current_price
 
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto = self.normalize_crypto_symbol(symbol) is not None
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
                     order_request = MarketOrderRequest(
                         symbol=symbol,
                         qty=buy_quantity,
                         side=OrderSide.BUY,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=time_in_force
                     )
 
                     order = self.trading_client.submit_order(order_request)
@@ -158,11 +166,15 @@ class ScalpingExecutor(BaseStrategyExecutor):
                 elif bearish_signal and sufficient_volatility:
                     sell_quantity = allocated_capital / current_price
 
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto = self.normalize_crypto_symbol(symbol) is not None
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
                     order_request = MarketOrderRequest(
                         symbol=symbol,
                         qty=sell_quantity,
                         side=OrderSide.SELL,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=time_in_force
                     )
 
                     order = self.trading_client.submit_order(order_request)

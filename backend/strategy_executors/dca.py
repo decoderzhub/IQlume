@@ -64,11 +64,16 @@ class DCAExecutor(BaseStrategyExecutor):
                 
                 # Try to place the order with Alpaca
                 try:
+                    # Determine appropriate time_in_force based on asset type
+                    # Crypto uses GTC (24/7 market), stocks use DAY
+                    is_crypto = self.normalize_crypto_symbol(symbol) is not None
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
                     order_request = MarketOrderRequest(
                         symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
                         qty=quantity,
                         side=OrderSide.BUY,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=time_in_force
                     )
                     
                     # Submit order to Alpaca

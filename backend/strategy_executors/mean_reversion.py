@@ -89,11 +89,15 @@ class MeanReversionExecutor(BaseStrategyExecutor):
                 stop_loss_hit = unrealized_pnl_percent <= -stop_loss_percent
 
                 if price_returned_to_mean or stop_loss_hit:
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto = self.normalize_crypto_symbol(symbol) is not None
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
                     order_request = MarketOrderRequest(
                         symbol=symbol,
                         qty=abs(current_qty),
                         side=OrderSide.SELL if current_qty > 0 else OrderSide.BUY,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=time_in_force
                     )
 
                     order = self.trading_client.submit_order(order_request)
@@ -125,11 +129,15 @@ class MeanReversionExecutor(BaseStrategyExecutor):
                 if is_oversold:
                     buy_quantity = allocated_capital / current_price
 
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto = self.normalize_crypto_symbol(symbol) is not None
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
                     order_request = MarketOrderRequest(
                         symbol=symbol,
                         qty=buy_quantity,
                         side=OrderSide.BUY,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=time_in_force
                     )
 
                     order = self.trading_client.submit_order(order_request)
@@ -147,11 +155,15 @@ class MeanReversionExecutor(BaseStrategyExecutor):
                 elif is_overbought:
                     sell_quantity = allocated_capital / current_price
 
+                    # Determine appropriate time_in_force based on asset type
+                    is_crypto = self.normalize_crypto_symbol(symbol) is not None
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
                     order_request = MarketOrderRequest(
                         symbol=symbol,
                         qty=sell_quantity,
                         side=OrderSide.SELL,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=time_in_force
                     )
 
                     order = self.trading_client.submit_order(order_request)
