@@ -120,8 +120,41 @@ export function AssetDetailPage({ symbol, onBack, onTrade }: AssetDetailPageProp
       };
 
       const apiTimeframe = timeframeMap[timeframe] || '1Day';
+
+      // Calculate date range based on timeframe to get data up to market close
+      const now = new Date();
+      let startDate: Date;
+      let limit = 100;
+
+      // For intraday timeframes, get data from market open today (or previous trading day if after hours)
+      if (['1m', '5m', '15m', '30m', '1h'].includes(timeframe)) {
+        // Get data for today (or last 2 days to include previous close)
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 2);
+        startDate.setHours(0, 0, 0, 0);
+        limit = 390; // Full trading day at 1-minute bars
+      } else if (timeframe === '4h') {
+        // Last week for 4-hour bars
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 7);
+        limit = 50;
+      } else if (timeframe === '1d') {
+        // Last 100 days for daily bars
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 100);
+        limit = 100;
+      } else {
+        // Last 6 months for weekly
+        startDate = new Date(now);
+        startDate.setMonth(startDate.getMonth() - 6);
+        limit = 26;
+      }
+
+      const startISO = startDate.toISOString().split('T')[0];
+      const endISO = now.toISOString().split('T')[0];
+
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const url = `${API_BASE}/api/market-data/${symbol}/historical?timeframe=${apiTimeframe}&limit=100`;
+      const url = `${API_BASE}/api/market-data/${symbol}/historical?timeframe=${apiTimeframe}&start=${startISO}&end=${endISO}&limit=${limit}`;
 
       console.log(`[AssetDetailPage] Fetching from: ${url}`);
 
