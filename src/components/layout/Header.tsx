@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, User, LogOut, Menu } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -6,6 +6,7 @@ import { useStore } from '../../store/useStore';
 import { auth } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 import { EnvironmentToggle } from '../trading/EnvironmentToggle';
+import { getMarketStatus } from '../../lib/marketHours';
 
 interface HeaderProps {
   isConnected: boolean;
@@ -15,6 +16,16 @@ interface HeaderProps {
 export function Header({ isConnected, onShowEnvironmentModal }: HeaderProps) {
   const { user, setUser, sidebarOpen, setSidebarOpen, activeView } = useStore();
   const showEnvironmentToggle = ['trading', 'dashboard'].includes(activeView);
+  const [marketStatus, setMarketStatus] = useState(getMarketStatus());
+
+  useEffect(() => {
+    // Update market status every minute
+    const interval = setInterval(() => {
+      setMarketStatus(getMarketStatus());
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <motion.header
@@ -51,18 +62,26 @@ export function Header({ isConnected, onShowEnvironmentModal }: HeaderProps) {
             </div>
           )}
 
+          {/* Market Status Indicator */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700">
+            <div className={`w-2 h-2 rounded-full ${marketStatus.isOpen ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
+            <span className="text-xs font-medium text-gray-300 hidden sm:inline">
+              {marketStatus.isOpen ? 'Market Open' : 'Market Closed'}
+            </span>
+          </div>
+
+          {/* Data Connection Indicator */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className="text-xs font-medium text-gray-300 hidden sm:inline">
+              {isConnected ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
+
           {/* Beta Badge */}
           <span className="px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/50 text-xs font-semibold text-blue-400 hidden sm:inline-block">
             BETA
           </span>
-
-          {/* Real-time connection indicator */}
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="text-xs text-gray-400 hidden sm:inline">
-              {isConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
         </div>
       </div>
     </motion.header>
