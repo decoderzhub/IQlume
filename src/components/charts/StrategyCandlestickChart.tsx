@@ -32,7 +32,14 @@ export function StrategyCandlestickChart({
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
 
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    console.log(`📊 [Chart ${symbol}] Initializing chart...`);
+
+    if (!chartContainerRef.current) {
+      console.error(`❌ [Chart ${symbol}] chartContainerRef.current is null!`);
+      return;
+    }
+
+    console.log(`✅ [Chart ${symbol}] Creating chart with dimensions:`, chartContainerRef.current.clientWidth, 'x 250px');
 
     // Create chart with EST timezone
     const chart = createChart(chartContainerRef.current, {
@@ -89,6 +96,7 @@ export function StrategyCandlestickChart({
     });
 
     candlestickSeriesRef.current = candlestickSeries;
+    console.log(`✅ [Chart ${symbol}] Chart and series created successfully`);
 
     // Handle resize
     const handleResize = () => {
@@ -109,15 +117,27 @@ export function StrategyCandlestickChart({
 
   // Update candle data
   useEffect(() => {
-    if (!candlestickSeriesRef.current || !candleData || candleData.length === 0) return;
+    console.log(`📊 [Chart ${symbol}] Update candle data effect - series:`, !!candlestickSeriesRef.current, 'data:', candleData?.length || 0);
 
+    if (!candlestickSeriesRef.current) {
+      console.warn(`⚠️ [Chart ${symbol}] candlestickSeriesRef.current is null!`);
+      return;
+    }
+
+    if (!candleData || candleData.length === 0) {
+      console.warn(`⚠️ [Chart ${symbol}] No candle data to display`);
+      return;
+    }
+
+    console.log(`✅ [Chart ${symbol}] Setting ${candleData.length} bars on chart`);
     candlestickSeriesRef.current.setData(candleData);
 
     // Fit content
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
+      console.log(`✅ [Chart ${symbol}] Fitted content to chart`);
     }
-  }, [candleData]);
+  }, [candleData, symbol]);
 
   // Add trade markers
   useEffect(() => {
