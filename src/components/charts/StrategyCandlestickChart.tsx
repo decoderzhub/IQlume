@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { createChart, IChartApi, ISeriesApi, CandlestickData, Time, UTCTimestamp } from 'lightweight-charts';
 
 interface Trade {
@@ -27,15 +27,18 @@ export function StrategyCandlestickChart({
   gridLevels,
   loading = false
 }: StrategyCandlestickChartProps) {
+  console.log(`🎨 [Chart ${symbol}] Component rendering - candleData: ${candleData?.length || 0}, loading: ${loading}`);
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
 
-  useEffect(() => {
-    console.log(`📊 [Chart ${symbol}] Initializing chart...`);
+  // Use useLayoutEffect to ensure ref is attached before running
+  useLayoutEffect(() => {
+    console.log(`📊 [Chart ${symbol}] Initializing chart (useLayoutEffect)...`);
 
     if (!chartContainerRef.current) {
-      console.error(`❌ [Chart ${symbol}] chartContainerRef.current is null!`);
+      console.error(`❌ [Chart ${symbol}] chartContainerRef.current is STILL null!`);
       return;
     }
 
@@ -191,28 +194,25 @@ export function StrategyCandlestickChart({
     }
   }, [gridLevels]);
 
-  if (loading) {
-    return (
-      <div className="h-[250px] bg-gray-800/30 rounded-lg flex items-center justify-center">
-        <div className="text-gray-400 text-sm">Loading chart data...</div>
-      </div>
-    );
-  }
-
-  if (!candleData || candleData.length === 0) {
-    return (
-      <div className="h-[250px] bg-gray-800/30 rounded-lg flex items-center justify-center">
-        <div className="text-gray-400 text-sm flex flex-col items-center gap-2">
-          <div>No market data available for {symbol}</div>
-          <div className="text-xs text-gray-500">Chart will load when market data is fetched</div>
-        </div>
-      </div>
-    );
-  }
+  console.log(`🎨 [Chart ${symbol}] Rendering chart div with ref`);
 
   return (
     <div className="relative">
-      <div ref={chartContainerRef} className="rounded-lg overflow-hidden" />
+      <div ref={chartContainerRef} className="h-[250px] rounded-lg overflow-hidden bg-gray-900" />
+
+      {/* Overlay for loading/empty states */}
+      {(loading || !candleData || candleData.length === 0) && (
+        <div className="absolute inset-0 bg-gray-800/30 rounded-lg flex items-center justify-center z-10">
+          {loading ? (
+            <div className="text-gray-400 text-sm">Loading chart data...</div>
+          ) : (
+            <div className="text-gray-400 text-sm flex flex-col items-center gap-2">
+              <div>No market data available for {symbol}</div>
+              <div className="text-xs text-gray-500">Chart will load when market data is fetched</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
