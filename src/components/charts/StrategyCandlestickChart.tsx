@@ -55,7 +55,7 @@ export function StrategyCandlestickChart({
         horzLines: { color: '#2B2B43' },
       },
       width: chartContainerRef.current.clientWidth,
-      height: 250,
+      height: 300,
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
@@ -71,6 +71,10 @@ export function StrategyCandlestickChart({
       },
       rightPriceScale: {
         borderColor: '#2B2B43',
+        scaleMargins: {
+          top: 0.15,
+          bottom: 0.15,
+        },
       },
       localization: {
         timeFormatter: (time: UTCTimestamp) => {
@@ -198,7 +202,7 @@ export function StrategyCandlestickChart({
 
   return (
     <div className="relative">
-      <div ref={chartContainerRef} className="h-[250px] rounded-lg overflow-hidden bg-gray-900" />
+      <div ref={chartContainerRef} className="h-[300px] rounded-lg overflow-hidden bg-gray-900" />
 
       {/* Overlay for loading/empty states */}
       {(loading || !candleData || candleData.length === 0) && (
