@@ -35,6 +35,12 @@ export function TradingStrategies() {
         }
 
         console.log('✅ Strategies loaded for dashboard:', data?.length || 0);
+        // Log each strategy to identify any without IDs
+        data?.forEach((strategy, idx) => {
+          if (!strategy.id) {
+            console.warn(`⚠️ Strategy ${idx} missing ID:`, strategy.name, strategy);
+          }
+        });
         setStrategies(data || []);
       } catch (error) {
         console.error('Unexpected error loading strategies:', error);
@@ -100,7 +106,9 @@ export function TradingStrategies() {
                     </h4>
                     <div className={`w-2 h-2 rounded-full flex-shrink-0 ${strategy.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
                   </div>
-                  <span className="text-xs text-white font-mono">ID: {strategy.id?.slice(0, 8)}</span>
+                  <span className="text-xs text-white font-mono">
+                    {strategy.id ? `ID: ${strategy.id.slice(0, 8)}` : 'ID: N/A'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   {(strategy.base_symbol || strategy.configuration?.symbol) && (
