@@ -75,9 +75,9 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     takeProfitLevels: strategy.take_profit_levels || [],
   } : null;
 
-  // Fetch historical candlestick data and trades for active strategies
+  // Fetch historical candlestick data and trades for all strategies (both active and inactive)
   React.useEffect(() => {
-    if (!strategy.is_active || !tradingSymbol || tradingSymbol === 'N/A' || !user) return;
+    if (!tradingSymbol || tradingSymbol === 'N/A' || !user) return;
 
     const fetchChartData = async () => {
       try {
@@ -177,10 +177,10 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     // Initial fetch
     fetchChartData();
 
-    // Update every 60 seconds for active strategies
+    // Update every 60 seconds
     const interval = setInterval(fetchChartData, 60000);
     return () => clearInterval(interval);
-  }, [strategy.is_active, strategy.id, tradingSymbol, user]);
+  }, [strategy.id, tradingSymbol, user]);
 
   // Determine price position relative to grid
   const getPricePosition = () => {
@@ -462,11 +462,11 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         </div>
       </div>
 
-      {/* Candlestick Chart for Active Strategies */}
-      {strategy.is_active && (
+      {/* Candlestick Chart for All Strategies */}
+      {tradingSymbol && tradingSymbol !== 'N/A' && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-gray-400">Price Chart (7 Days)</span>
+            <span className="text-xs text-gray-400">Price Chart (30 Days)</span>
             <span className="text-[10px] text-gray-500">{tradingSymbol}</span>
           </div>
 
