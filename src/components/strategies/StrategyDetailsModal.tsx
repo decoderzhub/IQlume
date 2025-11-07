@@ -19,6 +19,7 @@ import {
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { NumericInput } from '../ui/NumericInput';
+import { SymbolSearchInput } from '../ui/SymbolSearchInput';
 import { TradingStrategy } from '../../types';
 import { formatCurrency, formatPercent } from '../../lib/utils';
 import { TelemetryDashboard } from './TelemetryDashboard';
