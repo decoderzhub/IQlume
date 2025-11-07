@@ -330,6 +330,8 @@ class BacktestEngine:
                 self.logger.warning("No market data client available")
                 return []
 
+            self.logger.info(f"🔄 Fetching {symbol} bars from Alpaca API: {start_date.date()} to {end_date.date()}")
+
             request = StockBarsRequest(
                 symbol_or_symbols=symbol.upper(),
                 timeframe=TimeFrame.Day,
@@ -339,7 +341,10 @@ class BacktestEngine:
 
             bars = self.market_data_client.get_stock_bars(request)
 
+            self.logger.info(f"📊 Alpaca response type: {type(bars)}, keys: {list(bars.keys()) if hasattr(bars, 'keys') else 'N/A'}")
+
             if not bars or symbol.upper() not in bars:
+                self.logger.warning(f"⚠️ No bars found for {symbol} in Alpaca response")
                 return []
 
             data = []
@@ -353,10 +358,13 @@ class BacktestEngine:
                     'volume': int(bar.volume)
                 })
 
+            self.logger.info(f"✅ Successfully fetched {len(data)} bars from Alpaca for {symbol}")
             return data
 
         except Exception as e:
-            self.logger.error(f"Error fetching from Alpaca: {e}")
+            self.logger.error(f"❌ Error fetching from Alpaca for {symbol}: {type(e).__name__}: {e}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
             return []
 
     async def _cache_market_data(

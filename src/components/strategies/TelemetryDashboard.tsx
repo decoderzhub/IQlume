@@ -23,8 +23,8 @@ interface TelemetryDashboardProps {
 
 export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashboardProps) {
   const telemetry = strategy.telemetry_data;
-  
-  if (!telemetry || !strategy.is_active) {
+
+  if (!telemetry || !strategy.is_active || typeof telemetry !== 'object') {
     return (
       <div className={`bg-gray-800/30 rounded-lg p-6 text-center ${className}`}>
         <Activity className="w-8 h-8 text-gray-600 mx-auto mb-2" />
@@ -34,7 +34,7 @@ export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashbo
     );
   }
 
-  const isProfit = telemetry.current_profit_loss_usd >= 0;
+  const isProfit = (telemetry.current_profit_loss_usd || 0) >= 0;
   const stopLossRisk = telemetry.stop_loss_distance_percent && telemetry.stop_loss_distance_percent < 5;
   const takeProfitNear = telemetry.take_profit_progress_percent && telemetry.take_profit_progress_percent > 80;
 
@@ -64,10 +64,10 @@ export function TelemetryDashboard({ strategy, className = '' }: TelemetryDashbo
             <span className="text-xs text-gray-400">Allocated Capital</span>
           </div>
           <p className="font-bold text-white text-lg">
-            {formatCurrency(telemetry.allocated_capital_usd)}
+            {formatCurrency(telemetry.allocated_capital_usd || 0)}
           </p>
           <p className="text-xs text-gray-400">
-            {telemetry.allocated_capital_base.toFixed(6)} {strategy.base_symbol || 'BASE'}
+            {(telemetry.allocated_capital_base || 0).toFixed(6)} {strategy.base_symbol || 'BASE'}
           </p>
         </Card>
 
