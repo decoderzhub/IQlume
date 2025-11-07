@@ -37,8 +37,14 @@ export function TradingStrategies() {
         console.log('✅ Strategies loaded for dashboard:', data?.length || 0);
         // Log each strategy to identify any without IDs
         data?.forEach((strategy, idx) => {
+          console.log(`Strategy ${idx}:`, {
+            name: strategy.name,
+            id: strategy.id,
+            hasId: !!strategy.id,
+            type: strategy.type
+          });
           if (!strategy.id) {
-            console.warn(`⚠️ Strategy ${idx} missing ID:`, strategy.name, strategy);
+            console.warn(`⚠️ Strategy ${idx} missing ID:`, strategy);
           }
         });
         setStrategies(data || []);
