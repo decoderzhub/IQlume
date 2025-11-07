@@ -411,9 +411,11 @@ async def get_bars_data(
                 feed=DataFeed.IEX,
             )
             data = stock_data_client.get_stock_bars(req)
-            logger.info(f"📊 Received stock bar data for {len(data or {})} symbols from Alpaca")
+            # BarSet object - convert to dict for processing
+            data_dict = dict(data) if data else {}
+            logger.info(f"📊 Received stock bar data for {len(data_dict)} symbols from Alpaca")
 
-            for sym, series in (data or {}).items():
+            for sym, series in data_dict.items():
                 bar_list = [
                     {
                         "timestamp": b.timestamp.isoformat(),
@@ -446,9 +448,11 @@ async def get_bars_data(
                 limit=limit,
             )
             data = crypto_data_client.get_crypto_bars(req)
-            logger.info(f"₿ Received crypto bar data for {len(data or {})} symbols from Alpaca")
+            # BarSet object - convert to dict for processing
+            data_dict = dict(data) if data else {}
+            logger.info(f"₿ Received crypto bar data for {len(data_dict)} symbols from Alpaca")
 
-            for sym, series in (data or {}).items():
+            for sym, series in data_dict.items():
                 bar_list = [
                     {
                         "timestamp": b.timestamp.isoformat(),
