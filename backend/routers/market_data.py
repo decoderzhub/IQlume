@@ -411,25 +411,36 @@ async def get_bars_data(
                 feed=DataFeed.IEX,
             )
             data = stock_data_client.get_stock_bars(req)
-            # BarSet object - convert to dict for processing
-            data_dict = dict(data) if data else {}
-            logger.info(f"📊 Received stock bar data for {len(data_dict)} symbols from Alpaca")
+            logger.info(f"📊 Received stock bar data from Alpaca (type: {type(data)})")
 
-            for sym, series in data_dict.items():
-                bar_list = [
-                    {
-                        "timestamp": b.timestamp.isoformat(),
-                        "open": float(b.open),
-                        "high": float(b.high),
-                        "low": float(b.low),
-                        "close": float(b.close),
-                        "volume": int(getattr(b, "volume", 0) or 0),
-                        "source": "alpaca:iex",
-                    }
-                    for b in series or []
-                ]
-                bars[sym] = bar_list
-                logger.info(f"✅ {sym}: {len(bar_list)} bars processed")
+            # BarSet object - access bars using the symbol as key
+            if data:
+                for sym in stock_syms:
+                    try:
+                        # Access bars for this symbol from BarSet
+                        symbol_bars = data.get(sym, None) if hasattr(data, 'get') else data[sym] if sym in data else None
+
+                        if symbol_bars:
+                            bar_list = [
+                                {
+                                    "timestamp": b.timestamp.isoformat(),
+                                    "open": float(b.open),
+                                    "high": float(b.high),
+                                    "low": float(b.low),
+                                    "close": float(b.close),
+                                    "volume": int(getattr(b, "volume", 0) or 0),
+                                    "source": "alpaca:iex",
+                                }
+                                for b in symbol_bars
+                            ]
+                            bars[sym] = bar_list
+                            logger.info(f"✅ {sym}: {len(bar_list)} bars processed")
+                        else:
+                            logger.warning(f"⚠️ No bars found for {sym}")
+                            bars[sym] = []
+                    except Exception as sym_error:
+                        logger.error(f"❌ Error processing bars for {sym}: {sym_error}")
+                        bars[sym] = []
 
         except Exception as e:
             logger.error(f"❌ Error fetching stock bars from Alpaca: {e}", exc_info=True)
@@ -448,25 +459,36 @@ async def get_bars_data(
                 limit=limit,
             )
             data = crypto_data_client.get_crypto_bars(req)
-            # BarSet object - convert to dict for processing
-            data_dict = dict(data) if data else {}
-            logger.info(f"₿ Received crypto bar data for {len(data_dict)} symbols from Alpaca")
+            logger.info(f"₿ Received crypto bar data from Alpaca (type: {type(data)})")
 
-            for sym, series in data_dict.items():
-                bar_list = [
-                    {
-                        "timestamp": b.timestamp.isoformat(),
-                        "open": float(b.open),
-                        "high": float(b.high),
-                        "low": float(b.low),
-                        "close": float(b.close),
-                        "volume": float(getattr(b, "volume", 0) or 0.0),
-                        "source": "alpaca:crypto",
-                    }
-                    for b in series or []
-                ]
-                bars[sym] = bar_list
-                logger.info(f"✅ {sym}: {len(bar_list)} bars processed")
+            # BarSet object - access bars using the symbol as key
+            if data:
+                for sym in crypto_syms:
+                    try:
+                        # Access bars for this symbol from BarSet
+                        symbol_bars = data.get(sym, None) if hasattr(data, 'get') else data[sym] if sym in data else None
+
+                        if symbol_bars:
+                            bar_list = [
+                                {
+                                    "timestamp": b.timestamp.isoformat(),
+                                    "open": float(b.open),
+                                    "high": float(b.high),
+                                    "low": float(b.low),
+                                    "close": float(b.close),
+                                    "volume": float(getattr(b, "volume", 0) or 0.0),
+                                    "source": "alpaca:crypto",
+                                }
+                                for b in symbol_bars
+                            ]
+                            bars[sym] = bar_list
+                            logger.info(f"✅ {sym}: {len(bar_list)} bars processed")
+                        else:
+                            logger.warning(f"⚠️ No bars found for {sym}")
+                            bars[sym] = []
+                    except Exception as sym_error:
+                        logger.error(f"❌ Error processing bars for {sym}: {sym_error}")
+                        bars[sym] = []
 
         except Exception as e:
             logger.error(f"❌ Error fetching crypto bars from Alpaca: {e}", exc_info=True)
