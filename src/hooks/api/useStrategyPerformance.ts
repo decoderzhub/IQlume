@@ -59,25 +59,37 @@ export function useStrategyPerformance(userId?: string) {
       if (!session) return [];
 
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const start = new Date(startDate);
-      const end = new Date();
+      const now = new Date();
+      const strategyStart = new Date(startDate);
 
-      // Determine appropriate timeframe based on how long ago the strategy was created
-      const daysSinceStart = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      let timeframe = '1Hour';
+      // Calculate how long the strategy has been running
+      const daysSinceStart = Math.floor((now.getTime() - strategyStart.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (daysSinceStart > 30) {
-        timeframe = '1Day';
-      } else if (daysSinceStart > 7) {
-        timeframe = '4Hour';
-      } else if (daysSinceStart > 1) {
+      // For new strategies (< 1 day old), show last 7 days of market data
+      // For older strategies, show data from strategy creation
+      let start: Date;
+      let timeframe: string;
+
+      if (daysSinceStart < 1) {
+        // New strategy - show last 7 days with 1-hour bars
+        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         timeframe = '1Hour';
+      } else if (daysSinceStart <= 7) {
+        // Strategy is 1-7 days old - show from start with 1-hour bars
+        start = strategyStart;
+        timeframe = '1Hour';
+      } else if (daysSinceStart <= 30) {
+        // Strategy is 1-4 weeks old - show from start with 4-hour bars
+        start = strategyStart;
+        timeframe = '4Hour';
       } else {
-        timeframe = '15Min';
+        // Strategy is > 30 days old - show from start with daily bars
+        start = strategyStart;
+        timeframe = '1Day';
       }
 
       const startStr = start.toISOString().split('T')[0];
-      const endStr = end.toISOString().split('T')[0];
+      const endStr = now.toISOString().split('T')[0];
 
       const response = await fetch(
         `${API_BASE}/api/market-data/${symbol}/historical?timeframe=${timeframe}&start=${startStr}&end=${endStr}&limit=100`,
