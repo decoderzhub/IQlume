@@ -413,33 +413,48 @@ async def get_bars_data(
             data = stock_data_client.get_stock_bars(req)
             logger.info(f"📊 Received stock bar data from Alpaca (type: {type(data)})")
 
-            # BarSet object - access bars using the symbol as key
+            # Convert BarSet to DataFrame using .df property
             if data:
-                for sym in stock_syms:
-                    try:
-                        # Access bars for this symbol from BarSet
-                        symbol_bars = data.get(sym, None) if hasattr(data, 'get') else data[sym] if sym in data else None
+                df = data.df
+                logger.info(f"📄 Converted to DataFrame with shape: {df.shape if not df.empty else 'empty'}")
 
-                        if symbol_bars:
+                if not df.empty:
+                    # DataFrame has MultiIndex (symbol, timestamp) for multiple symbols
+                    # or single index (timestamp) for single symbol
+                    for sym in stock_syms:
+                        try:
+                            if sym in df.index.get_level_values(0):
+                                # Multi-symbol response - filter by symbol
+                                symbol_df = df.xs(sym, level='symbol')
+                            elif len(stock_syms) == 1:
+                                # Single symbol response
+                                symbol_df = df
+                            else:
+                                logger.warning(f"⚠️ Symbol {sym} not found in response")
+                                bars[sym] = []
+                                continue
+
+                            # Convert DataFrame rows to list of dicts
                             bar_list = [
                                 {
-                                    "timestamp": b.timestamp.isoformat(),
-                                    "open": float(b.open),
-                                    "high": float(b.high),
-                                    "low": float(b.low),
-                                    "close": float(b.close),
-                                    "volume": int(getattr(b, "volume", 0) or 0),
+                                    "timestamp": row.name.isoformat() if hasattr(row.name, 'isoformat') else str(row.name),
+                                    "open": float(row['open']),
+                                    "high": float(row['high']),
+                                    "low": float(row['low']),
+                                    "close": float(row['close']),
+                                    "volume": int(row['volume']) if 'volume' in row and not math.isnan(row['volume']) else 0,
                                     "source": "alpaca:iex",
                                 }
-                                for b in symbol_bars
+                                for _, row in symbol_df.iterrows()
                             ]
                             bars[sym] = bar_list
                             logger.info(f"✅ {sym}: {len(bar_list)} bars processed")
-                        else:
-                            logger.warning(f"⚠️ No bars found for {sym}")
+                        except Exception as sym_error:
+                            logger.error(f"❌ Error processing bars for {sym}: {sym_error}", exc_info=True)
                             bars[sym] = []
-                    except Exception as sym_error:
-                        logger.error(f"❌ Error processing bars for {sym}: {sym_error}")
+                else:
+                    logger.warning("⚠️ Empty DataFrame received")
+                    for sym in stock_syms:
                         bars[sym] = []
 
         except Exception as e:
@@ -461,33 +476,48 @@ async def get_bars_data(
             data = crypto_data_client.get_crypto_bars(req)
             logger.info(f"₿ Received crypto bar data from Alpaca (type: {type(data)})")
 
-            # BarSet object - access bars using the symbol as key
+            # Convert BarSet to DataFrame using .df property
             if data:
-                for sym in crypto_syms:
-                    try:
-                        # Access bars for this symbol from BarSet
-                        symbol_bars = data.get(sym, None) if hasattr(data, 'get') else data[sym] if sym in data else None
+                df = data.df
+                logger.info(f"📄 Converted to DataFrame with shape: {df.shape if not df.empty else 'empty'}")
 
-                        if symbol_bars:
+                if not df.empty:
+                    # DataFrame has MultiIndex (symbol, timestamp) for multiple symbols
+                    # or single index (timestamp) for single symbol
+                    for sym in crypto_syms:
+                        try:
+                            if sym in df.index.get_level_values(0):
+                                # Multi-symbol response - filter by symbol
+                                symbol_df = df.xs(sym, level='symbol')
+                            elif len(crypto_syms) == 1:
+                                # Single symbol response
+                                symbol_df = df
+                            else:
+                                logger.warning(f"⚠️ Symbol {sym} not found in response")
+                                bars[sym] = []
+                                continue
+
+                            # Convert DataFrame rows to list of dicts
                             bar_list = [
                                 {
-                                    "timestamp": b.timestamp.isoformat(),
-                                    "open": float(b.open),
-                                    "high": float(b.high),
-                                    "low": float(b.low),
-                                    "close": float(b.close),
-                                    "volume": float(getattr(b, "volume", 0) or 0.0),
+                                    "timestamp": row.name.isoformat() if hasattr(row.name, 'isoformat') else str(row.name),
+                                    "open": float(row['open']),
+                                    "high": float(row['high']),
+                                    "low": float(row['low']),
+                                    "close": float(row['close']),
+                                    "volume": float(row['volume']) if 'volume' in row and not math.isnan(row['volume']) else 0.0,
                                     "source": "alpaca:crypto",
                                 }
-                                for b in symbol_bars
+                                for _, row in symbol_df.iterrows()
                             ]
                             bars[sym] = bar_list
                             logger.info(f"✅ {sym}: {len(bar_list)} bars processed")
-                        else:
-                            logger.warning(f"⚠️ No bars found for {sym}")
+                        except Exception as sym_error:
+                            logger.error(f"❌ Error processing bars for {sym}: {sym_error}", exc_info=True)
                             bars[sym] = []
-                    except Exception as sym_error:
-                        logger.error(f"❌ Error processing bars for {sym}: {sym_error}")
+                else:
+                    logger.warning("⚠️ Empty DataFrame received")
+                    for sym in crypto_syms:
                         bars[sym] = []
 
         except Exception as e:
