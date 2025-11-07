@@ -111,9 +111,9 @@ class TradingScheduler:
         strategy_id = strategy["id"]
         strategy_name = strategy["name"]
         strategy_type = strategy["type"]
-        
-        # Determine execution interval based on strategy type
-        interval_seconds = self.get_execution_interval(strategy_type)
+
+        # Use custom interval if set, otherwise use default for strategy type
+        interval_seconds = strategy.get("execution_interval_seconds") or self.get_execution_interval(strategy_type)
         
         job_id = f"strategy_{strategy_id}"
         
@@ -148,13 +148,12 @@ class TradingScheduler:
             "scalping": 30,           # 30 seconds
             "arbitrage": 60,          # 1 minute
 
-            # Grid strategies - event-driven via order fill monitor
-            # These run ONCE at startup to place initial orders, then rely on order fill monitor
-            # Set to a very long interval since they only need initial setup
-            "spot_grid": 86400,       # 24 hours (only runs once for setup, then order fill monitor takes over)
-            "futures_grid": 86400,    # 24 hours
-            "infinity_grid": 86400,   # 24 hours
-            "reverse_grid": 86400,    # 24 hours
+            # Grid strategies - check for missing orders and price movements
+            # Order fill monitor handles filled orders, this checks for gaps
+            "spot_grid": 300,         # 5 minutes (check for missing grid orders)
+            "futures_grid": 300,      # 5 minutes
+            "infinity_grid": 300,     # 5 minutes
+            "reverse_grid": 300,      # 5 minutes
 
             # Medium frequency strategies
             "momentum_breakout": 300, # 5 minutes

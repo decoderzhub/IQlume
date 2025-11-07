@@ -224,22 +224,38 @@ async def update_strategy(
     try:
         logger.info(f"✏️ Updating strategy {strategy_id} for user {current_user.id}")
 
-        # Check if strategy is being activated
+        # Check if strategy is being activated OR if grid configuration changed
         was_activated = False
-        if strategy_data.is_active is not None:
-            # Get current strategy state
-            current_resp = supabase.table("trading_strategies").select("is_active, type, telemetry_data").eq("id", strategy_id).eq("user_id", current_user.id).execute()
-            if current_resp.data:
-                old_is_active = current_resp.data[0].get("is_active", False)
-                new_is_active = strategy_data.is_active
-                strategy_type = current_resp.data[0].get("type", "")
-                telemetry_data = current_resp.data[0].get("telemetry_data", {})
+        config_changed = False
 
-                # Check if being activated and is a grid strategy without initial buy
+        # Get current strategy state
+        current_resp = supabase.table("trading_strategies").select("is_active, type, telemetry_data, configuration").eq("id", strategy_id).eq("user_id", current_user.id).execute()
+        if current_resp.data:
+            old_is_active = current_resp.data[0].get("is_active", False)
+            old_config = current_resp.data[0].get("configuration", {})
+            strategy_type = current_resp.data[0].get("type", "")
+            telemetry_data = current_resp.data[0].get("telemetry_data", {})
+
+            # Check if being activated
+            if strategy_data.is_active is not None:
+                new_is_active = strategy_data.is_active
                 if not old_is_active and new_is_active:
                     was_activated = True
                     initial_buy_submitted = telemetry_data.get("initial_buy_order_submitted", False) if isinstance(telemetry_data, dict) else False
                     logger.info(f"🔄 Strategy being activated. Type: {strategy_type}, Initial buy submitted: {initial_buy_submitted}")
+
+            # Check if grid configuration changed (for grid strategies)
+            if strategy_type in ["spot_grid", "futures_grid", "infinity_grid", "reverse_grid"] and strategy_data.configuration:
+                new_config = strategy_data.configuration.model_dump() if hasattr(strategy_data.configuration, 'model_dump') else strategy_data.configuration
+                # Check if grid range changed
+                old_lower = old_config.get("lower_price")
+                old_upper = old_config.get("upper_price")
+                new_lower = new_config.get("lower_price")
+                new_upper = new_config.get("upper_price")
+
+                if (new_lower is not None and new_lower != old_lower) or (new_upper is not None and new_upper != old_upper):
+                    config_changed = True
+                    logger.info(f"🔄 Grid configuration changed: {old_lower}-{old_upper} → {new_lower}-{new_upper}")
 
         # Convert Pydantic model to dictionary for Supabase update
         update_dict = strategy_data.model_dump(exclude_unset=True, mode='json')
@@ -272,10 +288,11 @@ async def update_strategy(
         updated_strategy = TradingStrategyResponse(**resp.data[0])
         logger.info(f"✅ Strategy updated: {updated_strategy.name} (ID: {updated_strategy.id})")
 
-        # If strategy was just activated, execute it immediately
-        if was_activated:
+        # If strategy was just activated OR grid config changed, execute it immediately
+        if was_activated or config_changed:
             try:
-                logger.info(f"🚀 Executing newly activated strategy: {updated_strategy.name}")
+                reason = "activated" if was_activated else "configuration changed"
+                logger.info(f"🚀 Executing strategy {updated_strategy.name} (reason: {reason})")
 
                 # Get trading clients
                 trading_client = await get_alpaca_trading_client(current_user, supabase)

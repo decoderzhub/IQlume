@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  X, 
-  Settings, 
-  TrendingUp, 
-  TrendingDown, 
-  Shield, 
-  DollarSign, 
-  Target, 
+import {
+  X,
+  Settings,
+  TrendingUp,
+  TrendingDown,
+  Shield,
+  DollarSign,
+  Target,
   Clock,
   Save,
   Trash2,
   AlertTriangle,
   Grid3X3,
   BarChart3,
-  Activity
+  Activity,
+  Zap
 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -36,6 +37,7 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
   const [editedStrategy, setEditedStrategy] = useState<TradingStrategy>({ ...strategy });
   const [activeTab, setActiveTab] = useState<'overview' | 'configuration' | 'performance' | 'risk'>('overview');
   const [isEditing, setIsEditing] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
 
   const handleSave = () => {
     onSave(editedStrategy);
@@ -45,6 +47,32 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
   const handleDelete = () => {
     if (window.confirm(`Are you sure you want to delete "${strategy.name}"? This action cannot be undone.`)) {
       onDelete(strategy.id);
+    }
+  };
+
+  const handleExecuteNow = async () => {
+    try {
+      setIsExecuting(true);
+      const response = await fetch(`/api/strategies/${strategy.id}/execute`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('supabase_token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to execute strategy');
+      }
+
+      const result = await response.json();
+      console.log('Strategy execution result:', result);
+      alert(`Strategy executed successfully! Action: ${result.action || 'completed'}`);
+    } catch (error) {
+      console.error('Error executing strategy:', error);
+      alert('Failed to execute strategy. Please try again.');
+    } finally {
+      setIsExecuting(false);
     }
   };
 
@@ -795,6 +823,15 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                   Delete Strategy
                 </Button>
                 <div className="flex-1" />
+                <Button
+                  variant="outline"
+                  onClick={handleExecuteNow}
+                  disabled={isExecuting || !strategy.is_active}
+                  className="border-green-500/20 hover:bg-green-500/10 text-green-400"
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  {isExecuting ? 'Executing...' : 'Execute Now'}
+                </Button>
                 <Button onClick={onClose}>
                   Close
                 </Button>
