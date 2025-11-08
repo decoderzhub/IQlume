@@ -320,6 +320,34 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                     </span>
                   )}
                 </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400">Execution Interval:</span>
+                  {isEditing ? (
+                    <div className="flex items-center gap-2">
+                      <NumericInput
+                        value={editedStrategy.execution_interval_seconds || 300}
+                        onChange={(value) => setEditedStrategy(prev => ({
+                          ...prev,
+                          execution_interval_seconds: Math.max(30, value)
+                        }))}
+                        min={30}
+                        step={30}
+                        className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+                      />
+                      <span className="text-xs text-gray-500">seconds</span>
+                    </div>
+                  ) : (
+                    <span className="text-white">
+                      {strategy.execution_interval_seconds
+                        ? strategy.execution_interval_seconds >= 3600
+                          ? `${Math.floor(strategy.execution_interval_seconds / 3600)}h ${Math.floor((strategy.execution_interval_seconds % 3600) / 60)}m`
+                          : strategy.execution_interval_seconds >= 60
+                            ? `${Math.floor(strategy.execution_interval_seconds / 60)} min`
+                            : `${strategy.execution_interval_seconds}s`
+                        : '5 min'}
+                    </span>
+                  )}
+                </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Execution Count:</span>
                   <span className="text-white">{strategy.execution_count || 0}</span>

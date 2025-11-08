@@ -254,6 +254,7 @@ export interface TradingStrategy {
   };
   last_execution?: string;
   execution_count?: number;
+  execution_interval_seconds?: number;
   total_profit_loss?: number;
   active_orders_count?: number;
   grid_utilization_percent?: number;
