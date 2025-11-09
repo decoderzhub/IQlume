@@ -112,8 +112,12 @@ class TradingScheduler:
         strategy_name = strategy["name"]
         strategy_type = strategy["type"]
 
-        # Use custom interval if set, otherwise use default for strategy type
-        interval_seconds = strategy.get("execution_interval_seconds") or self.get_execution_interval(strategy_type)
+        # Extract symbol from strategy configuration to determine asset type
+        configuration = strategy.get("configuration", {})
+        symbol = configuration.get("symbol", strategy.get("base_symbol"))
+
+        # Use custom interval if set, otherwise use default for strategy type and asset type
+        interval_seconds = strategy.get("execution_interval_seconds") or self.get_execution_interval(strategy_type, symbol)
         
         job_id = f"strategy_{strategy_id}"
         
@@ -141,8 +145,31 @@ class TradingScheduler:
         
         logger.info(f"⏰ Scheduled {strategy_name} ({strategy_type}) to run every {interval_seconds}s")
     
-    def get_execution_interval(self, strategy_type: str) -> int:
-        """Get execution interval in seconds based on strategy type"""
+    def is_crypto_symbol(self, symbol: str) -> bool:
+        """Check if a symbol is a cryptocurrency"""
+        if not symbol:
+            return False
+        s = symbol.upper()
+        # Crypto symbols typically have "/" (e.g., BTC/USD) or end in USD without being a stock
+        if "/" in s:
+            return True
+        # Check common crypto patterns
+        crypto_bases = ["BTC", "ETH", "LTC", "BCH", "LINK", "UNI", "AAVE", "DOT", "ADA", "SOL", "MATIC", "AVAX"]
+        if s.endswith("USD") or s.endswith("USDT"):
+            base = s.replace("USD", "").replace("USDT", "")
+            if base in crypto_bases or len(base) <= 5:
+                return True
+        return False
+
+    def get_execution_interval(self, strategy_type: str, symbol: str = None) -> int:
+        """
+        Get execution interval in seconds based on strategy type and asset type.
+        Cryptocurrency strategies run more frequently since markets are 24/7.
+        """
+        # Check if this is a crypto asset
+        is_crypto = self.is_crypto_symbol(symbol) if symbol else False
+
+        # Base intervals for stock trading
         intervals = {
             # High frequency strategies
             "scalping": 30,           # 30 seconds
@@ -150,22 +177,24 @@ class TradingScheduler:
 
             # Grid strategies - check for missing orders and price movements
             # Order fill monitor handles filled orders, this checks for gaps
-            "spot_grid": 300,         # 5 minutes (check for missing grid orders)
-            "futures_grid": 300,      # 5 minutes
-            "infinity_grid": 300,     # 5 minutes
-            "reverse_grid": 300,      # 5 minutes
+            # CRYPTO: More frequent checks since markets are 24/7
+            # STOCKS: Standard 5-minute interval during market hours
+            "spot_grid": 120 if is_crypto else 300,         # 2 min (crypto) / 5 min (stocks)
+            "futures_grid": 120 if is_crypto else 300,      # 2 min (crypto) / 5 min (stocks)
+            "infinity_grid": 120 if is_crypto else 300,     # 2 min (crypto) / 5 min (stocks)
+            "reverse_grid": 120 if is_crypto else 300,      # 2 min (crypto) / 5 min (stocks)
 
             # Medium frequency strategies
-            "momentum_breakout": 300, # 5 minutes
-            "news_based_trading": 300, # 5 minutes
+            "momentum_breakout": 180 if is_crypto else 300, # 3 min (crypto) / 5 min (stocks)
+            "news_based_trading": 180 if is_crypto else 300, # 3 min (crypto) / 5 min (stocks)
 
             # Lower frequency strategies
             "covered_calls": 3600,    # 1 hour
             "wheel": 3600,            # 1 hour
             "iron_condor": 3600,      # 1 hour
             "short_put": 3600,        # 1 hour
-            "mean_reversion": 1800,   # 30 minutes
-            "pairs_trading": 1800,    # 30 minutes
+            "mean_reversion": 900 if is_crypto else 1800,   # 15 min (crypto) / 30 min (stocks)
+            "pairs_trading": 900 if is_crypto else 1800,    # 15 min (crypto) / 30 min (stocks)
             "swing_trading": 1800,    # 30 minutes
 
             # Very low frequency strategies
@@ -173,7 +202,13 @@ class TradingScheduler:
             "smart_rebalance": 604800, # 7 days (weekly)
         }
 
-        return intervals.get(strategy_type, 1800)  # Default: 30 minutes
+        interval = intervals.get(strategy_type, 1800)  # Default: 30 minutes
+
+        # Log the interval being used
+        asset_type = "crypto (24/7)" if is_crypto else "stock"
+        logger.info(f"⏰ Strategy type '{strategy_type}' for {asset_type} symbol '{symbol}': {interval}s interval")
+
+        return interval
     
     async def execute_strategy_job(self, strategy: Dict[str, Any]):
         """Execute a single strategy iteration"""

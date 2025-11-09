@@ -63,7 +63,19 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
 
   // Get trading symbol from configuration
   const tradingSymbol = strategy.configuration?.symbol || strategy.base_symbol || 'N/A';
-  
+
+  // Helper function to determine if symbol is cryptocurrency
+  const isCryptoSymbol = (symbol: string): boolean => {
+    if (!symbol || symbol === 'N/A') return false;
+    const s = symbol.toUpperCase();
+    // Crypto symbols typically have "/" (e.g., BTC/USD) or are common crypto bases
+    if (s.includes('/')) return true;
+    const cryptoBases = ['BTC', 'ETH', 'LTC', 'BCH', 'LINK', 'UNI', 'AAVE', 'DOT', 'ADA', 'SOL', 'MATIC', 'AVAX'];
+    return cryptoBases.some(base => s.includes(base));
+  };
+
+  const isCrypto = isCryptoSymbol(tradingSymbol);
+
   // Get grid configuration for grid strategies
   const isGridStrategy = ['spot_grid', 'futures_grid', 'infinity_grid'].includes(strategy.type);
   const gridConfig = isGridStrategy ? {
@@ -198,10 +210,16 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     // Initial fetch
     fetchChartData();
 
-    // Update every 60 seconds
-    const interval = setInterval(fetchChartData, 60000);
+    // Update interval based on asset type:
+    // - Cryptocurrency: 30 seconds (markets are 24/7, more volatile)
+    // - Stocks: 60 seconds (markets have limited hours)
+    const updateInterval = isCrypto ? 30000 : 60000; // 30s for crypto, 60s for stocks
+
+    console.log(`📊 [StrategyCard] Setting up ${isCrypto ? 'crypto (30s)' : 'stock (60s)'} update interval for ${tradingSymbol}`);
+
+    const interval = setInterval(fetchChartData, updateInterval);
     return () => clearInterval(interval);
-  }, [strategy.id, tradingSymbol, user]);
+  }, [strategy.id, tradingSymbol, user, isCrypto]);
 
   // Determine price position relative to grid
   const getPricePosition = () => {
