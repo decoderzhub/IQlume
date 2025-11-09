@@ -16,7 +16,6 @@ from plaid.configuration import Configuration
 from plaid.api_client import ApiClient
 import anthropic
 import logging
-from jose import jwt, JWTError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,24 +23,6 @@ logger = logging.getLogger(__name__)
 
 # Security
 security = HTTPBearer(auto_error=False)
-
-def get_jwt_secret() -> str:
-    """
-    Get JWT secret for verifying Supabase tokens.
-
-    First tries SUPABASE_JWT_SECRET from environment.
-
-    Note: For production, you should set SUPABASE_JWT_SECRET explicitly
-    from your Supabase project settings (Dashboard > Settings > API > JWT Secret).
-    """
-    # Try explicit JWT secret first
-    jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
-    if jwt_secret:
-        return jwt_secret
-
-    # If not set, log a warning
-    logger.warning("⚠️ SUPABASE_JWT_SECRET not set. JWT verification will use Supabase SDK fallback.")
-    return None
 
 # Initialize clients
 def get_supabase_client() -> Client:
@@ -356,106 +337,16 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Authorization required")
 
     try:
-        token = credentials.credentials
-
-        # Decode JWT to extract user info (without verification first, to check structure)
-        try:
-            # Decode without verification to inspect the token
-            unverified = jwt.decode(token, options={"verify_signature": False})
-            token_role = unverified.get('role')
-            user_id = unverified.get('sub')
-
-            logger.info(f"🔍 JWT token decoded - sub: {user_id}, role: {token_role}, exp: {unverified.get('exp')}")
-
-            # Check if user is passing API keys instead of session token
-            if token_role == "anon":
-                logger.error("❌ User passed SUPABASE_ANON_KEY instead of session token")
-                raise HTTPException(
-                    status_code=401,
-                    detail="Invalid token: You're using the Supabase ANON key. Please log in to your app and use your session token instead. See the test script instructions."
-                )
-            elif token_role == "service_role":
-                logger.error("❌ User passed SUPABASE_SERVICE_ROLE_KEY instead of session token")
-                raise HTTPException(
-                    status_code=401,
-                    detail="Invalid token: You're using the Supabase SERVICE_ROLE key. Please log in to your app and use your session token instead. See the test script instructions."
-                )
-            elif token_role != "authenticated":
-                logger.warning(f"⚠️ Unexpected token role: {token_role}")
-                raise HTTPException(
-                    status_code=401,
-                    detail=f"Invalid token: Expected role 'authenticated', got '{token_role}'. Please use a valid user session token."
-                )
-
-        except HTTPException:
-            raise
-        except Exception as decode_err:
-            logger.error(f"❌ Failed to decode JWT token: {decode_err}")
-            raise HTTPException(status_code=401, detail="Invalid token format")
-
-        # Get JWT secret for proper signature verification
-        jwt_secret = get_jwt_secret()
-
-        if jwt_secret:
-            # Full JWT verification with signature check (recommended for production)
-            try:
-                decoded = jwt.decode(
-                    token,
-                    jwt_secret,
-                    algorithms=["HS256"],
-                    audience="authenticated",
-                    options={"verify_exp": True, "verify_aud": True}
-                )
-
-                logger.info(f"✅ JWT signature verified - user_id: {user_id}")
-
-            except jwt.ExpiredSignatureError:
-                logger.warning("⚠️ JWT token has expired")
-                raise HTTPException(status_code=401, detail="Token has expired")
-            except jwt.InvalidAudienceError:
-                logger.warning("⚠️ JWT token has invalid audience")
-                raise HTTPException(status_code=401, detail="Invalid token audience")
-            except JWTError as jwt_error:
-                logger.error(f"❌ JWT signature verification failed: {jwt_error}")
-                raise HTTPException(status_code=401, detail=f"Invalid token signature: {str(jwt_error)}")
-        else:
-            # Fallback: Basic verification without signature check
-            # This checks token structure, expiration, and verifies user exists in DB
-            # Recommended to set SUPABASE_JWT_SECRET for full security
-            logger.info(f"ℹ️ Performing basic JWT verification (no signature check) for user_id: {user_id}")
-
-            # Check token expiration manually
-            exp = unverified.get('exp')
-            if exp:
-                import time
-                if time.time() > exp:
-                    logger.warning("⚠️ JWT token has expired")
-                    raise HTTPException(status_code=401, detail="Token has expired")
-
-            # Verify user exists in database (additional security layer)
-            try:
-                user_query = supabase.from_("auth.users").select("id, email").eq("id", user_id).execute()
-                if not user_query.data:
-                    logger.warning(f"⚠️ User {user_id} not found in database")
-                    raise HTTPException(status_code=401, detail="User not found")
-            except Exception as db_error:
-                # If we can't query auth.users, just proceed (RLS might block it)
-                logger.debug(f"Could not verify user in database: {db_error}")
-
-        # Create a minimal user object
-        class User:
-            def __init__(self, user_id, email=None):
-                self.id = user_id
-                self.email = email or unverified.get("email")
-                self.role = token_role
-
-        logger.info(f"✅ User authenticated - user_id: {user_id}, email: {unverified.get('email')}")
-        return User(user_id)
-
+        # Verify the JWT token with Supabase
+        user = supabase.auth.get_user(credentials.credentials)
+        if not user or not user.user:
+            logger.warning("⚠️ Invalid or expired token")
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        return user.user
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected authentication error: {e}", exc_info=True)
+        logger.error(f"❌ Authentication error: {e}", exc_info=True)
         raise HTTPException(status_code=401, detail="Authentication failed")
 
 async def verify_alpaca_account_context(current_user, supabase: Client) -> dict:

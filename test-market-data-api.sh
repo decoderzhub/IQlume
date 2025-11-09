@@ -26,32 +26,45 @@ fi
 TOKEN="$1"
 API_BASE="${2:-https://api.handler.brokernomex.com}"
 
+# Generate date range: 30 days ago to today
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  # macOS
+  START_DATE=$(date -v-30d +%Y-%m-%d)
+  END_DATE=$(date +%Y-%m-%d)
+else
+  # Linux
+  START_DATE=$(date -d '30 days ago' +%Y-%m-%d)
+  END_DATE=$(date +%Y-%m-%d)
+fi
+
 echo "Testing Market Data API endpoints..."
 echo "API Base: $API_BASE"
+echo "Token: ${TOKEN:0:20}..."
+echo "Date Range: $START_DATE to $END_DATE"
 echo ""
 
-# Test 1: BTCUSD historical data (format without slash)
-echo "=== Test 1: BTCUSD Historical (format without slash) ==="
+# Test 1: BTCUSD historical data (crypto without slash)
+echo "=== Test 1: BTCUSD Historical ==="
 curl -s -H "Authorization: Bearer $TOKEN" \
-  "$API_BASE/api/market-data/BTCUSD/historical?timeframe=1Day&limit=10" | jq '.' || echo "Failed"
+  "$API_BASE/api/market-data/BTCUSD/historical?timeframe=1Day&start=$START_DATE&end=$END_DATE&limit=10" | jq '.' || echo "Failed"
 echo ""
 echo ""
 
-# Test 2: BTC/USD historical data (URL-encoded slash)
-echo "=== Test 2: BTC/USD Historical (URL-encoded) ==="
+# Test 2: ETHUSD historical data (crypto without slash)
+echo "=== Test 2: ETHUSD Historical ==="
 curl -s -H "Authorization: Bearer $TOKEN" \
-  "$API_BASE/api/market-data/BTC%2FUSD/historical?timeframe=1Day&limit=10" | jq '.' || echo "Failed"
+  "$API_BASE/api/market-data/ETHUSD/historical?timeframe=1Day&start=$START_DATE&end=$END_DATE&limit=10" | jq '.' || echo "Failed"
 echo ""
 echo ""
 
-# Test 3: Stock symbol (AAPL)
-echo "=== Test 3: AAPL Historical ==="
+# Test 3: Stock symbol (GOOGL)
+echo "=== Test 3: GOOGL Historical ==="
 curl -s -H "Authorization: Bearer $TOKEN" \
-  "$API_BASE/api/market-data/AAPL/historical?timeframe=1Day&limit=10" | jq '.' || echo "Failed"
+  "$API_BASE/api/market-data/GOOGL/historical?timeframe=1Day&start=$START_DATE&end=$END_DATE&limit=10" | jq '.' || echo "Failed"
 echo ""
 echo ""
 
-# Test 4: Live prices
+# Test 4: Live prices (NOTE: live-prices endpoint accepts any format)
 echo "=== Test 4: Live Prices (BTC/USD, ETH/USD, AAPL) ==="
 curl -s -H "Authorization: Bearer $TOKEN" \
   "$API_BASE/api/market-data/live-prices?symbols=BTCUSD,ETHUSD,AAPL" | jq '.' || echo "Failed"
