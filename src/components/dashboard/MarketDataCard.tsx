@@ -81,38 +81,49 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
         setLoadingChart(true);
         const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-        // Get data for the last 7 days
+        // Get data for the last 30 days
         const end = new Date();
-        const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
         const startStr = start.toISOString().split('T')[0];
         const endStr = end.toISOString().split('T')[0];
 
         const { data: { session } } = await import('../../lib/supabase').then(m => m.supabase.auth.getSession());
         if (!session) return;
 
+        // Normalize crypto symbols: BTC/USD -> BTCUSD for API compatibility
+        // The backend's normalize_crypto_symbol function expects symbols without slashes in the URL path
+        const normalizedSymbol = strategy.base_symbol.replace('/', '').toUpperCase();
+        console.log(`[MarketDataCard] Symbol: ${strategy.base_symbol} -> ${normalizedSymbol}`);
+
         const response = await fetch(
-          `${API_BASE}/api/market-data/${strategy.base_symbol}/historical?timeframe=1Hour&start=${startStr}&end=${endStr}&limit=200`,
+          `${API_BASE}/api/market-data/${normalizedSymbol}/historical?timeframe=1Day&start=${startStr}&end=${endStr}&limit=100`,
           {
             headers: { 'Authorization': `Bearer ${session.access_token}` },
           }
         );
 
+        console.log(`[MarketDataCard] Response status: ${response.status}`);
+
         if (!response.ok) {
-          console.error('[MarketDataCard] Failed to fetch chart data');
+          const errorText = await response.text();
+          console.error('[MarketDataCard] Failed to fetch chart data:', response.status, errorText);
           return;
         }
 
         const data = await response.json();
+        console.log(`[MarketDataCard] Received historical data:`, data);
+
         // The /{symbol}/historical endpoint returns a direct array of bars
         const bars = Array.isArray(data) ? data : [];
+        console.log(`[MarketDataCard] Number of bars: ${bars.length}`);
 
         if (bars.length > 0) {
           const formattedData = bars.map((bar: any) => ({
             time: new Date(bar.timestamp).getTime() / 1000,
-            open: bar.open,
-            high: bar.high,
-            low: bar.low,
-            close: bar.close,
+            open: parseFloat(bar.open),
+            high: parseFloat(bar.high),
+            low: parseFloat(bar.low),
+            close: parseFloat(bar.close),
             volume: bar.volume || 0,
           }));
           setChartData(formattedData);
