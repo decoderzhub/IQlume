@@ -138,15 +138,18 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
             limit = 96;
         }
 
-        const startStr = start.toISOString().split('T')[0];
-        const endStr = end.toISOString().split('T')[0];
+        // For intraday data (1Min, 5Min, 15Min), use full ISO datetime
+        // For daily data, use date-only format
+        const needsFullTimestamp = timeframe !== '1Day';
+        const startStr = needsFullTimestamp ? start.toISOString() : start.toISOString().split('T')[0];
+        const endStr = needsFullTimestamp ? end.toISOString() : end.toISOString().split('T')[0];
 
         const { data: { session } } = await import('../../lib/supabase').then(m => m.supabase.auth.getSession());
         if (!session) return;
 
         // Normalize crypto symbols: BTC/USD -> BTCUSD for API compatibility
         const normalizedSymbol = strategy.base_symbol.replace('/', '').toUpperCase();
-        console.log(`[MarketDataCard] Fetching ${timeRange} data for ${normalizedSymbol}`);
+        console.log(`[MarketDataCard] Fetching ${timeRange} data for ${normalizedSymbol} from ${startStr} to ${endStr}`);
 
         const response = await fetch(
           `${API_BASE}/api/market-data/${normalizedSymbol}/historical?timeframe=${timeframe}&start=${startStr}&end=${endStr}&limit=${limit}`,

@@ -156,13 +156,15 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
             limit = 96;
         }
 
-        // Format dates as YYYY-MM-DD (backend expects date-only format)
-        const startStr = startDate.toISOString().split('T')[0];
-        const endStr = endDate.toISOString().split('T')[0];
+        // For intraday data (1Min, 5Min, 15Min, 1Hour), use full ISO datetime
+        // For daily data, use date-only format
+        const needsFullTimestamp = timeframe !== '1Day';
+        const startStr = needsFullTimestamp ? startDate.toISOString() : startDate.toISOString().split('T')[0];
+        const endStr = needsFullTimestamp ? endDate.toISOString() : endDate.toISOString().split('T')[0];
 
         // Normalize crypto symbols: BTC/USD -> BTCUSD for API compatibility
         const normalizedSymbol = tradingSymbol.replace('/', '').toUpperCase();
-        console.log(`📊 [StrategyCard] Fetching ${timeRange} data for ${normalizedSymbol}`);
+        console.log(`📊 [StrategyCard] Fetching ${timeRange} data for ${normalizedSymbol} from ${startStr} to ${endStr}`);
 
         const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/${normalizedSymbol}/historical?timeframe=${timeframe}&start=${startStr}&end=${endStr}&limit=${limit}`;
         console.log('📊 [StrategyCard] Fetching from:', apiUrl);
