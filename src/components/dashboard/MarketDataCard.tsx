@@ -6,6 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { StrategyCandlestickChart } from '../charts/StrategyCandlestickChart';
 import { getMarketStatus } from '../../lib/marketHours';
 import { useStore } from '../../store/useStore';
+import { marketDataManager } from '../../services/MarketDataManager';
 
 interface StrategyPerformanceData {
   strategy: {
@@ -65,6 +66,8 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
   const { user } = useStore();
   const [chartData, setChartData] = useState<any[]>([]);
   const [loadingChart, setLoadingChart] = useState(false);
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [priceChange, setPriceChange] = useState<number>(0);
   const marketStatus = getMarketStatus();
 
   React.useEffect(() => {
@@ -141,13 +144,40 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
     fetchChartData();
   }, [strategy.base_symbol, strategy.id, user]);
 
+  // Subscribe to real-time price updates via WebSocket (primary) with HTTP polling fallback
+  useEffect(() => {
+    if (!strategy.base_symbol || !user) return;
+
+    // Normalize symbol for subscription
+    const normalizedSymbol = strategy.base_symbol.replace('/', '').toUpperCase();
+    console.log(`[MarketDataCard] Subscribing to live prices for ${normalizedSymbol}`);
+
+    const unsubscribe = marketDataManager.subscribe(normalizedSymbol, (data) => {
+      console.log(`[MarketDataCard] Received live price update for ${normalizedSymbol}:`, data.price);
+      setLivePrice(data.price);
+
+      // Calculate price change from start price
+      if (startPrice > 0) {
+        const change = ((data.price - startPrice) / startPrice) * 100;
+        setPriceChange(change);
+      }
+    });
+
+    return () => {
+      console.log(`[MarketDataCard] Unsubscribing from ${normalizedSymbol}`);
+      unsubscribe();
+    };
+  }, [strategy.base_symbol, strategy.id, user, startPrice]);
+
   // Get symbol from multiple possible locations
   // Priority: base_symbol > configuration.symbol > type
   const symbol = strategy.base_symbol ||
                  (strategy as any).configuration?.symbol ||
                  strategy.type.toUpperCase();
   const isProfit = currentProfit >= 0;
-  const isPriceUp = currentPrice >= startPrice;
+  // Use live price if available, otherwise use current price from strategy data
+  const displayPrice = livePrice ?? currentPrice;
+  const isPriceUp = displayPrice >= startPrice;
   const timeActive = strategy.created_at
     ? formatDistanceToNow(new Date(strategy.created_at), { addSuffix: false })
     : 'N/A';
@@ -284,15 +314,21 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
           <div>
             <div className="text-sm text-white mb-1">
               Current price <span className="text-xs">USD</span>
+              {livePrice && <span className="ml-2 text-xs text-green-400">LIVE</span>}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-white font-semibold text-lg">{formatCurrency(currentPrice)}</span>
+              <span className="text-white font-semibold text-lg">{formatCurrency(displayPrice)}</span>
               {isPriceUp ? (
                 <TrendingUp className="w-4 h-4 text-green-400" />
               ) : (
                 <TrendingDown className="w-4 h-4 text-red-400" />
               )}
             </div>
+            {livePrice && priceChange !== 0 && (
+              <div className={`text-xs ${priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}% from start
+              </div>
+            )}
           </div>
 
           <div>

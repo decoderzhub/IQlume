@@ -26,6 +26,7 @@ import { INITIAL_LAUNCH_STRATEGY_TYPES, STRATEGY_TIERS, SubscriptionTier } from 
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
 import { StrategyCandlestickChart } from '../charts/StrategyCandlestickChart';
+import { marketDataManager } from '../../services/MarketDataManager';
 
 interface StrategyCardProps {
   strategy: TradingStrategy;
@@ -208,6 +209,25 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     return () => clearInterval(interval);
   }, [strategy.id, tradingSymbol, user]);
 
+  // Subscribe to real-time price updates via WebSocket (primary) with HTTP polling fallback
+  React.useEffect(() => {
+    if (!tradingSymbol || tradingSymbol === 'N/A' || !user) return;
+
+    // Normalize symbol for subscription
+    const normalizedSymbol = tradingSymbol.replace('/', '').toUpperCase();
+    console.log(`[StrategyCard] Subscribing to live prices for ${normalizedSymbol}`);
+
+    const unsubscribe = marketDataManager.subscribe(normalizedSymbol, (data) => {
+      console.log(`[StrategyCard] Received live price update for ${normalizedSymbol}:`, data.price);
+      setCurrentPrice(data.price);
+    });
+
+    return () => {
+      console.log(`[StrategyCard] Unsubscribing from ${normalizedSymbol}`);
+      unsubscribe();
+    };
+  }, [tradingSymbol, strategy.id, user]);
+
   // Determine price position relative to grid
   const getPricePosition = () => {
     if (!gridConfig || !currentPrice || !gridConfig.lower || !gridConfig.upper || gridConfig.lower <= 0 || gridConfig.upper <= 0) return null;
@@ -379,6 +399,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               <>
                 <span className="text-xs text-gray-600">•</span>
                 <span className="font-medium text-white text-sm">{formatCurrency(currentPrice)}</span>
+                <span className="text-xs text-green-400 font-semibold">LIVE</span>
                 {loading && <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />}
               </>
             )}
