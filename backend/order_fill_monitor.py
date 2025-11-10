@@ -344,6 +344,10 @@ class OrderFillMonitor:
 
             logger.info(f"✅ Updated grid order {grid_order_id} status to {new_status}")
 
+            # Update grid level state if order is filled
+            if new_status == "filled":
+                await self.update_grid_level_state(grid_order, alpaca_order)
+
             # Broadcast status update via SSE
             try:
                 from sse_manager import publish
@@ -377,6 +381,73 @@ class OrderFillMonitor:
 
         except Exception as e:
             logger.error(f"❌ Error processing order update: {e}", exc_info=True)
+
+    async def update_grid_level_state(self, grid_order: Dict[str, Any], alpaca_order: Any):
+        """Update grid level state when an order is filled"""
+        try:
+            strategy_id = grid_order["strategy_id"]
+            grid_level = grid_order["grid_level"]
+            side = grid_order["side"]
+            filled_qty = float(alpaca_order.filled_qty or 0)
+            filled_price = float(alpaca_order.filled_avg_price or 0)
+
+            # Check if state exists
+            resp = self.supabase.table("grid_level_states")\
+                .select("*")\
+                .eq("strategy_id", strategy_id)\
+                .eq("grid_level", grid_level)\
+                .execute()
+
+            if side == "buy":
+                # Buy filled - mark level as having position
+                if resp.data:
+                    # Update existing state
+                    self.supabase.table("grid_level_states").update({
+                        "has_position": True,
+                        "position_quantity": filled_qty,
+                        "last_buy_price": filled_price,
+                        "buy_order_id": grid_order["id"],
+                        "last_triggered_at": datetime.now(timezone.utc).isoformat()
+                    }).eq("strategy_id", strategy_id).eq("grid_level", grid_level).execute()
+                else:
+                    # Create new state
+                    self.supabase.table("grid_level_states").insert({
+                        "strategy_id": strategy_id,
+                        "grid_level": grid_level,
+                        "has_position": True,
+                        "position_quantity": filled_qty,
+                        "last_buy_price": filled_price,
+                        "buy_order_id": grid_order["id"],
+                        "last_triggered_at": datetime.now(timezone.utc).isoformat()
+                    }).execute()
+
+                logger.info(f"✅ [GRID STATE] Level {grid_level} marked as filled (BUY @ ${filled_price:.2f}, Qty: {filled_qty:.6f})")
+
+            elif side == "sell":
+                # Sell filled - mark level as no longer having position
+                if resp.data:
+                    self.supabase.table("grid_level_states").update({
+                        "has_position": False,
+                        "position_quantity": 0,
+                        "last_sell_price": filled_price,
+                        "sell_order_id": grid_order["id"],
+                        "last_triggered_at": datetime.now(timezone.utc).isoformat()
+                    }).eq("strategy_id", strategy_id).eq("grid_level", grid_level).execute()
+                else:
+                    self.supabase.table("grid_level_states").insert({
+                        "strategy_id": strategy_id,
+                        "grid_level": grid_level,
+                        "has_position": False,
+                        "position_quantity": 0,
+                        "last_sell_price": filled_price,
+                        "sell_order_id": grid_order["id"],
+                        "last_triggered_at": datetime.now(timezone.utc).isoformat()
+                    }).execute()
+
+                logger.info(f"✅ [GRID STATE] Level {grid_level} marked as available (SELL @ ${filled_price:.2f}, Qty: {filled_qty:.6f})")
+
+        except Exception as e:
+            logger.error(f"❌ Error updating grid level state: {e}", exc_info=True)
 
     def map_alpaca_status(self, alpaca_status: str) -> str:
         """Map Alpaca order status to our grid order status"""

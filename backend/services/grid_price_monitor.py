@@ -81,6 +81,21 @@ class GridPriceMonitor:
             # Fetch prices for all symbols
             await self.fetch_prices(strategies_by_symbol.keys())
 
+            # Forward price updates to real-time manager for WebSocket-driven strategies
+            try:
+                from services.realtime_strategy_manager import get_realtime_manager
+                realtime_manager = get_realtime_manager(self.supabase)
+
+                for symbol, price_data in self.price_cache.items():
+                    if price_data.get("price"):
+                        await realtime_manager.on_market_data_update(
+                            symbol,
+                            float(price_data["price"]),
+                            price_data.get("timestamp")
+                        )
+            except Exception as e:
+                logger.debug(f"⚠️ Could not forward prices to realtime manager: {e}")
+
             # Process each strategy
             for strategy_id, strategy_data in self.active_strategies.items():
                 try:

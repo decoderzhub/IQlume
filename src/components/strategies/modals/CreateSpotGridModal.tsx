@@ -304,7 +304,9 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
       time_horizon: 'swing',
       automation_level: 'fully_auto',
       grid_mode: gridMode,
-      auto_start: true, // Always enable auto-start for grid bots
+      auto_start: true,
+      execution_interval: 0,
+      is_realtime_mode: true,
       configuration: {
         symbol,
         allocated_capital: allocatedCapital,
@@ -535,8 +537,14 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
 
             {/* Grid Bot Configuration */}
             <div className="bg-gray-800/30 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-white mb-6">Grid Bot Configuration</h3>
-              
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-white">Grid Bot Configuration</h3>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-lg">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-green-400 font-medium">Real-Time Mode</span>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>

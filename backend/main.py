@@ -77,9 +77,16 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(position_exit_monitor.start())
     logger.info("🎯 Position exit monitor started (TP/SL automation)")
 
+    # Start Real-Time Strategy Manager for WebSocket-driven grid trading
+    from services.realtime_strategy_manager import get_realtime_manager
+    realtime_manager = get_realtime_manager(supabase)
+    asyncio.create_task(realtime_manager.start())
+    logger.info("⚡ Real-time strategy manager started (WebSocket-driven grid trading)")
+
     # Store service references for shutdown
     app.state.grid_price_monitor = grid_price_monitor
     app.state.position_exit_monitor = position_exit_monitor
+    app.state.realtime_manager = realtime_manager
 
     # Start autonomous trading scheduler
     asyncio.create_task(trading_scheduler.start())
@@ -96,6 +103,7 @@ async def lifespan(app: FastAPI):
     await order_fill_monitor.stop()
     await app.state.grid_price_monitor.stop()
     await app.state.position_exit_monitor.stop()
+    await app.state.realtime_manager.stop()
     await trading_scheduler.stop()
     await trade_sync_service.stop()
 
