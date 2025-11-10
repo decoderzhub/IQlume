@@ -19,6 +19,7 @@ import { useRealTimeUpdates } from '../hooks/useRealTimeUpdates';
 import { useUserTimezone } from '../hooks/useUserTimezone';
 import { supabase } from '../lib/supabase';
 import { BrokerageAccount } from '../types';
+import { wsManager } from '../services/WebSocketManager';
 
 export function MainApp() {
   const {
@@ -40,6 +41,60 @@ export function MainApp() {
 
   // Load user's timezone on app startup
   useUserTimezone();
+
+  // Initialize WebSocket connection for real-time market data
+  useEffect(() => {
+    const initializeWebSocket = async () => {
+      if (!user) return;
+
+      try {
+        // Get Alpaca credentials from brokerage accounts
+        const { data: accounts, error } = await supabase
+          .from('brokerage_accounts')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('brokerage', 'alpaca')
+          .eq('is_connected', true)
+          .limit(1);
+
+        if (error || !accounts || accounts.length === 0) {
+          console.warn('[MainApp] No connected Alpaca account found - will use HTTP polling for market data');
+          return;
+        }
+
+        const alpacaAccount = accounts[0];
+
+        // Check if oauth_data contains API keys
+        const oauthData = alpacaAccount.oauth_data as any;
+
+        if (!oauthData || !oauthData.api_key) {
+          console.warn('[MainApp] No Alpaca API keys in oauth_data - will use HTTP polling for market data');
+          return;
+        }
+
+        // Set auth token and connect to WebSocket
+        console.log('[MainApp] Initializing WebSocket with Alpaca credentials');
+        wsManager.setAuthToken(oauthData.api_key);
+
+        // Set environment based on account type
+        const environment = alpacaAccount.account_type === 'live' ? 'live' : 'paper';
+        wsManager.setEnvironment(environment);
+
+        await wsManager.connect();
+        console.log('[MainApp] ✅ WebSocket connected successfully for real-time market data');
+      } catch (error) {
+        console.error('[MainApp] ❌ Error initializing WebSocket:', error);
+        console.log('[MainApp] Will fall back to HTTP polling for market data');
+      }
+    };
+
+    initializeWebSocket();
+
+    // Cleanup on unmount
+    return () => {
+      wsManager.disconnect();
+    };
+  }, [user]);
 
   // Load brokerage accounts from database on app initialization
   useEffect(() => {
