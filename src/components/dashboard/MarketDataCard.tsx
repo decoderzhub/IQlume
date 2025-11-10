@@ -68,6 +68,7 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
   const [loadingChart, setLoadingChart] = useState(false);
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [priceChange, setPriceChange] = useState<number>(0);
+  const [timeRange, setTimeRange] = useState<'1m' | '5m' | '15m' | '30m' | '1H' | '4H' | '1D' | '1W'>('1D');
   const marketStatus = getMarketStatus();
 
   React.useEffect(() => {
@@ -84,9 +85,59 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
         setLoadingChart(true);
         const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-        // Get data for the last 30 days
+        // Calculate time range and timeframe based on selected range
         const end = new Date();
-        const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+        let start: Date;
+        let timeframe: string;
+        let limit: number;
+
+        switch (timeRange) {
+          case '1m':
+            start = new Date(end.getTime() - 1 * 60 * 1000);
+            timeframe = '1Sec';
+            limit = 60;
+            break;
+          case '5m':
+            start = new Date(end.getTime() - 5 * 60 * 1000);
+            timeframe = '5Sec';
+            limit = 60;
+            break;
+          case '15m':
+            start = new Date(end.getTime() - 15 * 60 * 1000);
+            timeframe = '15Sec';
+            limit = 60;
+            break;
+          case '30m':
+            start = new Date(end.getTime() - 30 * 60 * 1000);
+            timeframe = '30Sec';
+            limit = 60;
+            break;
+          case '1H':
+            start = new Date(end.getTime() - 60 * 60 * 1000);
+            timeframe = '1Min';
+            limit = 60;
+            break;
+          case '4H':
+            start = new Date(end.getTime() - 4 * 60 * 60 * 1000);
+            timeframe = '5Min';
+            limit = 48;
+            break;
+          case '1D':
+            start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+            timeframe = '15Min';
+            limit = 96;
+            break;
+          case '1W':
+            start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+            timeframe = '1Hour';
+            limit = 168;
+            break;
+          default:
+            start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+            timeframe = '15Min';
+            limit = 96;
+        }
+
         const startStr = start.toISOString().split('T')[0];
         const endStr = end.toISOString().split('T')[0];
 
@@ -94,12 +145,11 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
         if (!session) return;
 
         // Normalize crypto symbols: BTC/USD -> BTCUSD for API compatibility
-        // The backend's normalize_crypto_symbol function expects symbols without slashes in the URL path
         const normalizedSymbol = strategy.base_symbol.replace('/', '').toUpperCase();
-        console.log(`[MarketDataCard] Symbol: ${strategy.base_symbol} -> ${normalizedSymbol}`);
+        console.log(`[MarketDataCard] Fetching ${timeRange} data for ${normalizedSymbol}`);
 
         const response = await fetch(
-          `${API_BASE}/api/market-data/${normalizedSymbol}/historical?timeframe=1Day&start=${startStr}&end=${endStr}&limit=100`,
+          `${API_BASE}/api/market-data/${normalizedSymbol}/historical?timeframe=${timeframe}&start=${startStr}&end=${endStr}&limit=${limit}`,
           {
             headers: { 'Authorization': `Bearer ${session.access_token}` },
           }
@@ -142,7 +192,7 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
     };
 
     fetchChartData();
-  }, [strategy.base_symbol, strategy.id, user]);
+  }, [strategy.base_symbol, strategy.id, user, timeRange]);
 
   // Subscribe to real-time price updates via WebSocket (primary) with HTTP polling fallback
   useEffect(() => {
@@ -345,8 +395,28 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
       {/* Candlestick Chart - Show when we have data */}
       {chartData.length > 0 && (
         <div className="mb-4">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-sm text-white">Price Chart</span>
+            <div className="flex items-center gap-1">
+              {(['1m', '5m', '15m', '30m', '1H', '4H', '1D', '1W'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                    timeRange === range
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
+                  }`}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm text-white">Price Chart (30 Days)</span>
+            <span className="text-xs text-gray-400">
+              {loadingChart ? 'Loading...' : `${chartData.length} data points`}
+            </span>
             <span className="text-xs text-gray-300 font-medium">{strategy.base_symbol || symbol}</span>
           </div>
           <StrategyCandlestickChart

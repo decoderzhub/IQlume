@@ -46,6 +46,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
   const [loading, setLoading] = React.useState(false);
   const [chartLoading, setChartLoading] = React.useState(false);
   const [telemetryData, setTelemetryData] = React.useState<any>(null);
+  const [timeRange, setTimeRange] = React.useState<'1m' | '5m' | '15m' | '30m' | '1H' | '4H' | '1D' | '1W'>('1D');
   
   // Check if strategy is implemented
   const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
@@ -101,21 +102,69 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           return;
         }
 
-        // Fetch historical bars (last 30 days, daily timeframe to show full trading days)
+        // Calculate time range and timeframe based on selected range
         const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 30);
+        let startDate: Date;
+        let timeframe: string;
+        let limit: number;
+
+        switch (timeRange) {
+          case '1m':
+            startDate = new Date(endDate.getTime() - 1 * 60 * 1000);
+            timeframe = '1Sec';
+            limit = 60;
+            break;
+          case '5m':
+            startDate = new Date(endDate.getTime() - 5 * 60 * 1000);
+            timeframe = '5Sec';
+            limit = 60;
+            break;
+          case '15m':
+            startDate = new Date(endDate.getTime() - 15 * 60 * 1000);
+            timeframe = '15Sec';
+            limit = 60;
+            break;
+          case '30m':
+            startDate = new Date(endDate.getTime() - 30 * 60 * 1000);
+            timeframe = '30Sec';
+            limit = 60;
+            break;
+          case '1H':
+            startDate = new Date(endDate.getTime() - 60 * 60 * 1000);
+            timeframe = '1Min';
+            limit = 60;
+            break;
+          case '4H':
+            startDate = new Date(endDate.getTime() - 4 * 60 * 60 * 1000);
+            timeframe = '5Min';
+            limit = 48;
+            break;
+          case '1D':
+            startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+            timeframe = '15Min';
+            limit = 96;
+            break;
+          case '1W':
+            startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+            timeframe = '1Hour';
+            limit = 168;
+            break;
+          default:
+            startDate = new Date();
+            startDate.setDate(startDate.getDate() - 1);
+            timeframe = '15Min';
+            limit = 96;
+        }
 
         // Format dates as YYYY-MM-DD (backend expects date-only format)
         const startStr = startDate.toISOString().split('T')[0];
         const endStr = endDate.toISOString().split('T')[0];
 
         // Normalize crypto symbols: BTC/USD -> BTCUSD for API compatibility
-        // The backend's normalize_crypto_symbol function expects symbols without slashes in the URL path
         const normalizedSymbol = tradingSymbol.replace('/', '').toUpperCase();
-        console.log(`📊 [StrategyCard] Symbol: ${tradingSymbol} -> ${normalizedSymbol}`);
+        console.log(`📊 [StrategyCard] Fetching ${timeRange} data for ${normalizedSymbol}`);
 
-        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/${normalizedSymbol}/historical?timeframe=1Day&start=${startStr}&end=${endStr}&limit=100`;
+        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/${normalizedSymbol}/historical?timeframe=${timeframe}&start=${startStr}&end=${endStr}&limit=${limit}`;
         console.log('📊 [StrategyCard] Fetching from:', apiUrl);
 
         const historicalResponse = await fetch(apiUrl, {
@@ -207,7 +256,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     // Update every 60 seconds
     const interval = setInterval(fetchChartData, 60000);
     return () => clearInterval(interval);
-  }, [strategy.id, tradingSymbol, user]);
+  }, [strategy.id, tradingSymbol, user, timeRange]);
 
   // Subscribe to real-time price updates via WebSocket (primary) with HTTP polling fallback
   React.useEffect(() => {
@@ -512,8 +561,28 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       {/* Candlestick Chart for All Strategies */}
       {tradingSymbol && tradingSymbol !== 'N/A' && (
         <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-white">Price Chart</span>
+            <div className="flex items-center gap-1">
+              {(['1m', '5m', '15m', '30m', '1H', '4H', '1D', '1W'] as const).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                    timeRange === range
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
+                  }`}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-white">Price Chart (30 Days)</span>
+            <span className="text-[10px] text-gray-400">
+              {chartLoading ? 'Loading...' : `${candleData.length} data points`}
+            </span>
             <span className="text-[10px] text-gray-300 font-medium">{tradingSymbol}</span>
           </div>
 
