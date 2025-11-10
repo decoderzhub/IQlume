@@ -111,23 +111,23 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         switch (timeRange) {
           case '1m':
             startDate = new Date(endDate.getTime() - 1 * 60 * 1000);
-            timeframe = '1Sec';
-            limit = 60;
+            timeframe = '1Min';
+            limit = 1;
             break;
           case '5m':
             startDate = new Date(endDate.getTime() - 5 * 60 * 1000);
-            timeframe = '5Sec';
-            limit = 60;
+            timeframe = '1Min';
+            limit = 5;
             break;
           case '15m':
             startDate = new Date(endDate.getTime() - 15 * 60 * 1000);
-            timeframe = '15Sec';
-            limit = 60;
+            timeframe = '1Min';
+            limit = 15;
             break;
           case '30m':
             startDate = new Date(endDate.getTime() - 30 * 60 * 1000);
-            timeframe = '30Sec';
-            limit = 60;
+            timeframe = '1Min';
+            limit = 30;
             break;
           case '1H':
             startDate = new Date(endDate.getTime() - 60 * 60 * 1000);

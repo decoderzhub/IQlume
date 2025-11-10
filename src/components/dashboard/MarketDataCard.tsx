@@ -94,23 +94,23 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
         switch (timeRange) {
           case '1m':
             start = new Date(end.getTime() - 1 * 60 * 1000);
-            timeframe = '1Sec';
-            limit = 60;
+            timeframe = '1Min';
+            limit = 1;
             break;
           case '5m':
             start = new Date(end.getTime() - 5 * 60 * 1000);
-            timeframe = '5Sec';
-            limit = 60;
+            timeframe = '1Min';
+            limit = 5;
             break;
           case '15m':
             start = new Date(end.getTime() - 15 * 60 * 1000);
-            timeframe = '15Sec';
-            limit = 60;
+            timeframe = '1Min';
+            limit = 15;
             break;
           case '30m':
             start = new Date(end.getTime() - 30 * 60 * 1000);
-            timeframe = '30Sec';
-            limit = 60;
+            timeframe = '1Min';
+            limit = 30;
             break;
           case '1H':
             start = new Date(end.getTime() - 60 * 60 * 1000);
