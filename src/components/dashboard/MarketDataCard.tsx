@@ -170,8 +170,29 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
         console.log(`[MarketDataCard] Received historical data:`, data);
 
         // The /{symbol}/historical endpoint returns a direct array of bars
-        const bars = Array.isArray(data) ? data : [];
+        let bars = Array.isArray(data) ? data : [];
         console.log(`[MarketDataCard] Number of bars: ${bars.length}`);
+
+        // If no intraday data available for stocks, fallback to daily bars
+        if (bars.length === 0 && timeframe !== '1Day' && !normalizedSymbol.includes('USD')) {
+          console.log(`[MarketDataCard] No intraday data for ${normalizedSymbol}, falling back to daily bars`);
+          const fallbackStart = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+          const fallbackStartStr = fallbackStart.toISOString().split('T')[0];
+          const fallbackEndStr = end.toISOString().split('T')[0];
+
+          const fallbackResponse = await fetch(
+            `${API_BASE}/api/market-data/${normalizedSymbol}/historical?timeframe=1Day&start=${fallbackStartStr}&end=${fallbackEndStr}&limit=30`,
+            {
+              headers: { 'Authorization': `Bearer ${session.access_token}` },
+            }
+          );
+
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            bars = Array.isArray(fallbackData) ? fallbackData : [];
+            console.log(`[MarketDataCard] Loaded ${bars.length} daily bars as fallback`);
+          }
+        }
 
         if (bars.length > 0) {
           const formattedData = bars.map((bar: any) => ({
@@ -186,6 +207,7 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
           console.log('[MarketDataCard] Loaded', formattedData.length, 'chart bars for', strategy.base_symbol);
         } else {
           console.warn('[MarketDataCard] No historical data available for', strategy.base_symbol);
+          setChartData([]);
         }
       } catch (error) {
         console.error('[MarketDataCard] Error fetching chart data:', error);

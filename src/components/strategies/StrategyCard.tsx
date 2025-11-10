@@ -182,8 +182,29 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           console.log(`📊 [StrategyCard] Received historical data:`, historicalData);
 
           // The /{symbol}/historical endpoint returns a direct array of bars
-          const bars = Array.isArray(historicalData) ? historicalData : [];
+          let bars = Array.isArray(historicalData) ? historicalData : [];
           console.log(`📊 [StrategyCard] Number of bars: ${bars.length}`);
+
+          // If no intraday data available for stocks, fallback to daily bars
+          if (bars.length === 0 && timeframe !== '1Day' && !normalizedSymbol.includes('USD')) {
+            console.log(`📊 [StrategyCard] No intraday data for ${normalizedSymbol}, falling back to daily bars`);
+            const fallbackStart = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+            const fallbackStartStr = fallbackStart.toISOString().split('T')[0];
+            const fallbackEndStr = endDate.toISOString().split('T')[0];
+            const fallbackUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/${normalizedSymbol}/historical?timeframe=1Day&start=${fallbackStartStr}&end=${fallbackEndStr}&limit=30`;
+
+            const fallbackResponse = await fetch(fallbackUrl, {
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+            });
+
+            if (fallbackResponse.ok) {
+              const fallbackData = await fallbackResponse.json();
+              bars = Array.isArray(fallbackData) ? fallbackData : [];
+              console.log(`📊 [StrategyCard] Loaded ${bars.length} daily bars as fallback`);
+            }
+          }
 
           if (bars && bars.length > 0) {
             // Convert to lightweight-charts format (use date string for daily bars)
