@@ -93,49 +93,49 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
 
         switch (timeRange) {
           case '1m':
-            start = new Date(end.getTime() - 1 * 60 * 1000);
-            timeframe = '1Min';
-            limit = 1;
-            break;
-          case '5m':
-            start = new Date(end.getTime() - 5 * 60 * 1000);
-            timeframe = '1Min';
-            limit = 5;
-            break;
-          case '15m':
-            start = new Date(end.getTime() - 15 * 60 * 1000);
-            timeframe = '1Min';
-            limit = 15;
-            break;
-          case '30m':
-            start = new Date(end.getTime() - 30 * 60 * 1000);
-            timeframe = '1Min';
-            limit = 30;
-            break;
-          case '1H':
             start = new Date(end.getTime() - 60 * 60 * 1000);
             timeframe = '1Min';
             limit = 60;
             break;
-          case '4H':
-            start = new Date(end.getTime() - 4 * 60 * 60 * 1000);
+          case '5m':
+            start = new Date(end.getTime() - 3 * 60 * 60 * 1000);
+            timeframe = '1Min';
+            limit = 180;
+            break;
+          case '15m':
+            start = new Date(end.getTime() - 6 * 60 * 60 * 1000);
+            timeframe = '1Min';
+            limit = 360;
+            break;
+          case '30m':
+            start = new Date(end.getTime() - 12 * 60 * 60 * 1000);
             timeframe = '5Min';
-            limit = 48;
+            limit = 144;
+            break;
+          case '1H':
+            start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+            timeframe = '5Min';
+            limit = 288;
+            break;
+          case '4H':
+            start = new Date(end.getTime() - 4 * 24 * 60 * 60 * 1000);
+            timeframe = '15Min';
+            limit = 384;
             break;
           case '1D':
-            start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
-            timeframe = '15Min';
-            limit = 96;
-            break;
-          case '1W':
             start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
             timeframe = '1Hour';
             limit = 168;
             break;
+          case '1W':
+            start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+            timeframe = '1Day';
+            limit = 30;
+            break;
           default:
-            start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
-            timeframe = '15Min';
-            limit = 96;
+            start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+            timeframe = '1Hour';
+            limit = 168;
         }
 
         // For intraday data (1Min, 5Min, 15Min), use full ISO datetime
