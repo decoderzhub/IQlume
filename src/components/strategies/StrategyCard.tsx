@@ -109,7 +109,12 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         const startStr = startDate.toISOString().split('T')[0];
         const endStr = endDate.toISOString().split('T')[0];
 
-        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/${tradingSymbol}/historical?timeframe=1Day&start=${startStr}&end=${endStr}&limit=100`;
+        // Normalize crypto symbols: BTC/USD -> BTCUSD for API compatibility
+        // The backend's normalize_crypto_symbol function expects symbols without slashes in the URL path
+        const normalizedSymbol = tradingSymbol.replace('/', '').toUpperCase();
+        console.log(`📊 [StrategyCard] Symbol: ${tradingSymbol} -> ${normalizedSymbol}`);
+
+        const apiUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/market-data/${normalizedSymbol}/historical?timeframe=1Day&start=${startStr}&end=${endStr}&limit=100`;
         console.log('📊 [StrategyCard] Fetching from:', apiUrl);
 
         const historicalResponse = await fetch(apiUrl, {
