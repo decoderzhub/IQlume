@@ -390,18 +390,18 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               {/* Enhanced Grid Info */}
               <div className="bg-gray-800/30 rounded-lg p-2 mb-2">
                 <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="text-gray-400">Grid Mode:</span>
+                  <span className="text-white">Grid Mode:</span>
                   <span className="text-white capitalize">{gridConfig.mode}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="text-gray-400">Active Levels:</span>
+                  <span className="text-white">Active Levels:</span>
                   <span className="text-green-400 font-medium">
                     {telemetryData?.active_grid_levels || gridConfig.grids}
                   </span>
                 </div>
                 {telemetryData?.grid_utilization_percent !== undefined && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-400">Utilization:</span>
+                    <span className="text-white">Utilization:</span>
                     <span className="text-blue-400 font-medium">
                       {telemetryData.grid_utilization_percent.toFixed(1)}%
                     </span>
@@ -410,7 +410,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               </div>
               
               <div className="flex items-center justify-between text-sm mb-2">
-                <span className="text-gray-400">Grid Range:</span>
+                <span className="text-white">Grid Range:</span>
                 <span className="text-white">{gridConfig.grids} levels</span>
               </div>
               <div className="flex items-center justify-between text-sm">
@@ -433,7 +433,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
                       <div className="text-right">
                         <span className="text-red-400 font-medium">{formatCurrency(telemetryData.stop_loss_price)}</span>
                         {telemetryData.stop_loss_distance_percent !== undefined && (
-                          <span className="text-gray-400 ml-2">
+                          <span className="text-gray-300 ml-2">
                             ({telemetryData.stop_loss_distance_percent.toFixed(1)}% away)
                           </span>
                         )}
@@ -447,7 +447,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
                       <div className="text-right">
                         <span className="text-green-400 font-medium">{formatCurrency(telemetryData.next_take_profit_price)}</span>
                         {telemetryData.take_profit_progress_percent !== undefined && (
-                          <span className="text-gray-400 ml-2">
+                          <span className="text-gray-300 ml-2">
                             ({telemetryData.take_profit_progress_percent.toFixed(1)}% progress)
                           </span>
                         )}
@@ -460,7 +460,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               {/* Price Position Indicator */}
               {currentPrice && pricePosition && (
                 <div className="mt-2 flex items-center gap-2">
-                  <span className="text-xs text-gray-400">Position:</span>
+                  <span className="text-xs text-white">Position:</span>
                   <span className={`text-xs font-medium px-2 py-1 rounded ${
                     pricePosition === 'below' ? 'bg-green-500/20 text-green-400' :
                     pricePosition === 'above' ? 'bg-red-500/20 text-red-400' :
@@ -475,7 +475,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
             </div>
           )}
           
-          <p className="text-xs text-gray-400 mb-2 line-clamp-2">{strategy.description}</p>
+          <p className="text-xs text-gray-300 mb-2 line-clamp-2">{strategy.description}</p>
 
           <div className="flex items-center gap-1.5 mb-2">
             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${getRiskColor(strategy.risk_level)}`}>
@@ -492,7 +492,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
       {tradingSymbol && tradingSymbol !== 'N/A' && (
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-gray-400">Price Chart (30 Days)</span>
+            <span className="text-xs text-white">Price Chart (30 Days)</span>
             <span className="text-[10px] text-gray-300 font-medium">{tradingSymbol}</span>
           </div>
 
@@ -555,7 +555,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               
               <div className="grid grid-cols-2 gap-2 text-[10px]">
                 <div>
-                  <span className="text-gray-400">P&L:</span>
+                  <span className="text-white">P&L:</span>
                   <span className={`ml-2 font-medium ${
                     (telemetryData.current_profit_loss_usd || 0) >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
@@ -564,15 +564,15 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Orders:</span>
+                  <span className="text-white">Orders:</span>
                   <span className="text-white ml-2 font-medium">{telemetryData.active_orders_count || 0}</span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Fill Rate:</span>
+                  <span className="text-white">Fill Rate:</span>
                   <span className="text-blue-400 ml-2 font-medium">{(telemetryData.fill_rate_percent || 0).toFixed(1)}%</span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Deployed:</span>
+                  <span className="text-white">Deployed:</span>
                   <span className="text-purple-400 ml-2 font-medium">{(telemetryData.grid_utilization_percent || 0).toFixed(1)}%</span>
                 </div>
               </div>
@@ -588,7 +588,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
               ) : (
                 <TrendingDown className="w-3 h-3 text-red-400" />
               )}
-              <span className="text-[10px] text-gray-400">Total Return</span>
+              <span className="text-[10px] text-white">Total Return</span>
             </div>
             <p className={`font-semibold text-sm ${isPositiveReturn ? 'text-green-400' : 'text-red-400'}`}>
               {formatPercent(performance.total_return)}
@@ -598,7 +598,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           <div className="bg-gray-800/30 rounded-lg p-2">
             <div className="flex items-center gap-1 mb-0.5">
               <Target className="w-3 h-3 text-blue-400" />
-              <span className="text-[10px] text-gray-400">Win Rate</span>
+              <span className="text-[10px] text-white">Win Rate</span>
             </div>
             <p className="font-semibold text-sm text-blue-400">
               {formatPercent(performance.win_rate || 0)}
@@ -608,7 +608,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           <div className="bg-gray-800/30 rounded-lg p-2">
             <div className="flex items-center gap-1 mb-0.5">
               <Shield className="w-3 h-3 text-purple-400" />
-              <span className="text-[10px] text-gray-400">Max Drawdown</span>
+              <span className="text-[10px] text-white">Max Drawdown</span>
             </div>
             <p className="font-semibold text-sm text-purple-400">
               {formatPercent(performance.max_drawdown || 0)}
@@ -618,7 +618,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           <div className="bg-gray-800/30 rounded-lg p-2">
             <div className="flex items-center gap-1 mb-0.5">
               <Clock className="w-3 h-3 text-yellow-400" />
-              <span className="text-[10px] text-gray-400">Trades</span>
+              <span className="text-[10px] text-white">Trades</span>
             </div>
             <p className="font-semibold text-sm text-yellow-400">
               {(performance.total_trades || 0)}
@@ -630,7 +630,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
 
       {/* Capital Requirements */}
       <div className="mb-3">
-        <p className="text-[10px] text-gray-400 mb-0.5">Minimum Capital</p>
+        <p className="text-[10px] text-white mb-0.5">Minimum Capital</p>
         <p className="font-semibold text-sm text-white">{formatCurrency(strategy.min_capital)}</p>
       </div>
 
