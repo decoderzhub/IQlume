@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown, Info, Activity } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { formatCurrency } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { TradingChart } from '../charts/TradingChart';
+import { StrategyCandlestickChart } from '../charts/StrategyCandlestickChart';
 import { getMarketStatus } from '../../lib/marketHours';
 import { useStore } from '../../store/useStore';
 
@@ -151,17 +151,17 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold text-white">
               {strategy.name}
-              {symbol && symbol !== strategy.type.toUpperCase() && (
-                <span className="ml-2 text-blue-400">({symbol})</span>
-              )}
             </h3>
+            {symbol && symbol !== strategy.type.toUpperCase() && (
+              <span className="text-sm text-blue-400 font-semibold">({symbol})</span>
+            )}
             {strategy.id && (
               <span className="text-xs text-white font-mono">
                 ID: {strategy.id.slice(0, 8)}
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-300">
             Active for {timeActive} {strategy.created_at && `(Created ${new Date(strategy.created_at).toLocaleDateString()})`}
           </p>
         </div>
@@ -170,8 +170,8 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
       <div className="flex flex-col lg:flex-row gap-4 mb-6">
         <div className="bg-gray-800/30 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm text-gray-400">Investment</span>
-            <span className="text-xs text-gray-500">USD</span>
+            <span className="text-sm text-white">Investment</span>
+            <span className="text-xs text-gray-300">USD</span>
           </div>
           <div className="text-xl lg:text-2xl font-bold text-white break-words">
             {formatCurrency(totalInvestment)}
@@ -193,8 +193,8 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <span className="text-sm text-gray-400">Grid profit</span>
-            <span className="text-xs text-gray-500">USD</span>
+            <span className="text-sm text-white">Grid profit</span>
+            <span className="text-xs text-gray-300">USD</span>
           </div>
           <div className={`${gridProfit >= 0 ? 'text-green-400' : 'text-red-400'} font-semibold`}>
             {gridProfit >= 0 ? '+' : ''}{formatCurrency(gridProfit)}
@@ -206,8 +206,8 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
 
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <span className="text-sm text-gray-400">Holding profit</span>
-            <span className="text-xs text-gray-500">USD</span>
+            <span className="text-sm text-white">Holding profit</span>
+            <span className="text-xs text-gray-300">USD</span>
           </div>
           <div className={`${holdingProfit >= 0 ? 'text-green-400' : 'text-red-400'} font-semibold`}>
             {holdingProfit >= 0 ? '+' : ''}{formatCurrency(holdingProfit)}
@@ -219,25 +219,25 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
 
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <span className="text-sm text-gray-400">Annualized return</span>
+            <span className="text-sm text-white">Annualized return</span>
           </div>
           <div className={`${annualizedReturn >= 0 ? 'text-green-400' : 'text-red-400'} font-semibold`}>
             {annualizedReturn >= 0 ? '+' : ''}{annualizedReturn.toFixed(1)}%
           </div>
-          <div className="text-gray-400 text-sm">Per year</div>
+          <div className="text-gray-300 text-sm">Per year</div>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div>
-          <div className="text-sm text-gray-400 mb-1">24H/Total Transactions</div>
+          <div className="text-sm text-white mb-1">24H/Total Transactions</div>
           <div className="text-white font-semibold">
             {last24hTransactions}/{totalTransactions} times
           </div>
         </div>
 
         <div>
-          <div className="text-sm text-gray-400 mb-1">
+          <div className="text-sm text-white mb-1">
             Price range <span className="text-xs">USD</span>
           </div>
           {priceRangeLower > 0 && priceRangeUpper > 0 ? (
@@ -246,7 +246,7 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
                 {formatCurrency(priceRangeLower)} - {formatCurrency(priceRangeUpper)}
               </div>
               {gridLevels > 0 && (
-                <div className="text-gray-400 text-sm">({gridLevels} grids)</div>
+                <div className="text-gray-300 text-sm">({gridLevels} grids)</div>
               )}
             </>
           ) : (
@@ -256,8 +256,8 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
 
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <span className="text-sm text-gray-400">Total profit</span>
-            <span className="text-xs text-gray-500">USD</span>
+            <span className="text-sm text-white">Total profit</span>
+            <span className="text-xs text-gray-300">USD</span>
           </div>
           <div className={`${currentProfit >= 0 ? 'text-green-400' : 'text-red-400'} font-semibold`}>
             {currentProfit >= 0 ? '+' : ''}{formatCurrency(currentProfit)}
@@ -271,7 +271,7 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
       {currentPrice > 0 && startPrice > 0 && (
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div>
-            <div className="text-sm text-gray-400 mb-1">
+            <div className="text-sm text-white mb-1">
               Current price <span className="text-xs">USD</span>
             </div>
             <div className="flex items-center gap-2">
@@ -285,7 +285,7 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
           </div>
 
           <div>
-            <div className="text-sm text-gray-400 mb-1">
+            <div className="text-sm text-white mb-1">
               Start price <span className="text-xs">USD</span>
             </div>
             <div className="text-white font-semibold text-lg">
@@ -295,22 +295,22 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
         </div>
       )}
 
-      {/* Price Chart - Show when we have data */}
+      {/* Candlestick Chart - Show when we have data */}
       {chartData.length > 0 && (
         <div className="mb-4">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm text-gray-400">Price History (Last 7 Days)</span>
-            {!marketStatus.isOpen && (
-              <span className="text-xs text-yellow-500">Market Closed - Historical Data</span>
-            )}
+            <span className="text-sm text-white">Price Chart (30 Days)</span>
+            <span className="text-xs text-gray-300 font-medium">{strategy.base_symbol || symbol}</span>
           </div>
-          <TradingChart
+          <StrategyCandlestickChart
             symbol={strategy.base_symbol || symbol}
-            data={chartData}
-            chartType="line"
-            height={250}
-            showVolume={false}
-            showGrid={true}
+            candleData={chartData}
+            trades={[]}
+            gridLevels={priceRangeLower > 0 && priceRangeUpper > 0 ? {
+              lower: priceRangeLower,
+              upper: priceRangeUpper,
+            } : undefined}
+            loading={loadingChart}
           />
         </div>
       )}
@@ -327,8 +327,8 @@ export function MarketDataCard({ strategyData }: MarketDataCardProps) {
         <div className="h-48 mb-4 flex items-center justify-center bg-gray-800/30 rounded-lg border border-gray-700">
           <div className="text-center">
             <Activity className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-            <div className="text-gray-400 text-sm">No chart data available for {strategy.base_symbol}</div>
-            <div className="text-gray-500 text-xs mt-1">Historical data will load when available</div>
+            <div className="text-gray-300 text-sm">No chart data available for {strategy.base_symbol}</div>
+            <div className="text-gray-400 text-xs mt-1">Historical data will load when available</div>
           </div>
         </div>
       )}
