@@ -113,37 +113,21 @@ class BaseStrategyExecutor(ABC):
         return None
     
     def is_market_open(self, symbol: str) -> bool:
-        """
-        Check if the market is currently open for trading.
-
-        IMPORTANT: Cryptocurrency markets (BTC/USD, ETH/USD, etc.) are open 24/7.
-        Stock markets have limited trading hours (9:30 AM - 4:00 PM ET on weekdays).
-        """
+        """Check if the market is currently open for trading"""
         try:
-            # For crypto symbols, market is always open (24/7 trading)
+            # For crypto symbols, market is always open
             if self.normalize_crypto_symbol(symbol):
-                self.logger.info(f"🟢 {symbol} is cryptocurrency - market open 24/7")
+                self.logger.info(f"🕐 {symbol} is crypto - market always open")
                 return True
-
-            # For stocks, check if market is open
+            
             clock = self.trading_client.get_clock()
-            is_open = clock.is_open
-
-            if is_open:
-                self.logger.info(f"🟢 {symbol} stock market is OPEN - next close: {clock.next_close}")
-            else:
-                self.logger.info(f"🔴 {symbol} stock market is CLOSED - next open: {clock.next_open}")
-
-            return is_open
-
+            self.logger.info(f"🕐 Market clock for {symbol}: is_open={clock.is_open}, current_time={clock.timestamp}")
+            
+            # For stocks, check if market is open
+            return clock.is_open
+            
         except Exception as e:
-            self.logger.error(f"❌ Error checking market status for {symbol}: {e}")
-            # For crypto, assume always open on error
-            if self.normalize_crypto_symbol(symbol):
-                self.logger.warning(f"⚠️ Defaulting to OPEN for crypto symbol {symbol}")
-                return True
-            # For stocks, fail safe to closed
-            return False
+            self.logger.error(f"Error checking market status for {symbol}: {e}")
     
     def get_market_status_message(self, symbol: str) -> str:
         """Get a descriptive message about market status"""
