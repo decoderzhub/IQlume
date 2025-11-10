@@ -374,7 +374,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
           
           {/* Trading Symbol and Current Price */}
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-gray-500">{tradingSymbol}</span>
+            <span className="text-xs text-blue-400 font-semibold">{tradingSymbol}</span>
             {currentPrice && (
               <>
                 <span className="text-xs text-gray-600">•</span>
@@ -493,7 +493,7 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-gray-400">Price Chart (30 Days)</span>
-            <span className="text-[10px] text-gray-500">{tradingSymbol}</span>
+            <span className="text-[10px] text-gray-300 font-medium">{tradingSymbol}</span>
           </div>
 
           <StrategyCandlestickChart
