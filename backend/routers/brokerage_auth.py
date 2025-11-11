@@ -127,6 +127,7 @@ async def get_alpaca_oauth_url(
             "redirect_uri": redirect_uri,
             "scope": "account:write trading",
             "state": state,
+            "env": env,  # Specify paper or live environment
         }
         oauth_url = f"{AUTHORIZE_URL}?{urlencode(params)}"
 
