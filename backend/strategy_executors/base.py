@@ -180,6 +180,53 @@ class BaseStrategyExecutor(ABC):
             self.logger.error(f"Error checking account funds: {e}")
             return False, 0, 0
 
+    def create_market_order_request(self, symbol: str, quantity: float, side, time_in_force, current_price: float = None):
+        """
+        Create a market order request using correct parameters for crypto vs stocks
+
+        Args:
+            symbol: Trading symbol
+            quantity: For stocks: number of shares. For crypto: will be converted to notional
+            side: OrderSide.BUY or OrderSide.SELL
+            time_in_force: TimeInForce enum
+            current_price: Current price (required for crypto to calculate notional)
+
+        Returns:
+            MarketOrderRequest configured correctly for the asset type
+        """
+        from alpaca.trading.requests import MarketOrderRequest
+
+        is_crypto = self.normalize_crypto_symbol(symbol) is not None
+        clean_symbol = symbol.replace("/", "")
+
+        if is_crypto:
+            # For crypto: use notional (USD amount)
+            if current_price is None:
+                # Try to get current price if not provided
+                current_price = self.get_current_price(symbol)
+                if current_price is None:
+                    raise ValueError(f"Current price required for crypto market order but not available for {symbol}")
+
+            notional_amount = round(quantity * current_price, 2)
+            self.logger.info(f"💰 [CRYPTO] Creating market order with notional=${notional_amount:.2f} (qty={quantity:.6f} @ ${current_price:.2f})")
+
+            return MarketOrderRequest(
+                symbol=clean_symbol,
+                notional=notional_amount,
+                side=side,
+                time_in_force=time_in_force
+            )
+        else:
+            # For stocks: use qty (number of shares)
+            self.logger.info(f"📊 [STOCK] Creating market order with qty={quantity:.6f}")
+
+            return MarketOrderRequest(
+                symbol=clean_symbol,
+                qty=quantity,
+                side=side,
+                time_in_force=time_in_force
+            )
+
     def is_market_open(self, symbol: str) -> bool:
         """Check if the market is currently open for trading"""
         try:
@@ -187,16 +234,16 @@ class BaseStrategyExecutor(ABC):
             if self.normalize_crypto_symbol(symbol):
                 self.logger.info(f"🕐 {symbol} is crypto - market always open")
                 return True
-            
+
             clock = self.trading_client.get_clock()
             self.logger.info(f"🕐 Market clock for {symbol}: is_open={clock.is_open}, current_time={clock.timestamp}")
-            
+
             # For stocks, check if market is open
             return clock.is_open
-            
+
         except Exception as e:
             self.logger.error(f"Error checking market status for {symbol}: {e}")
-    
+
     def get_market_status_message(self, symbol: str) -> str:
         """Get a descriptive message about market status"""
         try:

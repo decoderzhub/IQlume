@@ -490,14 +490,25 @@ class SpotGridExecutor(BaseStrategyExecutor):
                             time_in_force = TimeInForce.DAY if is_market_open else TimeInForce.OPG
 
                         self.logger.info(f"📈 Market open: {is_market_open}, Crypto: {is_crypto}, Using time in force: {time_in_force}")
-                        
+
                         # Create market order request
-                        order_request = MarketOrderRequest(
-                            symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
-                            qty=buy_quantity,
-                            side=OrderSide.BUY,
-                            time_in_force=time_in_force
-                        )
+                        # For crypto: use notional (USD amount), for stocks: use qty (shares)
+                        if is_crypto:
+                            order_request = MarketOrderRequest(
+                                symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
+                                notional=round(initial_amount, 2),  # USD amount for crypto
+                                side=OrderSide.BUY,
+                                time_in_force=time_in_force
+                            )
+                            self.logger.info(f"💰 [CRYPTO] Using notional=${initial_amount:.2f} for market order")
+                        else:
+                            order_request = MarketOrderRequest(
+                                symbol=symbol.replace("/", ""),
+                                qty=buy_quantity,  # Share quantity for stocks
+                                side=OrderSide.BUY,
+                                time_in_force=time_in_force
+                            )
+                            self.logger.info(f"📊 [STOCK] Using qty={buy_quantity:.6f} for market order")
                         
                         # Submit order to Alpaca
                         order = self.trading_client.submit_order(order_request)
@@ -721,14 +732,26 @@ class SpotGridExecutor(BaseStrategyExecutor):
             if False and action_result.get("action") in ["buy", "sell"]:
                 try:
                     order_side = OrderSide.BUY if action_result["action"] == "buy" else OrderSide.SELL
+                    is_crypto = "/" in symbol or any(crypto in symbol for crypto in ["BTC", "ETH", "DOGE", "AVAX", "SHIB"])
 
                     # Create market order request
-                    order_request = MarketOrderRequest(
-                        symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
-                        qty=action_result["quantity"],
-                        side=order_side,
-                        time_in_force=TimeInForce.DAY
-                    )
+                    # For crypto: use notional (USD amount), for stocks: use qty (shares)
+                    if is_crypto:
+                        # For crypto, calculate notional amount
+                        notional_amount = action_result["quantity"] * action_result.get("price", current_price)
+                        order_request = MarketOrderRequest(
+                            symbol=symbol.replace("/", ""),
+                            notional=round(notional_amount, 2),  # USD amount for crypto
+                            side=order_side,
+                            time_in_force=TimeInForce.IOC
+                        )
+                    else:
+                        order_request = MarketOrderRequest(
+                            symbol=symbol.replace("/", ""),
+                            qty=action_result["quantity"],  # Share quantity for stocks
+                            side=order_side,
+                            time_in_force=TimeInForce.DAY
+                        )
 
                     # Submit order to Alpaca
                     order = self.trading_client.submit_order(order_request)
