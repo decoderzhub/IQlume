@@ -493,28 +493,25 @@ class SpotGridExecutor(BaseStrategyExecutor):
                         self.logger.info(f"📈 Market open: {is_market_open}, Crypto: {is_crypto}, Using time in force: {time_in_force}")
 
                         # Create market order request
-                        # For crypto: use notional (USD amount), for stocks: use qty (shares)
+                        # Both crypto and stocks use qty (quantity) parameter
+                        # For crypto: qty is the fractional amount of crypto (e.g., 0.0001 BTC)
+                        # For stocks: qty is the number of shares
+                        crypto_qty = round(buy_quantity, 8)  # Crypto supports up to 9 decimals
+
+                        order_request = MarketOrderRequest(
+                            symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
+                            qty=crypto_qty,
+                            side=OrderSide.BUY,
+                            time_in_force=time_in_force
+                        )
+
                         if is_crypto:
-                            notional_value = round(initial_amount, 2)
-                            order_request = MarketOrderRequest(
-                                symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
-                                notional=notional_value,  # USD amount for crypto
-                                side=OrderSide.BUY,
-                                time_in_force=time_in_force
-                            )
                             self.logger.info(f"💰 [CRYPTO] Market order details:")
                             self.logger.info(f"   Symbol: {symbol.replace('/', '')}")
-                            self.logger.info(f"   Notional: ${notional_value}")
+                            self.logger.info(f"   Qty: {crypto_qty} (worth ~${initial_amount:.2f})")
                             self.logger.info(f"   Side: BUY")
                             self.logger.info(f"   Time in Force: {time_in_force}")
-                            self.logger.info(f"   Request object: {order_request.__dict__ if hasattr(order_request, '__dict__') else order_request}")
                         else:
-                            order_request = MarketOrderRequest(
-                                symbol=symbol.replace("/", ""),
-                                qty=buy_quantity,  # Share quantity for stocks
-                                side=OrderSide.BUY,
-                                time_in_force=time_in_force
-                            )
                             self.logger.info(f"📊 [STOCK] Using qty={buy_quantity:.6f} for market order")
 
                         # Submit order to Alpaca
@@ -743,23 +740,16 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     is_crypto = "/" in symbol or any(crypto in symbol for crypto in ["BTC", "ETH", "DOGE", "AVAX", "SHIB"])
 
                     # Create market order request
-                    # For crypto: use notional (USD amount), for stocks: use qty (shares)
-                    if is_crypto:
-                        # For crypto, calculate notional amount
-                        notional_amount = action_result["quantity"] * action_result.get("price", current_price)
-                        order_request = MarketOrderRequest(
-                            symbol=symbol.replace("/", ""),
-                            notional=round(notional_amount, 2),  # USD amount for crypto
-                            side=order_side,
-                            time_in_force=TimeInForce.GTC  # GTC required for crypto market orders
-                        )
-                    else:
-                        order_request = MarketOrderRequest(
-                            symbol=symbol.replace("/", ""),
-                            qty=action_result["quantity"],  # Share quantity for stocks
-                            side=order_side,
-                            time_in_force=TimeInForce.DAY
-                        )
+                    # Both crypto and stocks use qty parameter
+                    order_qty = round(action_result["quantity"], 8) if is_crypto else action_result["quantity"]
+                    time_in_force = TimeInForce.GTC if is_crypto else TimeInForce.DAY
+
+                    order_request = MarketOrderRequest(
+                        symbol=symbol.replace("/", ""),
+                        qty=order_qty,
+                        side=order_side,
+                        time_in_force=time_in_force
+                    )
 
                     # Submit order to Alpaca
                     order = self.trading_client.submit_order(order_request)

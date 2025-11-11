@@ -186,10 +186,10 @@ class BaseStrategyExecutor(ABC):
 
         Args:
             symbol: Trading symbol
-            quantity: For stocks: number of shares. For crypto: will be converted to notional
+            quantity: Fractional quantity (e.g., 0.0001 BTC or 10 shares)
             side: OrderSide.BUY or OrderSide.SELL
             time_in_force: TimeInForce enum (Note: crypto market orders require GTC)
-            current_price: Current price (required for crypto to calculate notional)
+            current_price: Current price (for logging/validation only)
 
         Returns:
             MarketOrderRequest configured correctly for the asset type
@@ -200,26 +200,22 @@ class BaseStrategyExecutor(ABC):
         is_crypto = self.normalize_crypto_symbol(symbol) is not None
         clean_symbol = symbol.replace("/", "")
 
+        # Both crypto and stocks use qty parameter
+        # Crypto supports up to 9 decimal places
+        order_qty = round(quantity, 8) if is_crypto else quantity
+
         if is_crypto:
-            # For crypto: use notional (USD amount) and GTC time in force
-            if current_price is None:
-                # Try to get current price if not provided
-                current_price = self.get_current_price(symbol)
-                if current_price is None:
-                    raise ValueError(f"Current price required for crypto market order but not available for {symbol}")
+            # Crypto market orders require GTC time in force
+            self.logger.info(f"💰 [CRYPTO] Creating market order with qty={order_qty}")
 
-            notional_amount = round(quantity * current_price, 2)
-            self.logger.info(f"💰 [CRYPTO] Creating market order with notional=${notional_amount:.2f} (qty={quantity:.6f} @ ${current_price:.2f})")
-
-            # Crypto market orders require GTC (IOC only works with limit orders)
             return MarketOrderRequest(
                 symbol=clean_symbol,
-                notional=notional_amount,
+                qty=order_qty,
                 side=side,
                 time_in_force=TimeInForce.GTC
             )
         else:
-            # For stocks: use qty (number of shares)
+            # For stocks: use provided time in force (DAY/OPG)
             self.logger.info(f"📊 [STOCK] Creating market order with qty={quantity:.6f}")
 
             return MarketOrderRequest(
