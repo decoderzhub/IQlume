@@ -188,19 +188,20 @@ class BaseStrategyExecutor(ABC):
             symbol: Trading symbol
             quantity: For stocks: number of shares. For crypto: will be converted to notional
             side: OrderSide.BUY or OrderSide.SELL
-            time_in_force: TimeInForce enum
+            time_in_force: TimeInForce enum (Note: crypto market orders require GTC)
             current_price: Current price (required for crypto to calculate notional)
 
         Returns:
             MarketOrderRequest configured correctly for the asset type
         """
         from alpaca.trading.requests import MarketOrderRequest
+        from alpaca.trading.enums import TimeInForce
 
         is_crypto = self.normalize_crypto_symbol(symbol) is not None
         clean_symbol = symbol.replace("/", "")
 
         if is_crypto:
-            # For crypto: use notional (USD amount)
+            # For crypto: use notional (USD amount) and GTC time in force
             if current_price is None:
                 # Try to get current price if not provided
                 current_price = self.get_current_price(symbol)
@@ -210,11 +211,12 @@ class BaseStrategyExecutor(ABC):
             notional_amount = round(quantity * current_price, 2)
             self.logger.info(f"💰 [CRYPTO] Creating market order with notional=${notional_amount:.2f} (qty={quantity:.6f} @ ${current_price:.2f})")
 
+            # Crypto market orders require GTC (IOC only works with limit orders)
             return MarketOrderRequest(
                 symbol=clean_symbol,
                 notional=notional_amount,
                 side=side,
-                time_in_force=time_in_force
+                time_in_force=TimeInForce.GTC
             )
         else:
             # For stocks: use qty (number of shares)

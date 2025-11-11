@@ -483,9 +483,10 @@ class SpotGridExecutor(BaseStrategyExecutor):
                         is_crypto = "/" in symbol or any(crypto in symbol for crypto in ["BTC", "ETH", "DOGE", "AVAX", "SHIB"])
                         is_market_open = self.is_market_open(symbol)
 
-                        # Crypto uses IOC (immediate execution), stocks use DAY/OPG
+                        # Crypto market orders require GTC, stocks use DAY/OPG
+                        # Note: IOC only works with limit orders, not market orders
                         if is_crypto:
-                            time_in_force = TimeInForce.IOC
+                            time_in_force = TimeInForce.GTC
                         else:
                             time_in_force = TimeInForce.DAY if is_market_open else TimeInForce.OPG
 
@@ -743,7 +744,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
                             symbol=symbol.replace("/", ""),
                             notional=round(notional_amount, 2),  # USD amount for crypto
                             side=order_side,
-                            time_in_force=TimeInForce.IOC
+                            time_in_force=TimeInForce.GTC  # GTC required for crypto market orders
                         )
                     else:
                         order_request = MarketOrderRequest(
