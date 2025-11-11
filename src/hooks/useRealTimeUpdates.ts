@@ -53,13 +53,17 @@ export function useRealTimeUpdates() {
                 // Show notification
                 if (update.strategy_name && update.action && update.symbol) {
                   const notification = `🤖 ${update.strategy_name}: ${update.action.toUpperCase()} ${update.symbol} x${update.quantity} @ $${update.price?.toFixed(2)}`;
-                  
-                  // You could use a toast library here instead of alert
-                  if (Notification.permission === 'granted') {
-                    new Notification('Autonomous Trade Executed', {
-                      body: notification,
-                      icon: '/logo.png'
-                    });
+
+                  // Check if Notification API is available
+                  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                    try {
+                      new Notification('Autonomous Trade Executed', {
+                        body: notification,
+                        icon: '/logo.png'
+                      });
+                    } catch (error) {
+                      console.log('Notification not supported:', error);
+                    }
                   }
                 }
 
@@ -122,9 +126,11 @@ export function useRealTimeUpdates() {
       }
     };
 
-    // Request notification permission
-    if (Notification.permission === 'default') {
-      Notification.requestPermission();
+    // Request notification permission (if supported)
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch((error) => {
+        console.log('Notification permission not supported:', error);
+      });
     }
 
     // Connect SSE
