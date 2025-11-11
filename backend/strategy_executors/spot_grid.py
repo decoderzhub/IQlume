@@ -133,7 +133,13 @@ class SpotGridExecutor(BaseStrategyExecutor):
             # Determine appropriate time_in_force
             is_fractional = sell_qty < 1.0
             is_crypto = self.normalize_crypto_symbol(symbol) is not None
-            time_in_force_enum = TimeInForce.DAY if is_fractional and not is_crypto else TimeInForce.GTC
+            # Use IOC for crypto (immediate execution), DAY for fractional stocks, GTC otherwise
+            if is_crypto:
+                time_in_force_enum = TimeInForce.IOC
+            elif is_fractional and not is_crypto:
+                time_in_force_enum = TimeInForce.DAY
+            else:
+                time_in_force_enum = TimeInForce.GTC
 
             # Place limit sell order
             order_request = LimitOrderRequest(
@@ -149,10 +155,15 @@ class SpotGridExecutor(BaseStrategyExecutor):
 
             self.logger.info(f"✅ [GRID] Placed sell order at level {next_sell_level} @ ${sell_price:.2f}, Order ID: {order_id}")
 
-            # Determine if fractional and time_in_force
+            # Determine if fractional and time_in_force for database record
             is_fractional = sell_qty < 1.0
             is_crypto = self.normalize_crypto_symbol(symbol) is not None
-            time_in_force = "day" if is_fractional and not is_crypto else "gtc"
+            if is_crypto:
+                time_in_force = "ioc"
+            elif is_fractional and not is_crypto:
+                time_in_force = "day"
+            else:
+                time_in_force = "gtc"
 
             # Record grid order in database
             self.record_grid_order(
@@ -232,7 +243,13 @@ class SpotGridExecutor(BaseStrategyExecutor):
             # Determine appropriate time_in_force
             is_fractional = buy_qty < 1.0
             is_crypto = self.normalize_crypto_symbol(symbol) is not None
-            time_in_force_enum = TimeInForce.DAY if is_fractional and not is_crypto else TimeInForce.GTC
+            # Use IOC for crypto (immediate execution), DAY for fractional stocks, GTC otherwise
+            if is_crypto:
+                time_in_force_enum = TimeInForce.IOC
+            elif is_fractional and not is_crypto:
+                time_in_force_enum = TimeInForce.DAY
+            else:
+                time_in_force_enum = TimeInForce.GTC
 
             # Place limit buy order
             order_request = LimitOrderRequest(
@@ -248,10 +265,15 @@ class SpotGridExecutor(BaseStrategyExecutor):
 
             self.logger.info(f"✅ [GRID] Placed buy order at level {next_buy_level} @ ${buy_price:.2f}, Order ID: {order_id}")
 
-            # Determine if fractional and time_in_force
+            # Determine if fractional and time_in_force for database record
             is_fractional = buy_qty < 1.0
             is_crypto = self.normalize_crypto_symbol(symbol) is not None
-            time_in_force = "day" if is_fractional and not is_crypto else "gtc"
+            if is_crypto:
+                time_in_force = "ioc"
+            elif is_fractional and not is_crypto:
+                time_in_force = "day"
+            else:
+                time_in_force = "gtc"
 
             # Record grid order in database
             self.record_grid_order(
@@ -461,9 +483,9 @@ class SpotGridExecutor(BaseStrategyExecutor):
                         is_crypto = "/" in symbol or any(crypto in symbol for crypto in ["BTC", "ETH", "DOGE", "AVAX", "SHIB"])
                         is_market_open = self.is_market_open(symbol)
 
-                        # Crypto always uses GTC, stocks use DAY/OPG
+                        # Crypto uses IOC (immediate execution), stocks use DAY/OPG
                         if is_crypto:
-                            time_in_force = TimeInForce.GTC
+                            time_in_force = TimeInForce.IOC
                         else:
                             time_in_force = TimeInForce.DAY if is_market_open else TimeInForce.OPG
 
@@ -833,7 +855,11 @@ class SpotGridExecutor(BaseStrategyExecutor):
             try:
                 # Determine appropriate time_in_force based on quantity
                 # Alpaca requires fractional orders to be DAY orders, not GTC
-                if is_fractional and not is_crypto:
+                # Crypto uses IOC for immediate execution
+                if is_crypto:
+                    time_in_force = TimeInForce.IOC
+                    self.logger.info(f"🚀 [GRID] Using IOC order for crypto at level {grid_level_index}")
+                elif is_fractional and not is_crypto:
                     time_in_force = TimeInForce.DAY
                     self.logger.info(f"⚠️ [GRID] Using DAY order for fractional quantity at level {grid_level_index}")
                 else:
@@ -934,7 +960,11 @@ class SpotGridExecutor(BaseStrategyExecutor):
 
                 # Determine appropriate time_in_force based on quantity
                 # Alpaca requires fractional orders to be DAY orders, not GTC
-                if is_sell_fractional and not is_crypto:
+                # Crypto uses IOC for immediate execution
+                if is_crypto:
+                    time_in_force = TimeInForce.IOC
+                    self.logger.info(f"🚀 [GRID] Using IOC order for crypto at level {grid_level_index}")
+                elif is_sell_fractional and not is_crypto:
                     time_in_force = TimeInForce.DAY
                     self.logger.info(f"⚠️ [GRID] Using DAY order for fractional quantity at level {grid_level_index}")
                 else:

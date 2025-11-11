@@ -400,7 +400,13 @@ class GridPriceMonitor:
                     # Determine time in force
                     is_fractional = quantity_per_grid < 1.0
                     is_crypto = symbol.endswith("USD") and not symbol.startswith("$")
-                    time_in_force = TimeInForce.DAY if is_fractional and not is_crypto else TimeInForce.GTC
+                    # Use IOC for crypto (immediate execution), DAY for fractional stocks, GTC otherwise
+                    if is_crypto:
+                        time_in_force = TimeInForce.IOC
+                    elif is_fractional and not is_crypto:
+                        time_in_force = TimeInForce.DAY
+                    else:
+                        time_in_force = TimeInForce.GTC
 
                     # Create order request
                     order_request = LimitOrderRequest(

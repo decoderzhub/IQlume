@@ -264,7 +264,13 @@ class GridRealtimeMonitor:
             # Determine if crypto (supports fractional)
             is_crypto = "/" in symbol or "USD" in symbol and len(symbol) > 3
             is_fractional = buy_qty < 1.0
-            time_in_force = TimeInForce.GTC if is_crypto or not is_fractional else TimeInForce.DAY
+            # Use IOC for crypto (immediate execution), DAY for fractional stocks, GTC otherwise
+            if is_crypto:
+                time_in_force = TimeInForce.IOC
+            elif is_fractional and not is_crypto:
+                time_in_force = TimeInForce.DAY
+            else:
+                time_in_force = TimeInForce.GTC
 
             # Place limit buy order
             order_request = LimitOrderRequest(
@@ -338,7 +344,13 @@ class GridRealtimeMonitor:
             # Determine if crypto
             is_crypto = "/" in symbol or "USD" in symbol and len(symbol) > 3
             is_fractional = sell_qty < 1.0
-            time_in_force = TimeInForce.GTC if is_crypto or not is_fractional else TimeInForce.DAY
+            # Use IOC for crypto (immediate execution), DAY for fractional stocks, GTC otherwise
+            if is_crypto:
+                time_in_force = TimeInForce.IOC
+            elif is_fractional and not is_crypto:
+                time_in_force = TimeInForce.DAY
+            else:
+                time_in_force = TimeInForce.GTC
 
             # Place limit sell order
             order_request = LimitOrderRequest(
