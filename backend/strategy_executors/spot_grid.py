@@ -495,13 +495,19 @@ class SpotGridExecutor(BaseStrategyExecutor):
                         # Create market order request
                         # For crypto: use notional (USD amount), for stocks: use qty (shares)
                         if is_crypto:
+                            notional_value = round(initial_amount, 2)
                             order_request = MarketOrderRequest(
                                 symbol=symbol.replace("/", ""),  # Remove slash for Alpaca format
-                                notional=round(initial_amount, 2),  # USD amount for crypto
+                                notional=notional_value,  # USD amount for crypto
                                 side=OrderSide.BUY,
                                 time_in_force=time_in_force
                             )
-                            self.logger.info(f"💰 [CRYPTO] Using notional=${initial_amount:.2f} for market order")
+                            self.logger.info(f"💰 [CRYPTO] Market order details:")
+                            self.logger.info(f"   Symbol: {symbol.replace('/', '')}")
+                            self.logger.info(f"   Notional: ${notional_value}")
+                            self.logger.info(f"   Side: BUY")
+                            self.logger.info(f"   Time in Force: {time_in_force}")
+                            self.logger.info(f"   Request object: {order_request.__dict__ if hasattr(order_request, '__dict__') else order_request}")
                         else:
                             order_request = MarketOrderRequest(
                                 symbol=symbol.replace("/", ""),
@@ -510,8 +516,9 @@ class SpotGridExecutor(BaseStrategyExecutor):
                                 time_in_force=time_in_force
                             )
                             self.logger.info(f"📊 [STOCK] Using qty={buy_quantity:.6f} for market order")
-                        
+
                         # Submit order to Alpaca
+                        self.logger.info(f"🚀 Submitting order to Alpaca...")
                         order = self.trading_client.submit_order(order_request)
                         order_id = str(order.id)
                         
