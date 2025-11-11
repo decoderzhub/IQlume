@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, Filter, TrendingUp, Activity, Settings, Play, Pause, BarChart3, Grid3X3, Bot, Target, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Search, Filter, TrendingUp, Activity, Settings, Play, Pause, BarChart3, Grid3X3, Bot, Target, ChevronDown, ChevronUp, AlertTriangle, DollarSign } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { StrategyCard } from './StrategyCard';
@@ -8,6 +8,7 @@ import { CreateStrategyModal } from './CreateStrategyModal';
 import { StrategyDetailsModal } from './StrategyDetailsModal';
 import { BacktestModal } from './BacktestModal';
 import { GridBotDiagnostics } from './GridBotDiagnostics';
+import { InsufficientFundsModal } from './InsufficientFundsModal';
 import { TradingStrategy } from '../../types';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
@@ -64,6 +65,8 @@ export function StrategiesView() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showBacktestModal, setShowBacktestModal] = useState(false);
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
+  const [showInsufficientFundsModal, setShowInsufficientFundsModal] = useState(false);
+  const [insufficientFundsStrategy, setInsufficientFundsStrategy] = useState<TradingStrategy | null>(null);
   const [strategies, setStrategies] = useState<TradingStrategy[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useStore();
@@ -363,51 +366,55 @@ export function StrategiesView() {
         </div>
       ) : (
         <>
-      {/* Header Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-400">Total Strategies</p>
-              <p className="text-2xl font-bold text-white">{strategies.length}</p>
-            </div>
-            <TrendingUp className="w-8 h-8 text-blue-400" />
+      {/* Header Stats - Sleek Modern Design */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          className="bg-gradient-to-br from-gray-800/40 to-gray-800/20 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50 hover:border-blue-500/30 transition-all"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Total Strategies</span>
+            <TrendingUp className="w-4 h-4 text-blue-400/70" />
           </div>
-        </Card>
+          <p className="text-3xl font-bold text-white">{strategies.length}</p>
+        </motion.div>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-400">Active Bots</p>
-              <p className="text-2xl font-bold text-green-400">{activeStrategies}</p>
-            </div>
-            <Activity className="w-8 h-8 text-green-400" />
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          className="bg-gradient-to-br from-green-900/20 to-green-800/10 backdrop-blur-sm rounded-xl p-4 border border-green-700/30 hover:border-green-500/50 transition-all"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Active Bots</span>
+            <Activity className="w-4 h-4 text-green-400/70" />
           </div>
-        </Card>
+          <p className="text-3xl font-bold text-green-400">{activeStrategies}</p>
+        </motion.div>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-400">Avg Return</p>
-              <p className="text-2xl font-bold text-purple-400">
-                {(totalReturn * 100).toFixed(1)}%
-              </p>
-            </div>
-            <BarChart3 className="w-8 h-8 text-purple-400" />
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          className="bg-gradient-to-br from-purple-900/20 to-purple-800/10 backdrop-blur-sm rounded-xl p-4 border border-purple-700/30 hover:border-purple-500/50 transition-all"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Avg Return</span>
+            <BarChart3 className="w-4 h-4 text-purple-400/70" />
           </div>
-        </Card>
+          <p className="text-3xl font-bold text-purple-400">
+            {(totalReturn * 100).toFixed(1)}%
+          </p>
+        </motion.div>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-400">Win Rate</p>
-              <p className="text-2xl font-bold text-yellow-400">
-                {(avgWinRate * 100).toFixed(1)}%
-              </p>
-            </div>
-            <TrendingUp className="w-8 h-8 text-yellow-400" />
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          className="bg-gradient-to-br from-yellow-900/20 to-yellow-800/10 backdrop-blur-sm rounded-xl p-4 border border-yellow-700/30 hover:border-yellow-500/50 transition-all"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Win Rate</span>
+            <Target className="w-4 h-4 text-yellow-400/70" />
           </div>
-        </Card>
+          <p className="text-3xl font-bold text-yellow-400">
+            {(avgWinRate * 100).toFixed(1)}%
+          </p>
+        </motion.div>
       </div>
 
       {/* Controls */}
@@ -618,6 +625,36 @@ export function StrategiesView() {
         <GridBotDiagnostics
           strategyId={selectedStrategy.id}
           onClose={() => setShowDiagnosticsModal(false)}
+        />
+      )}
+
+      {showInsufficientFundsModal && insufficientFundsStrategy && (
+        <InsufficientFundsModal
+          strategy={insufficientFundsStrategy}
+          requiredAmount={insufficientFundsStrategy.min_capital || 1000}
+          availableAmount={500}
+          onClose={() => {
+            setShowInsufficientFundsModal(false);
+            setInsufficientFundsStrategy(null);
+          }}
+          onEditConfig={() => {
+            setShowInsufficientFundsModal(false);
+            setSelectedStrategy(insufficientFundsStrategy);
+            setShowDetailsModal(true);
+            setInsufficientFundsStrategy(null);
+          }}
+          onDelete={async () => {
+            if (insufficientFundsStrategy) {
+              await handleDeleteStrategy(insufficientFundsStrategy.id);
+              setShowInsufficientFundsModal(false);
+              setInsufficientFundsStrategy(null);
+            }
+          }}
+          onAddFunds={() => {
+            setShowInsufficientFundsModal(false);
+            setInsufficientFundsStrategy(null);
+            window.location.href = '/accounts';
+          }}
         />
       )}
         </>

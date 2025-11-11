@@ -383,7 +383,18 @@ class SpotGridExecutor(BaseStrategyExecutor):
             self.logger.info(f"📊 Grid config: {symbol} | Range: ${price_range_lower}-${price_range_upper} | Grids: {number_of_grids}")
             self.logger.info(f"🎯 Initial buy order submitted: {initial_buy_order_submitted}")
             self.logger.info(f"🎯 Initial buy order filled: {initial_buy_filled}")
-            
+
+            # Check for insufficient funds before executing
+            has_insufficient, required, available = await self.check_insufficient_funds(strategy_data)
+            if has_insufficient:
+                return {
+                    "action": "error",
+                    "symbol": symbol,
+                    "quantity": 0,
+                    "price": 0,
+                    "reason": f"Insufficient funds: ${available:.2f} available, ${required:.2f} required. Strategy auto-paused."
+                }
+
             # Get current market price
             current_price = self.get_current_price(symbol)
             if not current_price:

@@ -112,6 +112,56 @@ class BaseStrategyExecutor(ABC):
         self.logger.warning(f"💰 No price found for {symbol}, returning None")
         return None
     
+    async def check_insufficient_funds(self, strategy_data: Dict[str, Any]) -> tuple[bool, float, float]:
+        """
+        Check if account has sufficient funds for strategy execution
+
+        Returns:
+            Tuple of (has_insufficient_funds, required_amount, available_amount)
+        """
+        try:
+            strategy_id = strategy_data.get('id')
+            min_capital = float(strategy_data.get('min_capital', 1000))
+
+            account = self.trading_client.get_account()
+            available_cash = float(account.cash or account.buying_power)
+
+            has_insufficient = available_cash < min_capital
+
+            if has_insufficient:
+                self.logger.warning(
+                    f"⚠️ Insufficient funds for strategy {strategy_id}: "
+                    f"Available ${available_cash:.2f} < Required ${min_capital:.2f}"
+                )
+
+                # Auto-pause the strategy
+                try:
+                    self.supabase.table("trading_strategies").update({
+                        "is_active": False,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }).eq("id", strategy_id).execute()
+
+                    # Log the event
+                    self.supabase.table("bot_risk_events").insert({
+                        "user_id": strategy_data.get('user_id'),
+                        "strategy_id": strategy_id,
+                        "event_type": "insufficient_funds",
+                        "severity": "warning",
+                        "description": f"Strategy auto-paused due to insufficient funds. Available: ${available_cash:.2f}, Required: ${min_capital:.2f}",
+                        "account_balance": available_cash,
+                        "buying_power": float(account.buying_power)
+                    }).execute()
+
+                    self.logger.info(f"✅ Strategy {strategy_id} auto-paused due to insufficient funds")
+                except Exception as update_error:
+                    self.logger.error(f"Failed to auto-pause strategy: {update_error}")
+
+            return has_insufficient, min_capital, available_cash
+
+        except Exception as e:
+            self.logger.error(f"Error checking account funds: {e}")
+            return False, 0, 0
+
     def is_market_open(self, symbol: str) -> bool:
         """Check if the market is currently open for trading"""
         try:

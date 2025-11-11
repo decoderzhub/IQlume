@@ -14,7 +14,9 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
-  Stethoscope
+  Stethoscope,
+  AlertTriangle,
+  DollarSign
 } from 'lucide-react';
 import { CandlestickData, Time } from 'lightweight-charts';
 import { Card } from '../ui/Card';
@@ -47,6 +49,8 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
   const [chartLoading, setChartLoading] = React.useState(false);
   const [telemetryData, setTelemetryData] = React.useState<any>(null);
   const [timeRange, setTimeRange] = React.useState<'1m' | '5m' | '15m' | '30m' | '1H' | '4H' | '1D' | '1W'>('1D');
+  const [accountBalance, setAccountBalance] = React.useState<number | null>(null);
+  const [hasInsufficientFunds, setHasInsufficientFunds] = React.useState(false);
   
   // Check if strategy is implemented
   const isImplemented = INITIAL_LAUNCH_STRATEGY_TYPES.includes(strategy.type as any);
@@ -299,6 +303,47 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
     };
   }, [tradingSymbol, strategy.id, user]);
 
+  // Check account balance for insufficient funds
+  React.useEffect(() => {
+    const checkAccountBalance = async () => {
+      if (!user || !strategy.account_id) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/positions`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const account = data.accounts?.find((acc: any) => acc.id === strategy.account_id);
+
+          if (account) {
+            const balance = parseFloat(account.cash || account.buying_power || '0');
+            setAccountBalance(balance);
+
+            const requiredCapital = strategy.min_capital || 1000;
+            setHasInsufficientFunds(balance < requiredCapital);
+
+            if (balance < requiredCapital && strategy.is_active) {
+              console.warn(`⚠️ Strategy ${strategy.name} has insufficient funds: ${balance} < ${requiredCapital}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking account balance:', error);
+      }
+    };
+
+    checkAccountBalance();
+    const interval = setInterval(checkAccountBalance, 30000);
+    return () => clearInterval(interval);
+  }, [user, strategy.account_id, strategy.min_capital, strategy.is_active, strategy.name]);
+
   // Determine price position relative to grid
   const getPricePosition = () => {
     if (!gridConfig || !currentPrice || !gridConfig.lower || !gridConfig.upper || gridConfig.lower <= 0 || gridConfig.upper <= 0) return null;
@@ -463,6 +508,17 @@ export function StrategyCard({ strategy, onToggle, onViewDetails, onBacktest, on
             </span>
           </div>
           
+          {/* Insufficient Funds Warning */}
+          {strategy.is_active && hasInsufficientFunds && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2 mb-2 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-red-400">Insufficient Funds</p>
+                <p className="text-xs text-gray-400">Bot paused - add funds or adjust config</p>
+              </div>
+            </div>
+          )}
+
           {/* Trading Symbol and Current Price */}
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs text-blue-400 font-semibold">{tradingSymbol}</span>
