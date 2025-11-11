@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Activity, FileText, Server, RefreshCw, Users, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Activity, FileText, Server, RefreshCw, Users, TrendingUp, AlertCircle, CheckCircle, Settings as SettingsIcon, Code, Crown, Key, Shield } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
+import { useStore } from '../../store/useStore';
 
-type TabType = 'overview' | 'activity' | 'logs' | 'health';
+type TabType = 'overview' | 'activity' | 'logs' | 'health' | 'settings';
 
 interface UserActivityLog {
   id: string;
@@ -180,6 +181,7 @@ export function AdminDashboard() {
     { id: 'activity' as TabType, label: 'User Activity', icon: Activity },
     { id: 'logs' as TabType, label: 'System Logs', icon: FileText },
     { id: 'health' as TabType, label: 'Endpoint Health', icon: Server },
+    { id: 'settings' as TabType, label: 'Developer Settings', icon: SettingsIcon },
   ];
 
   return (
@@ -233,6 +235,10 @@ export function AdminDashboard() {
 
       {activeTab === 'health' && (
         <EndpointHealthTab endpoints={endpoints} onCheckHealth={checkEndpointHealth} loading={loading} />
+      )}
+
+      {activeTab === 'settings' && (
+        <DeveloperSettingsTab />
       )}
     </div>
   );
@@ -452,6 +458,121 @@ function EndpointHealthTab({ endpoints, onCheckHealth, loading }: { endpoints: E
               )}
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeveloperSettingsTab() {
+  const { isDeveloperMode, setIsDeveloperMode } = useStore();
+  const [showApiKeys, setShowApiKeys] = useState(false);
+
+  return (
+    <div className="space-y-6">
+      {/* Developer Mode Card */}
+      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <Code className="w-5 h-5 text-orange-400" />
+          <h3 className="text-lg font-semibold text-white">Developer Mode</h3>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+            <div className="flex items-center gap-3">
+              <Crown className="w-5 h-5 text-yellow-400" />
+              <div>
+                <p className="text-sm font-medium text-white">Developer Mode</p>
+                <p className="text-xs text-gray-400">
+                  Access all subscription tiers and features for development and testing
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isDeveloperMode}
+                onChange={(e) => setIsDeveloperMode(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+            </label>
+          </div>
+
+          {isDeveloperMode && (
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Crown className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-orange-400 mb-2">Developer Mode Active</h4>
+                  <p className="text-sm text-orange-300 mb-2">
+                    You now have access to all features and strategies across all subscription tiers:
+                  </p>
+                  <ul className="text-sm text-orange-300 space-y-1">
+                    <li>• All grid bots (Spot, Futures, Infinity)</li>
+                    <li>• All options strategies (Covered Calls, Wheel, Iron Condor, etc.)</li>
+                    <li>• Advanced algorithmic trading strategies</li>
+                    <li>• All analytics and risk management tools</li>
+                    <li>• API access and advanced features</li>
+                  </ul>
+                  <p className="text-sm text-orange-300 mt-2">
+                    This setting is stored locally and will persist across browser sessions.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* API Keys Card */}
+      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <Key className="w-5 h-5 text-green-400" />
+          <h3 className="text-lg font-semibold text-white">API Keys</h3>
+          <button
+            onClick={() => setShowApiKeys(!showApiKeys)}
+            className="ml-auto p-2 hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            {showApiKeys ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Alpaca API Key</label>
+            <input
+              type={showApiKeys ? 'text' : 'password'}
+              value={showApiKeys ? 'PKTEST_abc123...' : '••••••••••••••••'}
+              disabled
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 cursor-not-allowed"
+            />
+            <p className="text-xs text-gray-500 mt-1">Configure in .env file: ALPACA_API_KEY</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Anthropic API Key</label>
+            <input
+              type={showApiKeys ? 'text' : 'password'}
+              value={showApiKeys ? 'sk-ant-api03...' : '••••••••••••••••'}
+              disabled
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 cursor-not-allowed"
+            />
+            <p className="text-xs text-gray-500 mt-1">Configure in .env file: ANTHROPIC_API_KEY</p>
+          </div>
+
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <Shield className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-blue-400 mb-1">Security Note</h4>
+                <p className="text-sm text-blue-300">
+                  API keys are stored securely in environment variables and never exposed in the frontend.
+                  Update your .env file to change these values.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
