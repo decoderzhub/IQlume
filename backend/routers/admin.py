@@ -32,11 +32,11 @@ API_ROUTERS = [
 ]
 
 
-def is_admin(email: str, supabase: Client) -> bool:
+def is_admin(user_id: str, supabase: Client) -> bool:
     """Check if user is an admin"""
     try:
         # Query user_profiles to check is_admin flag
-        result = supabase.table("user_profiles").select("is_admin").eq("email", email).execute()
+        result = supabase.table("user_profiles").select("is_admin").eq("user_id", user_id).execute()
 
         if result.data and len(result.data) > 0:
             return result.data[0].get("is_admin", False)
@@ -58,8 +58,8 @@ async def check_endpoint_health(
     Admin only.
     """
     # Check if user is admin
-    user_email = current_user.email
-    if not is_admin(user_email, supabase):
+    user_id = current_user.id
+    if not is_admin(user_id, supabase):
         raise HTTPException(status_code=403, detail="Admin access required")
 
     logger.info(f"[admin] Starting health check for {len(API_ROUTERS)} endpoints")
@@ -214,8 +214,8 @@ async def get_admin_stats(
     Admin only.
     """
     # Check if user is admin
-    user_email = current_user.email
-    if not is_admin(user_email, supabase):
+    user_id = current_user.id
+    if not is_admin(user_id, supabase):
         raise HTTPException(status_code=403, detail="Admin access required")
 
     try:
