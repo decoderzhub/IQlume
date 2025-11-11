@@ -69,9 +69,9 @@ class RealtimeStrategyManager:
         try:
             resp = self.supabase.table("trading_strategies")\
                 .select("*")\
-                .eq("status", "active")\
+                .eq("is_active", True)\
                 .eq("is_realtime_mode", True)\
-                .eq("execution_interval", 0)\
+                .eq("execution_interval_seconds", 0)\
                 .execute()
 
             if not resp.data:

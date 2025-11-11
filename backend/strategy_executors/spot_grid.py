@@ -439,11 +439,17 @@ class SpotGridExecutor(BaseStrategyExecutor):
                 
                 if buy_quantity > 0:
                     try:
-                        # Determine time in force based on market status
+                        # Determine time in force based on asset type
+                        is_crypto = "/" in symbol or any(crypto in symbol for crypto in ["BTC", "ETH", "DOGE", "AVAX", "SHIB"])
                         is_market_open = self.is_market_open(symbol)
-                        time_in_force = TimeInForce.DAY if is_market_open else TimeInForce.OPG
-                        
-                        self.logger.info(f"📈 Market open: {is_market_open}, Using time in force: {time_in_force}")
+
+                        # Crypto always uses GTC, stocks use DAY/OPG
+                        if is_crypto:
+                            time_in_force = TimeInForce.GTC
+                        else:
+                            time_in_force = TimeInForce.DAY if is_market_open else TimeInForce.OPG
+
+                        self.logger.info(f"📈 Market open: {is_market_open}, Crypto: {is_crypto}, Using time in force: {time_in_force}")
                         
                         # Create market order request
                         order_request = MarketOrderRequest(
