@@ -409,7 +409,7 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     grid_mode
                 )
 
-                # Calculate initial buy based on number of grid levels below current price
+                # Calculate initial buy based on account balance and reasonable position sizing
                 if price_range_lower == 0 or price_range_upper == 0:
                     # If grid range not set, use 10% as fallback
                     initial_amount = allocated_capital * 0.1
@@ -419,20 +419,26 @@ class SpotGridExecutor(BaseStrategyExecutor):
                     # Count how many grid levels are below current price
                     num_grids_below = len([level for level in grid_levels if level < current_price])
 
-                    # CORRECT LOGIC: Buy enough to cover all grid levels below current price
-                    # Each grid level represents capital_per_grid worth of the asset
+                    # SAFE LOGIC: Start with a conservative initial position
+                    # Use 15-25% of allocated capital for initial buy, never more than available balance
                     capital_per_grid = allocated_capital / number_of_grids
 
-                    # Initial position = quantity needed for all grids below current price
-                    initial_amount = capital_per_grid * num_grids_below
+                    # Calculate ideal initial amount (enough for 3-5 grids of potential sells)
+                    # This prevents over-buying while ensuring we can start the grid
+                    target_grids_to_cover = min(5, num_grids_below, number_of_grids // 4)
+                    ideal_initial_amount = capital_per_grid * target_grids_to_cover
 
-                    self.logger.info(f"💡 Initial buy calculation (corrected):")
+                    # Cap at 25% of allocated capital to be conservative
+                    initial_amount = min(ideal_initial_amount, allocated_capital * 0.25)
+
+                    self.logger.info(f"💡 Initial buy calculation (safe):")
                     self.logger.info(f"   Current price: ${current_price:.2f}")
                     self.logger.info(f"   Grid range: ${price_range_lower:.2f} - ${price_range_upper:.2f}")
                     self.logger.info(f"   Total grid levels: {number_of_grids}")
                     self.logger.info(f"   Grid levels below price: {num_grids_below}")
                     self.logger.info(f"   Capital per grid: ${capital_per_grid:.2f}")
-                    self.logger.info(f"   Initial buy amount: ${initial_amount:.2f} ({num_grids_below} grids × ${capital_per_grid:.2f})")
+                    self.logger.info(f"   Target grids to cover: {target_grids_to_cover}")
+                    self.logger.info(f"   Initial buy amount: ${initial_amount:.2f} ({initial_amount / capital_per_grid:.1f} grids worth, {(initial_amount / allocated_capital * 100):.1f}% of capital)")
                 
                 buy_quantity = max(0.001, initial_amount / current_price)
                 self.logger.info(f"💡 Calculated initial buy: ${initial_amount:.2f} = {buy_quantity:.6f} {symbol}")
