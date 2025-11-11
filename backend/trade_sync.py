@@ -173,9 +173,12 @@ class TradeSyncService:
                 # Handle single-order trades
                 alpaca_order = alpaca_orders_map.get(alpaca_order_id)
                 if not alpaca_order:
-                    logger.warning(f"⚠️ Alpaca order {alpaca_order_id} not found for trade {trade['id']}")
+                    logger.warning(f"⚠️ [TRADE SYNC] Alpaca order {alpaca_order_id} not found for trade {trade['id']} ({trade['symbol']} {trade['type']})")
                     continue
                 
+                # Log current status for debugging
+                logger.info(f"🔍 [TRADE SYNC] Trade {trade['id']}: {trade['symbol']} {trade['type']} - Alpaca status: {alpaca_order.status}, DB status: {trade['status']}")
+
                 # Determine new status
                 new_status = "pending"
                 if alpaca_order.status == OrderStatus.FILLED:
@@ -185,12 +188,17 @@ class TradeSyncService:
                 elif alpaca_order.status in {OrderStatus.NEW, OrderStatus.ACCEPTED, OrderStatus.PARTIALLY_FILLED}:
                     new_status = "pending"
                 
+                # Skip if status hasn't changed
+                if new_status == trade["status"] and new_status != "executed":
+                    logger.debug(f"⏭️ [TRADE SYNC] Skipping trade {trade['id']} - status unchanged ({new_status})")
+                    continue
+
                 # Prepare update data
                 update_data = {
                     "status": new_status,
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
-                
+
                 # Add filled data if order is filled
                 if alpaca_order.status == OrderStatus.FILLED:
                     filled_qty = float(getattr(alpaca_order, "filled_qty", 0) or 0)
