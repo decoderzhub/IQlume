@@ -22,7 +22,7 @@ import { MarketDataDebugPanel } from '../debug/MarketDataDebugPanel';
 import { COMMON_TIMEZONES, getBrowserTimezone, isValidTimezone } from '../../lib/timezone';
 
 export function SettingsView() {
-  const { user, setUser, getEffectiveSubscriptionTier } = useStore();
+  const { user, setUser, isDeveloperMode, getEffectiveSubscriptionTier } = useStore();
   const [notifications, setNotifications] = useState({
     emailAlerts: true,
     pushNotifications: true,
