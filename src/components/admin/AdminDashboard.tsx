@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff, Activity, FileText, Server, RefreshCw, Users, TrendingUp, AlertCircle, CheckCircle, Settings as SettingsIcon, Code, Crown, Key, Shield } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
@@ -417,6 +417,42 @@ function UserActivityTab({ logs }: { logs: UserActivityLog[] }) {
 }
 
 function SystemLogsTab({ logs }: { logs: SystemLog[] }) {
+  const [streamedLogs, setStreamedLogs] = useState<SystemLog[]>(logs);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+
+  useEffect(() => {
+    setStreamedLogs(logs);
+  }, [logs]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('system-logs-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'system_logs'
+        },
+        (payload) => {
+          const newLog = payload.new as SystemLog;
+          setStreamedLogs((prev) => [newLog, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [streamedLogs, autoScroll]);
+
   const getLevelColor = (level: string) => {
     switch (level) {
       case 'INFO': return 'bg-blue-500/20 text-blue-400';
@@ -427,20 +463,47 @@ function SystemLogsTab({ logs }: { logs: SystemLog[] }) {
     }
   };
 
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    const isAtTop = target.scrollTop < 50;
+    setAutoScroll(isAtTop);
+  };
+
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700">
-      <div className="p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">System Logs</h2>
-        {logs.length === 0 ? (
+    <div className="bg-gray-800 rounded-lg border border-gray-700 h-[calc(100vh-280px)] flex flex-col">
+      <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-white">System Logs</h2>
+          <p className="text-sm text-gray-400 mt-1">Real-time streaming logs • {streamedLogs.length} entries</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setAutoScroll(!autoScroll)}
+            className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+              autoScroll
+                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                : 'bg-gray-700 text-gray-300 border border-gray-600'
+            }`}
+          >
+            {autoScroll ? 'Auto-scroll: ON' : 'Auto-scroll: OFF'}
+          </button>
+        </div>
+      </div>
+
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-6 space-y-3"
+      >
+        {streamedLogs.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
             <p className="text-gray-400">No system logs available</p>
             <p className="text-gray-500 text-sm mt-2">Logs will appear here in real-time as the system operates</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {logs.map((log) => (
-            <div key={log.id} className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
+          streamedLogs.map((log) => (
+            <div key={log.id} className="bg-gray-900/50 rounded-lg p-4 border border-gray-700 hover:border-gray-600 transition-colors">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-3">
                   <span className={`px-2 py-1 rounded text-xs font-medium ${getLevelColor(log.log_level)}`}>
@@ -457,8 +520,7 @@ function SystemLogsTab({ logs }: { logs: SystemLog[] }) {
                 </pre>
               )}
             </div>
-          ))}
-          </div>
+          ))
         )}
       </div>
     </div>
