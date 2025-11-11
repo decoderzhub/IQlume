@@ -1,15 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMarketDataStats } from '../../hooks/useMarketData';
 import { Card } from '../ui/Card';
-import { Activity, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Activity, Wifi, WifiOff, RefreshCw, Radio } from 'lucide-react';
+import { wsManager } from '../../services/WebSocketManager';
 
 export function MarketDataDebugPanel() {
   const stats = useMarketDataStats();
+  const [wsStatus, setWsStatus] = useState(wsManager.getConnectionState());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setWsStatus(wsManager.getConnectionState());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const formatTime = (ms: number | null) => {
     if (ms === null) return 'N/A';
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(1)}s`;
+  };
+
+  const getWsStatusColor = () => {
+    switch (wsStatus) {
+      case 'CONNECTED': return 'text-green-400';
+      case 'CONNECTING': return 'text-yellow-400';
+      case 'CLOSING': return 'text-orange-400';
+      case 'DISCONNECTED': return 'text-gray-500';
+      default: return 'text-red-400';
+    }
   };
 
   return (
@@ -31,6 +51,16 @@ export function MarketDataDebugPanel() {
           </div>
           <p className="text-xl font-bold text-white">
             {stats.isPolling ? 'Active' : 'Inactive'}
+          </p>
+        </div>
+
+        <div className="bg-gray-900/50 p-4 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <Radio className={`w-4 h-4 ${getWsStatusColor()}`} />
+            <span className="text-sm text-gray-400">WebSocket</span>
+          </div>
+          <p className={`text-xl font-bold ${getWsStatusColor()}`}>
+            {wsStatus}
           </p>
         </div>
 
