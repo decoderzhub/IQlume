@@ -56,7 +56,6 @@ export function AdminDashboard() {
     todayTrades: 0,
   });
   const [userLogs, setUserLogs] = useState<UserActivityLog[]>([]);
-  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   const [endpoints, setEndpoints] = useState<EndpointHealth[]>([]);
 
   const fetchStats = async () => {
@@ -109,20 +108,6 @@ export function AdminDashboard() {
     }
   };
 
-  const fetchSystemLogs = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('system_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      setSystemLogs(data || []);
-    } catch (error) {
-      console.error('Error fetching system logs:', error);
-    }
-  };
 
   const fetchEndpointHealth = async () => {
     try {
@@ -167,7 +152,6 @@ export function AdminDashboard() {
     await Promise.all([
       fetchStats(),
       fetchUserActivity(),
-      fetchSystemLogs(),
       fetchEndpointHealth(),
     ]);
     setLoading(false);
@@ -187,17 +171,6 @@ export function AdminDashboard() {
       )
       .subscribe();
 
-    // Real-time subscription for system logs
-    const systemLogsChannel = supabase
-      .channel('admin-system-logs')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'system_logs' },
-        () => {
-          fetchSystemLogs();
-        }
-      )
-      .subscribe();
-
     // Real-time subscription for endpoint health
     const endpointHealthChannel = supabase
       .channel('admin-endpoint-health')
@@ -211,7 +184,6 @@ export function AdminDashboard() {
 
     return () => {
       userActivityChannel.unsubscribe();
-      systemLogsChannel.unsubscribe();
       endpointHealthChannel.unsubscribe();
     };
   }, []);
@@ -271,7 +243,7 @@ export function AdminDashboard() {
       )}
 
       {activeTab === 'logs' && (
-        <SystemLogsTab logs={systemLogs} />
+        <SystemLogsTab />
       )}
 
       {activeTab === 'health' && (
@@ -416,16 +388,32 @@ function UserActivityTab({ logs }: { logs: UserActivityLog[] }) {
   );
 }
 
-function SystemLogsTab({ logs }: { logs: SystemLog[] }) {
-  const [streamedLogs, setStreamedLogs] = useState<SystemLog[]>(logs);
+function SystemLogsTab() {
+  const [streamedLogs, setStreamedLogs] = useState<SystemLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
   useEffect(() => {
-    setStreamedLogs(logs);
-  }, [logs]);
+    const loadInitialLogs = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('system_logs')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
 
-  useEffect(() => {
+        if (error) throw error;
+        setStreamedLogs(data || []);
+      } catch (error) {
+        console.error('Error loading system logs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInitialLogs();
+
     const channel = supabase
       .channel('system-logs-realtime')
       .on(
@@ -495,7 +483,12 @@ function SystemLogsTab({ logs }: { logs: SystemLog[] }) {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-6 space-y-3"
       >
-        {streamedLogs.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <RefreshCw className="w-12 h-12 text-blue-500 mx-auto mb-3 animate-spin" />
+            <p className="text-gray-400">Loading system logs...</p>
+          </div>
+        ) : streamedLogs.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
             <p className="text-gray-400">No system logs available</p>
