@@ -12,6 +12,11 @@ from dependencies import (
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "chat"}
+
 @router.post("/anthropic")
 async def chat_with_anthropic(
     request_data: Dict[str, Any],

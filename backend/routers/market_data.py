@@ -531,6 +531,12 @@ async def get_bars_data(
     return {"bars": bars}
 
 # --------- routes ---------
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "market_data"}
+
 @router.get("/symbol/{symbol}")
 async def get_market_data(
     symbol: str,

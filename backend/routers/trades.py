@@ -28,6 +28,12 @@ router = APIRouter(prefix="/api", tags=["trading"])
 logger = logging.getLogger(__name__)
 
 
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "trades"}
+
 @router.post("/orders")
 async def place_order(
     order_data: Dict[str, Any],

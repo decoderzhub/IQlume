@@ -20,6 +20,12 @@ from dependencies import (
 router = APIRouter(prefix="/api/plaid", tags=["plaid"])
 logger = logging.getLogger(__name__)
 
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "plaid"}
+
 @router.post("/create-link-token")
 async def create_link_token(
     request_data: Dict[str, Any],

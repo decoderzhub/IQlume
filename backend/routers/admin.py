@@ -14,60 +14,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 security = HTTPBearer()
 
-# List of endpoints to check
-HEALTH_CHECK_ENDPOINTS = [
-    {
-        "name": "Backend - Main",
-        "url": "http://localhost:8000/health",
-    },
-    {
-        "name": "Backend - Bots",
-        "url": "http://localhost:8000/api/bots/health",
-    },
-    {
-        "name": "Backend - Brokerage Auth",
-        "url": "http://localhost:8000/api/brokerage-auth/health",
-    },
-    {
-        "name": "Backend - Chat",
-        "url": "http://localhost:8000/api/chat/health",
-    },
-    {
-        "name": "Backend - Grid Diagnostics",
-        "url": "http://localhost:8000/api/grid-diagnostics/health",
-    },
-    {
-        "name": "Backend - Grid Status",
-        "url": "http://localhost:8000/api/grid-status/health",
-    },
-    {
-        "name": "Backend - Market Data",
-        "url": "http://localhost:8000/api/market-data/health",
-    },
-    {
-        "name": "Backend - Payments",
-        "url": "http://localhost:8000/api/payments/health",
-    },
-    {
-        "name": "Backend - Plaid",
-        "url": "http://localhost:8000/api/plaid/health",
-    },
-    {
-        "name": "Backend - Positions",
-        "url": "http://localhost:8000/api/positions/health",
-    },
-    {
-        "name": "Backend - SSE",
-        "url": "http://localhost:8000/api/sse/health",
-    },
-    {
-        "name": "Backend - Strategies",
-        "url": "http://localhost:8000/api/strategies/health",
-    },
-    {
-        "name": "Backend - Trades",
-        "url": "http://localhost:8000/api/trades/health",
-    },
+# List of API routers to check (will test basic endpoint access)
+API_ROUTERS = [
+    {"name": "Backend - Main", "url": "http://localhost:8000/health"},
+    {"name": "Backend - Bots", "url": "http://localhost:8000/api/bots/health"},
+    {"name": "Backend - Brokerage Auth", "url": "http://localhost:8000/api/alpaca/health"},
+    {"name": "Backend - Chat", "url": "http://localhost:8000/api/chat/health"},
+    {"name": "Backend - Grid Diagnostics", "url": "http://localhost:8000/api/grid-diagnostics/health"},
+    {"name": "Backend - Grid Status", "url": "http://localhost:8000/api/grid-status/health"},
+    {"name": "Backend - Market Data", "url": "http://localhost:8000/api/market-data/health"},
+    {"name": "Backend - Payments", "url": "http://localhost:8000/api/payments/health"},
+    {"name": "Backend - Plaid", "url": "http://localhost:8000/api/plaid/health"},
+    {"name": "Backend - Positions", "url": "http://localhost:8000/api/positions/health"},
+    {"name": "Backend - SSE", "url": "http://localhost:8000/api/sse/health"},
+    {"name": "Backend - Strategies", "url": "http://localhost:8000/api/strategies/health"},
+    {"name": "Backend - Trades", "url": "http://localhost:8000/api/health"},
 ]
 
 
@@ -101,12 +62,12 @@ async def check_endpoint_health(
     if not is_admin(user_email, supabase):
         raise HTTPException(status_code=403, detail="Admin access required")
 
-    logger.info(f"[admin] Starting health check for {len(HEALTH_CHECK_ENDPOINTS)} endpoints")
+    logger.info(f"[admin] Starting health check for {len(API_ROUTERS)} endpoints")
 
     results = []
 
     async with httpx.AsyncClient(timeout=5.0) as client:
-        for endpoint_config in HEALTH_CHECK_ENDPOINTS:
+        for endpoint_config in API_ROUTERS:
             endpoint_name = endpoint_config["name"]
             endpoint_url = endpoint_config["url"]
 

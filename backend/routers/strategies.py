@@ -32,6 +32,12 @@ from schemas import (
 router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 logger = logging.getLogger(__name__)
 
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "strategies"}
+
 @router.post("/", response_model=TradingStrategyResponse)
 async def create_strategy(
     strategy_data: TradingStrategyCreate,

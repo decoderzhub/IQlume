@@ -27,6 +27,12 @@ TIER_PRICE_IDS = {
 }
 
 
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "payments"}
+
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     request_data: Dict[str, Any],

@@ -14,6 +14,11 @@ from supabase import Client
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "bots"}
+
 @router.get("/positions")
 async def get_bot_positions(
     user=Depends(get_current_user),

@@ -53,6 +53,12 @@ async def event_generator(user_id: str):
         remove_user_queue(user_id)
         logger.info(f"🔌 SSE connection closed for user {user_id}")
 
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "sse"}
+
 @router.get("/trading-updates")
 async def trading_updates_stream(
     request: Request,

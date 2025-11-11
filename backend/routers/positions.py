@@ -59,6 +59,12 @@ class ExitEventResponse(BaseModel):
     executed_at: datetime
 
 
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "positions"}
+
 @router.get("/", response_model=List[PositionResponse])
 async def get_positions(
     strategy_id: Optional[str] = None,

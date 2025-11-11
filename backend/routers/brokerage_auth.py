@@ -29,6 +29,11 @@ from dependencies import (  # noqa: E402
 router = APIRouter(prefix="/api/alpaca", tags=["alpaca-oauth"])
 logger = logging.getLogger(__name__)
 
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "brokerage_auth"}
+
 # --- Constants ---
 AUTHORIZE_URL = "https://app.alpaca.markets/oauth/authorize"
 TOKEN_URL = "https://api.alpaca.markets/oauth/token"
