@@ -16,6 +16,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/grid-status", tags=["grid-status"])
 
 
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "grid_status"}
+
+
 @router.get("/{strategy_id}/validation")
 async def get_grid_validation(
     strategy_id: str,
