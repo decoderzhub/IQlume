@@ -18,7 +18,6 @@ import { Button } from '../ui/Button';
 import { useStore } from '../../store/useStore';
 import { supabase } from '../../lib/supabase';
 import { formatDate } from '../../lib/utils';
-import { MarketDataDebugPanel } from '../debug/MarketDataDebugPanel';
 import { COMMON_TIMEZONES, getBrowserTimezone, isValidTimezone } from '../../lib/timezone';
 
 export function SettingsView() {
@@ -320,10 +319,6 @@ export function SettingsView() {
           </div>
         </Card>
       </div>
-
-      {isDeveloperMode && (
-        <MarketDataDebugPanel />
-      )}
 
       {/* Action Buttons */}
       <div className="flex gap-4 pt-6 border-t border-gray-800">

@@ -3,6 +3,7 @@ import { Eye, EyeOff, Activity, FileText, Server, RefreshCw, Users, TrendingUp, 
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { useStore } from '../../store/useStore';
+import { MarketDataDebugPanel } from '../debug/MarketDataDebugPanel';
 
 type TabType = 'overview' | 'activity' | 'logs' | 'health' | 'settings';
 
@@ -575,6 +576,9 @@ function DeveloperSettingsTab() {
           </div>
         </div>
       </div>
+
+      {/* Market Data Manager Stats */}
+      <MarketDataDebugPanel />
     </div>
   );
 }
