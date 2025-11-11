@@ -11,6 +11,7 @@ class SupabaseLogHandler(logging.Handler):
     def __init__(self):
         super().__init__()
         self.supabase: Optional[Client] = None
+        self._logging = False
         self._init_supabase()
 
     def _init_supabase(self):
@@ -21,15 +22,21 @@ class SupabaseLogHandler(logging.Handler):
             if supabase_url and supabase_service_key:
                 self.supabase = create_client(supabase_url, supabase_service_key)
             else:
-                logger.warning("Supabase credentials not found, log handler disabled")
+                print("WARNING: Supabase credentials not found, log handler disabled")
         except Exception as e:
-            logger.error(f"Failed to initialize Supabase client: {e}")
+            print(f"ERROR: Failed to initialize Supabase client: {e}")
 
     def emit(self, record: logging.LogRecord):
-        if not self.supabase:
+        if not self.supabase or self._logging:
+            return
+
+        # Prevent recursion - ignore logs from this module, httpx, and urllib3
+        if record.name in ['utils.logger', 'httpx', 'urllib3', 'httpcore']:
             return
 
         try:
+            self._logging = True
+
             log_level = record.levelname
 
             if log_level not in ['INFO', 'WARNING', 'ERROR', 'CRITICAL']:
@@ -56,8 +63,11 @@ class SupabaseLogHandler(logging.Handler):
 
             self.supabase.table('system_logs').insert(log_entry).execute()
 
-        except Exception as e:
-            logger.error(f"Failed to write log to Supabase: {e}")
+        except Exception:
+            # Silently fail to prevent recursion
+            pass
+        finally:
+            self._logging = False
 
 def setup_supabase_logging(app_logger: Optional[logging.Logger] = None):
     if app_logger is None:
@@ -102,5 +112,6 @@ def log_system_event(
 
         supabase.table('system_logs').insert(log_entry).execute()
 
-    except Exception as e:
-        logger.error(f"Failed to log system event: {e}")
+    except Exception:
+        # Silently fail to prevent recursion
+        pass

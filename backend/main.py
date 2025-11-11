@@ -31,6 +31,11 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
+# Reduce verbosity of third-party loggers
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('httpcore').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+
 # Setup Supabase logging handler
 setup_supabase_logging()
 logger = logging.getLogger(__name__)
