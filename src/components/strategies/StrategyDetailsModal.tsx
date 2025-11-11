@@ -325,12 +325,12 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                   {isEditing ? (
                     <div className="flex items-center gap-2">
                       <NumericInput
-                        value={editedStrategy.execution_interval_seconds || 300}
+                        value={editedStrategy.execution_interval_seconds ?? 300}
                         onChange={(value) => setEditedStrategy(prev => ({
                           ...prev,
-                          execution_interval_seconds: Math.max(30, value)
+                          execution_interval_seconds: Math.max(0, value)
                         }))}
-                        min={30}
+                        min={0}
                         step={30}
                         className="w-20 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm"
                       />
@@ -338,13 +338,20 @@ export function StrategyDetailsModal({ strategy, onClose, onSave, onDelete }: St
                     </div>
                   ) : (
                     <span className="text-white">
-                      {strategy.execution_interval_seconds
-                        ? strategy.execution_interval_seconds >= 3600
-                          ? `${Math.floor(strategy.execution_interval_seconds / 3600)}h ${Math.floor((strategy.execution_interval_seconds % 3600) / 60)}m`
-                          : strategy.execution_interval_seconds >= 60
-                            ? `${Math.floor(strategy.execution_interval_seconds / 60)} min`
-                            : `${strategy.execution_interval_seconds}s`
-                        : '5 min'}
+                      {strategy.execution_interval_seconds === 0
+                        ? (
+                          <span className="flex items-center gap-1.5 text-green-400">
+                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                            Real-Time
+                          </span>
+                        )
+                        : strategy.execution_interval_seconds
+                          ? strategy.execution_interval_seconds >= 3600
+                            ? `${Math.floor(strategy.execution_interval_seconds / 3600)}h ${Math.floor((strategy.execution_interval_seconds % 3600) / 60)}m`
+                            : strategy.execution_interval_seconds >= 60
+                              ? `${Math.floor(strategy.execution_interval_seconds / 60)} min`
+                              : `${strategy.execution_interval_seconds}s`
+                          : '5 min'}
                     </span>
                   )}
                 </div>

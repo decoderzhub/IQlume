@@ -305,7 +305,7 @@ export function CreateSpotGridModal({ onClose, onSave }: CreateSpotGridModalProp
       automation_level: 'fully_auto',
       grid_mode: gridMode,
       auto_start: true,
-      execution_interval: 0,
+      execution_interval_seconds: 0,
       is_realtime_mode: true,
       configuration: {
         symbol,
