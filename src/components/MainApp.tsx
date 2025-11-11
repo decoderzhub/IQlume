@@ -64,20 +64,22 @@ export function MainApp() {
 
         const alpacaAccount = accounts[0];
 
-        // Check if oauth_data contains API keys
+        // Check if oauth_data contains access token (OAuth) or use access_token field
         const oauthData = alpacaAccount.oauth_data as any;
+        const authToken = alpacaAccount.access_token || oauthData?.access_token;
 
-        if (!oauthData || !oauthData.api_key) {
-          console.warn('[MainApp] No Alpaca API keys in oauth_data - will use HTTP polling for market data');
+        if (!authToken) {
+          console.warn('[MainApp] No Alpaca access token found - will use HTTP polling for market data');
           return;
         }
 
         // Set auth token and connect to WebSocket
-        console.log('[MainApp] Initializing WebSocket with Alpaca credentials');
-        wsManager.setAuthToken(oauthData.api_key);
+        console.log('[MainApp] Initializing WebSocket with Alpaca OAuth credentials');
+        wsManager.setAuthToken(authToken);
 
-        // Set environment based on account type
-        const environment = alpacaAccount.account_type === 'live' ? 'live' : 'paper';
+        // Set environment based on oauth_data.env field
+        const environment = oauthData?.env === 'live' ? 'live' : 'paper';
+        console.log(`[MainApp] Using Alpaca ${environment} environment for WebSocket`);
         wsManager.setEnvironment(environment);
 
         await wsManager.connect();
