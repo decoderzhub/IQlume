@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { useStore } from '../../store/useStore';
 import { MarketDataDebugPanel } from '../debug/MarketDataDebugPanel';
 
-type TabType = 'overview' | 'activity' | 'logs' | 'health' | 'settings';
+type TabType = 'overview' | 'activity' | 'logs' | 'health' | 'market-data' | 'settings';
 
 interface UserActivityLog {
   id: string;
@@ -175,6 +175,45 @@ export function AdminDashboard() {
 
   useEffect(() => {
     refreshStats();
+
+    // Real-time subscription for user activity logs
+    const userActivityChannel = supabase
+      .channel('admin-user-activity')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'user_activity_logs' },
+        () => {
+          fetchUserActivity();
+        }
+      )
+      .subscribe();
+
+    // Real-time subscription for system logs
+    const systemLogsChannel = supabase
+      .channel('admin-system-logs')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'system_logs' },
+        () => {
+          fetchSystemLogs();
+        }
+      )
+      .subscribe();
+
+    // Real-time subscription for endpoint health
+    const endpointHealthChannel = supabase
+      .channel('admin-endpoint-health')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'endpoint_health' },
+        () => {
+          fetchEndpointHealth();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      userActivityChannel.unsubscribe();
+      systemLogsChannel.unsubscribe();
+      endpointHealthChannel.unsubscribe();
+    };
   }, []);
 
   const tabs = [
@@ -182,6 +221,7 @@ export function AdminDashboard() {
     { id: 'activity' as TabType, label: 'User Activity', icon: Activity },
     { id: 'logs' as TabType, label: 'System Logs', icon: FileText },
     { id: 'health' as TabType, label: 'Endpoint Health', icon: Server },
+    { id: 'market-data' as TabType, label: 'Market Data', icon: TrendingUp },
     { id: 'settings' as TabType, label: 'Developer Settings', icon: SettingsIcon },
   ];
 
@@ -236,6 +276,10 @@ export function AdminDashboard() {
 
       {activeTab === 'health' && (
         <EndpointHealthTab endpoints={endpoints} onCheckHealth={checkEndpointHealth} loading={loading} />
+      )}
+
+      {activeTab === 'market-data' && (
+        <MarketDataDebugPanel />
       )}
 
       {activeTab === 'settings' && (
@@ -333,18 +377,25 @@ function UserActivityTab({ logs }: { logs: UserActivityLog[] }) {
     <div className="bg-gray-800 rounded-lg border border-gray-700">
       <div className="p-6">
         <h2 className="text-xl font-semibold text-white mb-4">User Activity Logs</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-700">
-                <th className="text-left py-3 px-4 text-gray-400 font-medium">User</th>
-                <th className="text-left py-3 px-4 text-gray-400 font-medium">Role</th>
-                <th className="text-left py-3 px-4 text-gray-400 font-medium">Activity</th>
-                <th className="text-left py-3 px-4 text-gray-400 font-medium">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => (
+        {logs.length === 0 ? (
+          <div className="text-center py-12">
+            <Activity className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-400">No user activity logs available</p>
+            <p className="text-gray-500 text-sm mt-2">Activity logs will appear here in real-time as users interact with the platform</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="text-left py-3 px-4 text-gray-400 font-medium">User</th>
+                  <th className="text-left py-3 px-4 text-gray-400 font-medium">Role</th>
+                  <th className="text-left py-3 px-4 text-gray-400 font-medium">Activity</th>
+                  <th className="text-left py-3 px-4 text-gray-400 font-medium">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => (
                 <tr key={log.id} className="border-b border-gray-700/50">
                   <td className="py-3 px-4 text-white">{log.user_email.split('@')[0]}</td>
                   <td className="py-3 px-4">
@@ -356,9 +407,10 @@ function UserActivityTab({ logs }: { logs: UserActivityLog[] }) {
                   <td className="py-3 px-4 text-gray-400">{format(new Date(log.created_at), 'MM/dd/yyyy, h:mm:ss a')}</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -379,8 +431,15 @@ function SystemLogsTab({ logs }: { logs: SystemLog[] }) {
     <div className="bg-gray-800 rounded-lg border border-gray-700">
       <div className="p-6">
         <h2 className="text-xl font-semibold text-white mb-4">System Logs</h2>
-        <div className="space-y-4">
-          {logs.map((log) => (
+        {logs.length === 0 ? (
+          <div className="text-center py-12">
+            <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-400">No system logs available</p>
+            <p className="text-gray-500 text-sm mt-2">Logs will appear here in real-time as the system operates</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {logs.map((log) => (
             <div key={log.id} className="bg-gray-900/50 rounded-lg p-4 border border-gray-700">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-3">
@@ -399,7 +458,8 @@ function SystemLogsTab({ logs }: { logs: SystemLog[] }) {
               )}
             </div>
           ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -576,9 +636,6 @@ function DeveloperSettingsTab() {
           </div>
         </div>
       </div>
-
-      {/* Market Data Manager Stats */}
-      <MarketDataDebugPanel />
     </div>
   );
 }

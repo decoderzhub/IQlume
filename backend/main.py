@@ -21,6 +21,7 @@ from sse_manager import publish
 from dependencies import get_supabase_client
 from services.market_data_service import initialize_market_data_service
 from middleware.error_handler import setup_error_handlers
+from utils.logger import setup_supabase_logging, log_system_event
 import os
 
 # Configure logging with precise timestamps
@@ -29,6 +30,9 @@ logging.basicConfig(
     format='%(asctime)s.%(msecs)03d | %(levelname)-8s | %(name)s | %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+
+# Setup Supabase logging handler
+setup_supabase_logging()
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
@@ -36,6 +40,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
     logger.info("🚀 Starting brokernomex backend...")
+    log_system_event('INFO', 'backend.startup', 'Backend server starting up')
 
     # Initialize Supabase client
     supabase = get_supabase_client()
@@ -51,12 +56,15 @@ async def lifespan(app: FastAPI):
             stock_client = StockHistoricalDataClient(alpaca_key, alpaca_secret)
             initialize_market_data_service(supabase, stock_client)
             logger.info("📊 Market data service initialized with system credentials")
+            log_system_event('INFO', 'market_data', 'Market data service initialized successfully')
         else:
             initialize_market_data_service(supabase, None)
             logger.warning("⚠️ Market data service initialized without Alpaca credentials")
+            log_system_event('WARNING', 'market_data', 'Market data service initialized without Alpaca credentials')
 
     except Exception as e:
         logger.error(f"❌ Error initializing market data service: {e}")
+        log_system_event('ERROR', 'market_data', f'Failed to initialize market data service: {str(e)}')
         initialize_market_data_service(supabase, None)
 
     # Initialize order fill monitor with Supabase client
