@@ -269,6 +269,17 @@ export class WebSocketManager {
   isConnected(): boolean {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }
+
+  getDetailedStatus() {
+    return {
+      state: this.getConnectionState(),
+      hasAuthToken: !!this.authToken,
+      environment: this.environment,
+      reconnectAttempts: this.reconnectAttempts,
+      isConnecting: this.isConnecting,
+      subscriptionCount: this.subscriptions.size,
+    };
+  }
 }
 
 export const wsManager = new WebSocketManager();

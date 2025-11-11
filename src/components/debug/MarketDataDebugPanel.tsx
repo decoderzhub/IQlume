@@ -7,10 +7,12 @@ import { wsManager } from '../../services/WebSocketManager';
 export function MarketDataDebugPanel() {
   const stats = useMarketDataStats();
   const [wsStatus, setWsStatus] = useState(wsManager.getConnectionState());
+  const [wsDetails, setWsDetails] = useState(wsManager.getDetailedStatus());
 
   useEffect(() => {
     const interval = setInterval(() => {
       setWsStatus(wsManager.getConnectionState());
+      setWsDetails(wsManager.getDetailedStatus());
     }, 1000);
 
     return () => clearInterval(interval);
@@ -129,17 +131,38 @@ export function MarketDataDebugPanel() {
         </div>
       </div>
 
-      <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-        <p className="text-sm text-blue-300">
-          <strong>Network Optimization:</strong> All market data is now fetched through a single centralized manager.
-          Instead of multiple components each polling independently, there is ONE coordinated request that serves all subscribers.
-        </p>
-        <ul className="mt-2 text-xs text-blue-200 space-y-1">
-          <li>• Polling adjusts based on market hours and tab visibility</li>
-          <li>• WebSocket integration provides real-time updates when available</li>
-          <li>• Automatic subscription cleanup prevents memory leaks</li>
-          <li>• Shared cache eliminates redundant network requests</li>
-        </ul>
+      <div className="mt-4 space-y-4">
+        <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+          <p className="text-sm text-blue-300">
+            <strong>Network Optimization:</strong> All market data is now fetched through a single centralized manager.
+            Instead of multiple components each polling independently, there is ONE coordinated request that serves all subscribers.
+          </p>
+          <ul className="mt-2 text-xs text-blue-200 space-y-1">
+            <li>• Polling adjusts based on market hours and tab visibility</li>
+            <li>• WebSocket integration provides real-time updates when available</li>
+            <li>• Automatic subscription cleanup prevents memory leaks</li>
+            <li>• Shared cache eliminates redundant network requests</li>
+          </ul>
+        </div>
+
+        {wsStatus === 'DISCONNECTED' && (
+          <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+            <p className="text-sm text-yellow-300 mb-2">
+              <strong>WebSocket Status:</strong> Not Connected
+            </p>
+            <div className="text-xs text-yellow-200 space-y-1">
+              <p>• Auth Token: {wsDetails.hasAuthToken ? '✓ Present' : '✗ Missing'}</p>
+              <p>• Environment: {wsDetails.environment}</p>
+              <p>• Reconnect Attempts: {wsDetails.reconnectAttempts}</p>
+              <p>• Is Connecting: {wsDetails.isConnecting ? 'Yes' : 'No'}</p>
+              {!wsDetails.hasAuthToken && (
+                <p className="mt-2 text-yellow-300">
+                  ⚠️ Connect an Alpaca brokerage account to enable real-time WebSocket streaming
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </Card>
   );
