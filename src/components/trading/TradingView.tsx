@@ -122,7 +122,9 @@ export function TradingView() {
       }
 
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${API_BASE}/api/market-data/symbol/${symbol}`, {
+      // Normalize crypto symbols: BTC/USD -> BTCUSD
+      const normalizedSymbol = symbol.replace('/', '');
+      const response = await fetch(`${API_BASE}/api/market-data/symbol/${normalizedSymbol}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
