@@ -23,10 +23,11 @@ from services.market_data_service import initialize_market_data_service
 from middleware.error_handler import setup_error_handlers
 import os
 
-# Configure logging
+# Configure logging with precise timestamps
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s.%(msecs)03d | %(levelname)-8s | %(name)s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
 
