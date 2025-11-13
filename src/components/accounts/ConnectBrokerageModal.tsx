@@ -8,7 +8,7 @@ import { supportedBrokerages } from '../../lib/plaid';
 import { supabase } from '../../lib/supabase';
 import { useStore } from '../../store/useStore';
 import { useEffect } from 'react';
-import { CoinbaseAdvancedModal } from './CoinbaseAdvancedModal';
+import { CoinbaseAdvancedWizard } from './CoinbaseAdvancedWizard';
 
 interface ConnectBrokerageModalProps {
   onClose: () => void;
@@ -355,7 +355,7 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
       </motion.div>
 
       {showCoinbaseAdvancedModal && (
-        <CoinbaseAdvancedModal
+        <CoinbaseAdvancedWizard
           onClose={() => {
             setShowCoinbaseAdvancedModal(false);
             setSelectedBrokerage(null);
