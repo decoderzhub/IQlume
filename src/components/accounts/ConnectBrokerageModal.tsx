@@ -76,10 +76,48 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
         console.log('[Alpaca OAuth] Debug Info:', data.debug_info);
 
         window.location.href = data.oauth_url;
+      } else if (selectedBrokerage === 'coinbase') {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          throw new Error('No valid session found. Please log in again.');
+        }
+
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const authUrl = `${apiUrl}/api/coinbase/oauth/authorize?account_name=${encodeURIComponent(accountName)}`;
+
+        console.log('[Coinbase OAuth] Requesting OAuth URL from:', authUrl);
+
+        const response = await fetch(authUrl, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[Coinbase OAuth] Failed to get OAuth URL:', response.status, errorText);
+          throw new Error(`Failed to get OAuth URL: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('[Coinbase OAuth] Received OAuth response:', {
+          oauth_url: data.oauth_url,
+          debug_info: data.debug_info
+        });
+
+        if (!data.oauth_url) {
+          throw new Error('No OAuth URL received from server');
+        }
+
+        console.log('[Coinbase OAuth] Redirecting to Coinbase authorization page...');
+        console.log('[Coinbase OAuth] Debug Info:', data.debug_info);
+
+        window.location.href = data.oauth_url;
       } else {
         // For other brokerages, use the existing mock flow
         await new Promise(resolve => setTimeout(resolve, 2000));
-        
+
         const brokerage = supportedBrokerages.find(b => b.id === selectedBrokerage);
         if (brokerage) {
           onConnect({
@@ -95,9 +133,10 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
         }
       }
     } catch (error) {
-      console.error('[Alpaca OAuth] Error connecting brokerage:', error);
+      console.error('[Brokerage OAuth] Error connecting brokerage:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(`Failed to connect Alpaca account:\n\n${errorMessage}\n\nPlease check:\n1. Your Alpaca OAuth app is registered and approved\n2. The redirect URI in Alpaca matches your server configuration\n3. Your API keys are correctly configured`);
+      const brokerageName = selectedBrokerage === 'alpaca' ? 'Alpaca' : selectedBrokerage === 'coinbase' ? 'Coinbase' : 'Brokerage';
+      alert(`Failed to connect ${brokerageName} account:\n\n${errorMessage}\n\nPlease check:\n1. Your ${brokerageName} OAuth app is registered and approved\n2. The redirect URI in ${brokerageName} matches your server configuration\n3. Your API keys are correctly configured`);
       setIsConnecting(false);
     }
   };
@@ -127,43 +166,46 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
             <div>
               <h3 className="text-lg font-semibold text-white mb-6">Choose Your Brokerage</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {supportedBrokerages.map((brokerage) => (
-                  <motion.div
-                    key={brokerage.id}
-                    whileHover={brokerage.id === 'alpaca' ? { scale: 1.02 } : {}}
-                    whileTap={brokerage.id === 'alpaca' ? { scale: 0.98 } : {}}
-                    onClick={brokerage.id === 'alpaca' ? () => setSelectedBrokerage(brokerage.id) : undefined}
-                    className={`p-6 border rounded-lg transition-all relative ${
-                      brokerage.id === 'alpaca'
-                        ? 'bg-gray-800/30 border-gray-700 cursor-pointer hover:border-blue-500'
-                        : 'bg-gray-800/10 border-gray-800 cursor-not-allowed opacity-60'
-                    }`}
-                  >
-                    {brokerage.id !== 'alpaca' && (
-                      <div className="absolute top-2 right-2 px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded border border-yellow-500/30">
-                        Coming Soon
-                      </div>
-                    )}
-                    <div className="text-center">
-                      <div className="text-3xl mb-3">{brokerage.logo}</div>
-                      <h4 className={`font-medium mb-2 ${
-                        brokerage.id === 'alpaca' ? 'text-white' : 'text-gray-500'
-                      }`}>
-                        {brokerage.name}
-                      </h4>
-                      <p className={`text-sm capitalize ${
-                        brokerage.id === 'alpaca' ? 'text-gray-400' : 'text-gray-600'
-                      }`}>
-                        {brokerage.type}
-                      </p>
-                      {brokerage.id === 'alpaca' && (
-                        <div className="mt-2 px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded border border-green-500/30">
-                          Available Now
+                {supportedBrokerages.map((brokerage) => {
+                  const isAvailable = brokerage.id === 'alpaca' || brokerage.id === 'coinbase';
+                  return (
+                    <motion.div
+                      key={brokerage.id}
+                      whileHover={isAvailable ? { scale: 1.02 } : {}}
+                      whileTap={isAvailable ? { scale: 0.98 } : {}}
+                      onClick={isAvailable ? () => setSelectedBrokerage(brokerage.id) : undefined}
+                      className={`p-6 border rounded-lg transition-all relative ${
+                        isAvailable
+                          ? 'bg-gray-800/30 border-gray-700 cursor-pointer hover:border-blue-500'
+                          : 'bg-gray-800/10 border-gray-800 cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      {!isAvailable && (
+                        <div className="absolute top-2 right-2 px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded border border-yellow-500/30">
+                          Coming Soon
                         </div>
                       )}
-                    </div>
-                  </motion.div>
-                ))}
+                      <div className="text-center">
+                        <div className="text-3xl mb-3">{brokerage.logo}</div>
+                        <h4 className={`font-medium mb-2 ${
+                          isAvailable ? 'text-white' : 'text-gray-500'
+                        }`}>
+                          {brokerage.name}
+                        </h4>
+                        <p className={`text-sm capitalize ${
+                          isAvailable ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
+                          {brokerage.type}
+                        </p>
+                        {isAvailable && (
+                          <div className="mt-2 px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded border border-green-500/30">
+                            Available Now
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             </div>
           ) : (
@@ -220,18 +262,53 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
                       <h4 className="font-medium text-blue-400 mb-3">Authorize brokernomex</h4>
                       <p className="text-sm text-blue-300 leading-relaxed mb-4">
                         By allowing <strong>brokernomex</strong> to access your Alpaca account, you are granting{' '}
-                        <strong>brokernomex</strong> access to your account information and authorization to place 
+                        <strong>brokernomex</strong> access to your account information and authorization to place
                         transactions in your account at your direction.
                       </p>
                       <p className="text-sm text-blue-300 leading-relaxed mb-4">
-                        Alpaca does not warrant or guarantee that <strong>brokernomex</strong> will work as 
+                        Alpaca does not warrant or guarantee that <strong>brokernomex</strong> will work as
                         advertised or expected.
                       </p>
                       <p className="text-sm text-blue-300 leading-relaxed">
                         Before authorizing, learn more about{' '}
-                        <a 
-                          href="https://brokernomex.com/about" 
-                          target="_blank" 
+                        <a
+                          href="https://brokernomex.com/about"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 underline"
+                        >
+                          brokernomex
+                        </a>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Coinbase OAuth Disclosure */}
+              {selectedBrokerage === 'coinbase' && (
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6">
+                  <div className="flex items-start gap-3">
+                    <Shield className="w-6 h-6 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-blue-400 mb-3">Authorize brokernomex</h4>
+                      <p className="text-sm text-blue-300 leading-relaxed mb-4">
+                        By allowing <strong>brokernomex</strong> to access your Coinbase account, you are granting{' '}
+                        <strong>brokernomex</strong> permission to view your cryptocurrency balances, read transaction
+                        history, and execute buy/sell orders on your behalf.
+                      </p>
+                      <p className="text-sm text-blue-300 leading-relaxed mb-4">
+                        Your funds remain secure in your Coinbase account. <strong>brokernomex</strong> can only
+                        execute trades - we cannot withdraw funds or transfer cryptocurrencies to external wallets.
+                      </p>
+                      <p className="text-sm text-blue-300 leading-relaxed mb-4">
+                        You can revoke <strong>brokernomex</strong>'s access at any time from your Coinbase settings.
+                      </p>
+                      <p className="text-sm text-blue-300 leading-relaxed">
+                        Before authorizing, learn more about{' '}
+                        <a
+                          href="https://brokernomex.com/about"
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-400 hover:text-blue-300 underline"
                         >

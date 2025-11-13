@@ -349,6 +349,181 @@ async def get_current_user(
         logger.error(f"❌ Authentication error: {e}", exc_info=True)
         raise HTTPException(status_code=401, detail="Authentication failed")
 
+async def get_coinbase_client(
+    current_user,
+    supabase: Client
+):
+    """Get Coinbase API client with OAuth token"""
+    try:
+        logger.info(f"🔍 Looking up Coinbase account for user_id: {current_user.id}")
+
+        try:
+            resp = supabase.table("brokerage_accounts").select("*").eq("user_id", current_user.id).eq("brokerage", "coinbase").eq("is_connected", True).execute()
+        except Exception as db_error:
+            logger.error(f"❌ Database query failed for user {current_user.id}: {db_error}")
+            raise HTTPException(
+                status_code=500,
+                detail="Database connection error. Please try again later."
+            )
+
+        logger.info(f"📊 Database query returned {len(resp.data) if resp.data else 0} connected Coinbase accounts")
+
+        if not resp.data or len(resp.data) == 0:
+            logger.warning(f"⚠️ No connected Coinbase account found for user {current_user.id}")
+            raise HTTPException(
+                status_code=403,
+                detail="No Coinbase account connected. Please visit the Accounts page to connect your Coinbase account via OAuth."
+            )
+
+        account = resp.data[0]
+        oauth_data = account.get("oauth_data", {})
+
+        access_token = account.get("access_token") or account.get("oauth_token") or oauth_data.get("access_token")
+        refresh_token = account.get("refresh_token") or oauth_data.get("refresh_token")
+        expires_at = account.get("expires_at")
+        coinbase_user_id = oauth_data.get("coinbase_user_id", account.get("account_number"))
+        account_name = account.get("account_name", "Unknown")
+
+        logger.info(f"🔗 Found Coinbase account - User: {current_user.id}, Account: {account_name}, Coinbase ID: {coinbase_user_id}")
+
+        # Check if token is expired
+        if expires_at:
+            try:
+                expiry_time = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) >= expiry_time:
+                    logger.warning(f"⚠️ OAuth token expired at {expires_at}, attempting refresh...")
+                    if refresh_token:
+                        access_token = await refresh_coinbase_token(account["id"], refresh_token, supabase)
+                        if not access_token:
+                            logger.error(f"❌ Token refresh failed for user {current_user.id}")
+                            raise HTTPException(
+                                status_code=401,
+                                detail="Coinbase token expired and refresh failed. Please reconnect your account."
+                            )
+                    else:
+                        logger.error(f"❌ No refresh token available for user {current_user.id}")
+                        raise HTTPException(
+                            status_code=401,
+                            detail="Coinbase token expired and no refresh token available. Please reconnect your account."
+                        )
+            except ValueError as date_error:
+                logger.warning(f"⚠️ Invalid expiry date format: {expires_at}. Proceeding with token validation...")
+
+        if not access_token:
+            logger.error(f"❌ No valid access token found for user {current_user.id}")
+            raise HTTPException(
+                status_code=401,
+                detail="No valid Coinbase access token found. Please reconnect your account."
+            )
+
+        logger.info(f"✅ Using Coinbase OAuth token for account {coinbase_user_id}")
+
+        # Return a simple dict with the token and account info
+        # The actual Coinbase API calls will be made using httpx with this token
+        return {
+            "access_token": access_token,
+            "account_id": account["id"],
+            "coinbase_user_id": coinbase_user_id,
+            "account_name": account_name
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error creating Coinbase client: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create Coinbase client: {str(e)}")
+
+async def refresh_coinbase_token(account_id: str, refresh_token: str, supabase: Client) -> Optional[str]:
+    """Refresh Coinbase OAuth token"""
+    try:
+        client_id = os.getenv("COINBASE_CLIENT_ID")
+        client_secret = os.getenv("COINBASE_CLIENT_SECRET")
+
+        if not client_id or not client_secret:
+            logger.error("❌ Coinbase OAuth configuration missing for token refresh")
+            return None
+
+        if not refresh_token:
+            logger.error("❌ No refresh token provided for token refresh")
+            return None
+
+        token_data = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+            "client_secret": client_secret
+        }
+
+        logger.info(f"🔄 Attempting to refresh Coinbase OAuth token for account {account_id}")
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    "https://api.coinbase.com/oauth/token",
+                    data=token_data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+        except httpx.TimeoutException:
+            logger.error("❌ Token refresh request timed out")
+            return None
+        except httpx.RequestError as req_error:
+            logger.error(f"❌ Token refresh request failed: {req_error}")
+            return None
+
+        if response.status_code == 200:
+            token_response = response.json()
+            new_access_token = token_response.get("access_token")
+            new_refresh_token = token_response.get("refresh_token", refresh_token)
+            expires_in = token_response.get("expires_in", 7200)
+
+            if not new_access_token:
+                logger.error("❌ Token refresh response missing access_token")
+                return None
+
+            try:
+                expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+
+                update_data = {
+                    "access_token": new_access_token,
+                    "oauth_token": new_access_token,
+                    "refresh_token": new_refresh_token,
+                    "expires_at": expires_at.isoformat()
+                }
+
+                result = supabase.table("brokerage_accounts").select("oauth_data").eq("id", account_id).execute()
+                if result.data and result.data[0].get("oauth_data"):
+                    oauth_data = result.data[0]["oauth_data"]
+                    oauth_data["access_token"] = new_access_token
+                    oauth_data["refresh_token"] = new_refresh_token
+                    oauth_data["expires_in"] = expires_in
+                    update_data["oauth_data"] = oauth_data
+
+                supabase.table("brokerage_accounts").update(update_data).eq("id", account_id).execute()
+
+                logger.info(f"✅ Successfully refreshed Coinbase OAuth token for account {account_id}")
+                return new_access_token
+            except Exception as db_error:
+                logger.error(f"❌ Failed to update database with new token: {db_error}")
+                return new_access_token
+        else:
+            logger.error(f"❌ Token refresh failed with status {response.status_code}: {response.text}")
+
+            if response.status_code in [400, 401]:
+                try:
+                    logger.warning(f"⚠️ Marking account {account_id} as disconnected due to invalid refresh token")
+                    supabase.table("brokerage_accounts").update({
+                        "is_connected": False,
+                        "error_message": "OAuth token expired and refresh failed. Please reconnect your account."
+                    }).eq("id", account_id).execute()
+                except Exception as update_error:
+                    logger.error(f"❌ Failed to mark account as disconnected: {update_error}")
+
+            return None
+
+    except Exception as e:
+        logger.error(f"❌ Unexpected error refreshing token: {e}", exc_info=True)
+        return None
+
 async def verify_alpaca_account_context(current_user, supabase: Client) -> dict:
     """Verify and log which Alpaca account is being used for trading operations"""
     try:

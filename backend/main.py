@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 # Import routers AFTER environment variables are loaded
-from routers import chat, trades, strategies, market_data, plaid_routes, brokerage_auth, sse_routes, bots, payments, grid_status, positions, grid_diagnostics, admin
+from routers import chat, trades, strategies, market_data, plaid_routes, brokerage_auth, sse_routes, bots, payments, grid_status, positions, grid_diagnostics, admin, coinbase_auth
 from scheduler import trading_scheduler
 from trade_sync import trade_sync_service
 from order_fill_monitor import order_fill_monitor
@@ -148,6 +148,7 @@ app.include_router(strategies.router)
 app.include_router(market_data.router)
 app.include_router(plaid_routes.router)
 app.include_router(brokerage_auth.router)
+app.include_router(coinbase_auth.router)
 app.include_router(sse_routes.router)
 app.include_router(bots.router, prefix="/api/bots", tags=["bots"])
 app.include_router(payments.router)
