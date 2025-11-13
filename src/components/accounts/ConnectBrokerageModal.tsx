@@ -8,6 +8,7 @@ import { supportedBrokerages } from '../../lib/plaid';
 import { supabase } from '../../lib/supabase';
 import { useStore } from '../../store/useStore';
 import { useEffect } from 'react';
+import { CoinbaseAdvancedModal } from './CoinbaseAdvancedModal';
 
 interface ConnectBrokerageModalProps {
   onClose: () => void;
@@ -18,6 +19,7 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
   const [selectedBrokerage, setSelectedBrokerage] = useState<string | null>(null);
   const [accountName, setAccountName] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showCoinbaseAdvancedModal, setShowCoinbaseAdvancedModal] = useState(false);
   const { user } = useStore();
 
   useEffect(() => {
@@ -34,6 +36,11 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
 
   const handleConnect = async () => {
     if (!selectedBrokerage || !accountName) return;
+
+    if (selectedBrokerage === 'coinbase_advanced') {
+      setShowCoinbaseAdvancedModal(true);
+      return;
+    }
 
     setIsConnecting(true);
 
@@ -167,7 +174,7 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
               <h3 className="text-lg font-semibold text-white mb-6">Choose Your Brokerage</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {supportedBrokerages.map((brokerage) => {
-                  const isAvailable = brokerage.id === 'alpaca' || brokerage.id === 'coinbase';
+                  const isAvailable = brokerage.id === 'alpaca' || brokerage.id === 'coinbase' || brokerage.id === 'coinbase_advanced';
                   return (
                     <motion.div
                       key={brokerage.id}
@@ -346,6 +353,19 @@ export function ConnectBrokerageModal({ onClose, onConnect }: ConnectBrokerageMo
           )}
         </Card>
       </motion.div>
+
+      {showCoinbaseAdvancedModal && (
+        <CoinbaseAdvancedModal
+          onClose={() => {
+            setShowCoinbaseAdvancedModal(false);
+            setSelectedBrokerage(null);
+          }}
+          onConnect={() => {
+            setShowCoinbaseAdvancedModal(false);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }

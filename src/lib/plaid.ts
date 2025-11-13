@@ -81,6 +81,7 @@ export const supportedBrokerages = [
   { name: 'Robinhood', id: 'robinhood', logo: '🤖', type: 'stocks' },
   { name: 'Alpaca', id: 'alpaca', logo: '🦙', type: 'stocks' },
   { name: 'Coinbase', id: 'coinbase', logo: '₿', type: 'crypto' },
+  { name: 'Coinbase Advanced Trade', id: 'coinbase_advanced', logo: '🔷', type: 'crypto' },
   { name: 'Gemini', id: 'gemini', logo: '♊', type: 'crypto' },
   { name: 'Interactive Brokers', id: 'ibkr', logo: '📊', type: 'stocks' },
   { name: 'Binance', id: 'binance', logo: '🟡', type: 'crypto' },
